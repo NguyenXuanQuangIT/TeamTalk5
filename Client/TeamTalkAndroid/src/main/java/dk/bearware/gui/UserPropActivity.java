@@ -33,10 +33,10 @@ import android.view.View.OnClickListener;
 import android.widget.Button;
 import android.widget.CompoundButton;
 import android.widget.SeekBar;
-import android.widget.Switch;
 import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.SwitchCompat;
 
 import dk.bearware.ClientEvent;
 import dk.bearware.SoundLevel;
@@ -125,21 +125,27 @@ public class UserPropActivity extends AppCompatActivity implements TeamTalkConne
         TextView clientname = findViewById(R.id.user_clientname);
         final SeekBar voiceVol = findViewById(R.id.user_vol_voiceSeekBar);
         final Button defVoiceBtn = findViewById(R.id.defVoiceVolBtn);
-        final Switch voiceMute = findViewById(R.id.user_mutevoiceSwitch);
+        final SwitchCompat voiceMute = findViewById(R.id.user_mutevoiceSwitch);
         final SeekBar mediaVol = findViewById(R.id.user_vol_mediaSeekBar);
         final Button defMfBtn = findViewById(R.id.defMfVolBtn);
-        final Switch mediaMute = findViewById(R.id.user_mutemediaSwitch);
-        final Switch subscribeTxtmsg = findViewById(R.id.user_subscribetxtmsgSwitch);
-        final Switch subscribeChanmsg = findViewById(R.id.user_subscribechanmsgSwitch);
-        final Switch subscribeBcastmsg = findViewById(R.id.user_subscribebcastmsgSwitch);
-        final Switch subscribeVoice = findViewById(R.id.user_subscribevoiceSwitch);
-        final Switch subscribeVid = findViewById(R.id.user_subscribevidSwitch);
-        final Switch subscribeDesk = findViewById(R.id.user_subscribedeskSwitch);
-        final Switch subscribeMedia = findViewById(R.id.user_subscribemediaSwitch);
+        final SwitchCompat mediaMute = findViewById(R.id.user_mutemediaSwitch);
+        final SwitchCompat subscribeTxtmsg = findViewById(R.id.user_subscribetxtmsgSwitch);
+        final SwitchCompat subscribeChanmsg = findViewById(R.id.user_subscribechanmsgSwitch);
+        final SwitchCompat subscribeBcastmsg = findViewById(R.id.user_subscribebcastmsgSwitch);
+        final SwitchCompat subscribeVoice = findViewById(R.id.user_subscribevoiceSwitch);
+        final SwitchCompat subscribeVid = findViewById(R.id.user_subscribevidSwitch);
+        final SwitchCompat subscribeDesk = findViewById(R.id.user_subscribedeskSwitch);
+        final SwitchCompat subscribeMedia = findViewById(R.id.user_subscribemediaSwitch);
+        final SwitchCompat subscribeIntercepttxtmsg = findViewById(R.id.user_subscribeintercepttxtmsgSwitch);
+        final SwitchCompat subscribeInterceptchanmsg = findViewById(R.id.user_subscribeinterceptchanmsgSwitch);
+        final SwitchCompat subscribeInterceptvoice = findViewById(R.id.user_subscribeinterceptvoiceSwitch);
+        final SwitchCompat subscribeInterceptvid = findViewById(R.id.user_subscribeinterceptvidSwitch);
+        final SwitchCompat subscribeInterceptdesk = findViewById(R.id.user_subscribeinterceptdeskSwitch);
+        final SwitchCompat subscribeInterceptmedia = findViewById(R.id.user_subscribeinterceptmediaSwitch);
 
         nickname.setText(user.szNickname);
         username.setText(user.szUsername);
-        clientname.setText(user.szClientName);
+        clientname.setText(String.format("%s %s %d.%d.%d",user.szClientName,getString(R.string.user_prop_clientversion) , ((user.uVersion >> 16) & 0xFF) , ((user.uVersion >> 8) & 0xFF) , (user.uVersion & 0xFF)));
         voiceVol.setMax(100);
         voiceVol.setProgress(Utils.refVolumeToPercent(user.nVolumeVoice));
         mediaVol.setMax(100);
@@ -153,6 +159,12 @@ public class UserPropActivity extends AppCompatActivity implements TeamTalkConne
         subscribeVid.setChecked((user.uLocalSubscriptions & Subscription.SUBSCRIBE_VIDEOCAPTURE) != 0);
         subscribeDesk.setChecked((user.uLocalSubscriptions & Subscription.SUBSCRIBE_DESKTOP) != 0);
         subscribeMedia.setChecked((user.uLocalSubscriptions & Subscription.SUBSCRIBE_MEDIAFILE) != 0);
+        subscribeIntercepttxtmsg.setChecked((user.uLocalSubscriptions & Subscription.SUBSCRIBE_INTERCEPT_USER_MSG) != 0);
+        subscribeInterceptchanmsg.setChecked((user.uLocalSubscriptions & Subscription.SUBSCRIBE_INTERCEPT_CHANNEL_MSG) != 0);
+        subscribeInterceptvoice.setChecked((user.uLocalSubscriptions & Subscription.SUBSCRIBE_INTERCEPT_VOICE) != 0);
+        subscribeInterceptvid.setChecked((user.uLocalSubscriptions & Subscription.SUBSCRIBE_INTERCEPT_VIDEOCAPTURE) != 0);
+        subscribeInterceptdesk.setChecked((user.uLocalSubscriptions & Subscription.SUBSCRIBE_INTERCEPT_DESKTOP) != 0);
+        subscribeInterceptmedia.setChecked((user.uLocalSubscriptions & Subscription.SUBSCRIBE_INTERCEPT_MEDIAFILE) != 0);
 
         SeekBar.OnSeekBarChangeListener volListener = new SeekBar.OnSeekBarChangeListener() {
             @Override
@@ -244,6 +256,42 @@ public class UserPropActivity extends AppCompatActivity implements TeamTalkConne
                 } else {
                     ttclient.doUnsubscribe(user.nUserID, Subscription.SUBSCRIBE_MEDIAFILE);
                 }
+            else if(btn == subscribeIntercepttxtmsg)
+                if (checked) {
+                    ttclient.doSubscribe(user.nUserID, Subscription.SUBSCRIBE_INTERCEPT_USER_MSG);
+                } else {
+                    ttclient.doUnsubscribe(user.nUserID, Subscription.SUBSCRIBE_INTERCEPT_USER_MSG);
+                }
+            else if(btn == subscribeInterceptchanmsg)
+                if (checked) {
+                    ttclient.doSubscribe(user.nUserID, Subscription.SUBSCRIBE_INTERCEPT_CHANNEL_MSG);
+                } else {
+                    ttclient.doUnsubscribe(user.nUserID, Subscription.SUBSCRIBE_INTERCEPT_CHANNEL_MSG);
+                }
+            else if(btn == subscribeInterceptvoice)
+                if (checked) {
+                    ttclient.doSubscribe(user.nUserID, Subscription.SUBSCRIBE_INTERCEPT_VOICE);
+                } else {
+                    ttclient.doUnsubscribe(user.nUserID, Subscription.SUBSCRIBE_INTERCEPT_VOICE);
+                }
+            else if(btn == subscribeInterceptvid)
+                if (checked) {
+                    ttclient.doSubscribe(user.nUserID, Subscription.SUBSCRIBE_INTERCEPT_VIDEOCAPTURE);
+                } else {
+                    ttclient.doUnsubscribe(user.nUserID, Subscription.SUBSCRIBE_INTERCEPT_VIDEOCAPTURE);
+                }
+            else if(btn == subscribeInterceptdesk)
+                if (checked) {
+                    ttclient.doSubscribe(user.nUserID, Subscription.SUBSCRIBE_INTERCEPT_DESKTOP);
+                } else {
+                    ttclient.doUnsubscribe(user.nUserID, Subscription.SUBSCRIBE_INTERCEPT_DESKTOP);
+                }
+            else if(btn == subscribeInterceptmedia)
+                if (checked) {
+                    ttclient.doSubscribe(user.nUserID, Subscription.SUBSCRIBE_INTERCEPT_MEDIAFILE);
+                } else {
+                    ttclient.doUnsubscribe(user.nUserID, Subscription.SUBSCRIBE_INTERCEPT_MEDIAFILE);
+                }
         };
         voiceMute.setOnCheckedChangeListener(muteListener);
         mediaMute.setOnCheckedChangeListener(muteListener);
@@ -254,6 +302,12 @@ public class UserPropActivity extends AppCompatActivity implements TeamTalkConne
         subscribeVid.setOnCheckedChangeListener(muteListener);
         subscribeDesk.setOnCheckedChangeListener(muteListener);
         subscribeMedia.setOnCheckedChangeListener(muteListener);
+        subscribeIntercepttxtmsg.setOnCheckedChangeListener(muteListener);
+        subscribeInterceptchanmsg.setOnCheckedChangeListener(muteListener);
+        subscribeInterceptvoice.setOnCheckedChangeListener(muteListener);
+        subscribeInterceptvid.setOnCheckedChangeListener(muteListener);
+        subscribeInterceptdesk.setOnCheckedChangeListener(muteListener);
+        subscribeInterceptmedia.setOnCheckedChangeListener(muteListener);
     }
 
     @Override

@@ -1,22 +1,18 @@
 /*
- * Copyright (c) 2005-2016, BearWare.dk
+ * Copyright (C) 2023, Bjørn D. Rasmussen, BearWare.dk
  *
- * Contact Information:
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
  *
- * Bjoern D. Rasmussen
- * Kirketoften 5
- * DK-8260 Viby J
- * Denmark
- * Email: contact@bearware.dk
- * Phone: +45 20 20 54 59
- * Web: http://www.bearware.dk
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
- * This source code is part of the TeamTalk 5 SDK owned by
- * BearWare.dk. All copyright statements may not be removed
- * or altered from any source distribution. If you use this
- * software in a product, an acknowledgment in the product
- * documentation is required.
- *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 #include "serverlogeventsmodel.h"
@@ -24,12 +20,11 @@
 enum
 {
     COLUMN_NAME = 0,
-    COLUMN_CHECK = 1,
-    COLUMN_COUNT = 2,
+    COLUMN_COUNT = 1,
 };
 
 ServerLogEventsModel::ServerLogEventsModel(QObject* parent)
-    : QAbstractItemModel(parent)
+    : QAbstractTableModel(parent)
 {
     m_serverlogevents.push_back(SERVERLOGEVENT_USER_CONNECTED);
     m_serverlogevents.push_back(SERVERLOGEVENT_USER_DISCONNECTED);
@@ -68,7 +63,6 @@ QVariant ServerLogEventsModel::headerData (int section, Qt::Orientation orientat
             switch(section)
             {
             case COLUMN_NAME: return tr("Event");
-            case COLUMN_CHECK: return tr("Enabled");
             }
         }
         break;
@@ -88,8 +82,6 @@ QVariant ServerLogEventsModel::data(const QModelIndex& index, int role /*= Qt::D
     switch(role)
     {
     case Qt::DisplayRole :
-        if (index.column() == COLUMN_CHECK)
-            return (m_serverlogselected & m_serverlogevents[index.row()])? tr("Enabled") : tr("Disabled");
         Q_ASSERT(index.column() == COLUMN_NAME);
         switch(m_serverlogevents[index.row()])
         {

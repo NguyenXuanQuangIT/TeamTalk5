@@ -1,24 +1,18 @@
 /*
- * Copyright (c) 2005-2018, BearWare.dk
+ * Copyright (C) 2023, Bjørn D. Rasmussen, BearWare.dk
  *
- * Contact Information:
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
  *
- * Bjoern D. Rasmussen
- * Kirketoften 5
- * DK-8260 Viby J
- * Denmark
- * Email: contact@bearware.dk
- * Phone: +45 20 20 54 59
- * Web: http://www.bearware.dk
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
- * This source code is part of the TeamTalk SDK owned by
- * BearWare.dk. Use of this file, or its compiled unit, requires a
- * TeamTalk SDK License Key issued by BearWare.dk.
- *
- * The TeamTalk SDK License Agreement along with its Terms and
- * Conditions are outlined in the file License.txt included with the
- * TeamTalk SDK distribution.
- *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 #include "onlineusersdlg.h"
@@ -42,20 +36,21 @@ OnlineUsersDlg::OnlineUsersDlg(QWidget* parent/* = 0 */)
 
     restoreGeometry(ttSettings->value(SETTINGS_DISPLAY_ONLINEUSERSWINDOWPOS).toByteArray());
 
-    ui.treeView->setContextMenuPolicy(Qt::CustomContextMenu);
-    connect(ui.treeView, &QWidget::customContextMenuRequested,
+    ui.tableView->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(ui.tableView, &QWidget::customContextMenuRequested,
             this, &OnlineUsersDlg::slotTreeContextMenu);
     ui.keepDisconnectedUsersCheckBox->setChecked(ttSettings->value(SETTINGS_KEEP_DISCONNECTED_USERS, SETTINGS_KEEP_DISCONNECTED_USERS_DEFAULT).toBool());
     connect(ui.keepDisconnectedUsersCheckBox, &QAbstractButton::clicked, this, &OnlineUsersDlg::slotUpdateSettings);
 
-    m_model = new OnlineUsersModel(this);
+    using std::placeholders::_1;
+    m_model = new OnlineUsersModel(this, std::bind(&QHeaderView::logicalIndex, ui.tableView->horizontalHeader(), _1));
     m_proxyModel = new QSortFilterProxyModel(this);
     m_proxyModel->setSourceModel(m_model);
-    ui.treeView->setModel(m_proxyModel);
+    ui.tableView->setModel(m_proxyModel);
 
-    ui.treeView->header()->resizeSection(COLUMN_USERID, 40);
-    //ui.treeView->header()->resizeSection(COLUMN_STATUSMSG, 70);
-    ui.treeView->header()->resizeSection(COLUMN_USERNAME, 65);
+    ui.tableView->horizontalHeader()->resizeSection(COLUMN_USERID, 40);
+    //ui.tableView->horizontalHeader()->resizeSection(COLUMN_STATUSMSG, 70);
+    ui.tableView->horizontalHeader()->resizeSection(COLUMN_USERNAME, 65);
 
     m_model->resetUsers();
     updateTitle();
@@ -64,18 +59,21 @@ OnlineUsersDlg::OnlineUsersDlg(QWidget* parent/* = 0 */)
     addAction(tr("&View User Information"), QKeySequence(tr("Ctrl+I")), this, [&](){ menuAction(VIEW_USERINFORMATION); });
     addAction(tr("M&essages"), QKeySequence(tr("Ctrl+E")), this, [&]() { menuAction(SEND_TEXTMESSAGE); });
     addAction(tr("&Op"), QKeySequence(tr("Ctrl+O")), this, [&]() { menuAction(OP); });
-    addAction(tr("&Kick"), QKeySequence(tr("Ctrl+K")), this, [&]() { menuAction(KICK); });
-    addAction(tr("Kick and &Ban"), QKeySequence(tr("Ctrl+B")), this, [&]() { menuAction(BAN); });
+    addAction(tr("&Kick from Channel"), QKeySequence(tr("Ctrl+K")), this, [&]() { menuAction(KICK_FROM_CHANNEL); });
+    addAction(tr("&Kick from Server"), QKeySequence(tr("Ctrl+Alt+K")), this, [&]() { menuAction(KICK_FROM_SERVER); });
+    addAction(tr("Kick and &Ban from Channel"), QKeySequence(tr("Ctrl+B")), this, [&]() { menuAction(BAN_FROM_CHANNEL); });
+    addAction(tr("Kick and &Ban from Server"), QKeySequence(tr("Ctrl+Alt+B")), this, [&]() { menuAction(BAN_FROM_SERVER); });
     addAction(tr("Select User(s) for Move"), QKeySequence(tr("Ctrl+Alt+X")), this, [&]() { menuAction(MOVE); });
 #endif
     m_proxyModel->setSortCaseSensitivity(Qt::CaseInsensitive);
     m_proxyModel->sort(COLUMN_NICKNAME, Qt::AscendingOrder);
-    ui.treeView->header()->restoreState(ttSettings->value(SETTINGS_DISPLAY_ONLINEUSERS_HEADERSIZES).toByteArray());
+    ui.tableView->horizontalHeader()->restoreState(ttSettings->value(SETTINGS_DISPLAY_ONLINEUSERS_HEADERSIZES).toByteArray());
+    ui.tableView->horizontalHeader()->setSectionsMovable(true);
 }
 
 OnlineUsersDlg::~OnlineUsersDlg()
 {
-    ttSettings->setValue(SETTINGS_DISPLAY_ONLINEUSERS_HEADERSIZES, ui.treeView->header()->saveState());
+    ttSettings->setValue(SETTINGS_DISPLAY_ONLINEUSERS_HEADERSIZES, ui.tableView->horizontalHeader()->saveState());
     ttSettings->setValue(SETTINGS_DISPLAY_ONLINEUSERSWINDOWPOS, saveGeometry());
 }
 
@@ -88,60 +86,83 @@ void OnlineUsersDlg::updateTitle()
 
 void OnlineUsersDlg::slotUserLoggedIn(const User& user)
 {
-    RestoreItemData r(ui.treeView, m_proxyModel);
-    m_model->addUser(user.nUserID);
+    RestoreItemData r(ui.tableView, m_proxyModel);
+    m_model->addUser(user);
     updateTitle();
 }
 
 void OnlineUsersDlg::slotUserLoggedOut(const User& user)
 {
-    RestoreItemData r(ui.treeView, m_proxyModel);
-    m_model->removeUser(user.nUserID, ttSettings->value(SETTINGS_KEEP_DISCONNECTED_USERS, SETTINGS_KEEP_DISCONNECTED_USERS_DEFAULT).toBool());
+    RestoreItemData r(ui.tableView, m_proxyModel);
+    m_model->removeUser(user, ttSettings->value(SETTINGS_KEEP_DISCONNECTED_USERS, SETTINGS_KEEP_DISCONNECTED_USERS_DEFAULT).toBool());
     updateTitle();
 }
 
 void OnlineUsersDlg::slotUserUpdate(const User& user)
 {
-    RestoreItemData r(ui.treeView, m_proxyModel);
-    m_model->updateUser(user.nUserID);
+    RestoreItemData r(ui.tableView, m_proxyModel);
+    m_model->updateUser(user);
     QModelIndex index = m_model->userRow(user.nUserID);
     if(index.isValid())
-        ui.treeView->update(index);
+        ui.tableView->update(index);
 }
 
 void OnlineUsersDlg::slotUserJoin(int /*channelid*/, const User& user)
 {
-    RestoreItemData r(ui.treeView, m_proxyModel);
-    m_model->updateUser(user.nUserID);
+    RestoreItemData r(ui.tableView, m_proxyModel);
+    m_model->updateUser(user);
     QModelIndex index = m_model->userRow(user.nUserID);
     if(index.isValid())
-        ui.treeView->update(index);
+        ui.tableView->update(index);
 }
 
 void OnlineUsersDlg::slotUserLeft(int /*channelid*/, const User& user)
 {
-    RestoreItemData r(ui.treeView, m_proxyModel);
-    m_model->updateUser(user.nUserID);
+    RestoreItemData r(ui.tableView, m_proxyModel);
+    m_model->updateUser(user);
     QModelIndex index = m_model->userRow(user.nUserID);
     if(index.isValid())
-        ui.treeView->update(index);
+        ui.tableView->update(index);
 }
 
 void OnlineUsersDlg::slotTreeContextMenu(const QPoint& /*point*/)
 {
     QMenu menu(this);
+#if QT_VERSION >= QT_VERSION_CHECK(6,0,0)
+    menu.addAction(tr("&View User Information"), QKeySequence(tr("Ctrl+I")), this,
+                   [&]() { menuAction(VIEW_USERINFORMATION); });
+    menu.addAction(tr("M&essages"), QKeySequence(tr("Ctrl+E")), this,
+                   [&]() { menuAction(SEND_TEXTMESSAGE); });
+    menu.addAction(tr("&Op"), QKeySequence(tr("Ctrl+O")), this,
+                   [&]() { menuAction(OP); });
+    menu.addAction(tr("&Kick from Channel"), QKeySequence(tr("Ctrl+K")), this,
+                   [&]() { menuAction(KICK_FROM_CHANNEL); });
+    menu.addAction(tr("&Kick from Server"), QKeySequence(tr("Ctrl+Alt+K")), this,
+                   [&]() { menuAction(KICK_FROM_SERVER); });
+    menu.addAction(tr("Kick and &Ban from Channel"), QKeySequence(tr("Ctrl+B")), this,
+                   [&]() { menuAction(BAN_FROM_CHANNEL); });
+    menu.addAction(tr("Kick and &Ban from Server"), QKeySequence(tr("Ctrl+Alt+B")), this,
+                   [&]() { menuAction(BAN_FROM_SERVER); });
+    menu.addAction(tr("Select User(s) for Move"), QKeySequence(tr("Ctrl+Alt+X")), this,
+                   [&]() { menuAction(MOVE); });
+#else
     menu.addAction(tr("&View User Information"), this, [&]() { menuAction(VIEW_USERINFORMATION); },
                    QKeySequence(tr("Ctrl+I")));
     menu.addAction(tr("M&essages"), this, [&]() { menuAction(SEND_TEXTMESSAGE); },
                    QKeySequence(tr("Ctrl+E")));
     menu.addAction(tr("&Op"), this, [&]() { menuAction(OP); },
                    QKeySequence(tr("Ctrl+O")));
-    menu.addAction(tr("&Kick"), this, [&]() { menuAction(KICK); },
+    menu.addAction(tr("&Kick from Channel"), this, [&]() { menuAction(KICK_FROM_CHANNEL); },
                    QKeySequence(tr("Ctrl+K")));
-    menu.addAction(tr("Kick and &Ban"), this, [&]() { menuAction(BAN); },
+    menu.addAction(tr("&Kick from Server"), this, [&]() { menuAction(KICK_FROM_SERVER); },
+                   QKeySequence(tr("Ctrl+Alt+K")));
+    menu.addAction(tr("Kick and &Ban from Channel"), this, [&]() { menuAction(BAN_FROM_CHANNEL); },
                    QKeySequence(tr("Ctrl+B")));
+    menu.addAction(tr("Kick and &Ban from Server"), this, [&]() { menuAction(BAN_FROM_SERVER); },
+                   QKeySequence(tr("Ctrl+Alt+B")));
     menu.addAction(tr("Select User(s) for Move"), this, [&]() { menuAction(MOVE); },
                    QKeySequence(tr("Ctrl+Alt+X")));
+#endif
     QMenu* sortMenu = menu.addMenu(tr("Sort By..."));
     QString asc = tr("Ascending"), desc = tr("Descending");
     QAction* sortId = new QAction(sortMenu);
@@ -161,12 +182,12 @@ void OnlineUsersDlg::slotTreeContextMenu(const QPoint& /*point*/)
         auto sortToggle = m_proxyModel->sortOrder() == Qt::AscendingOrder ? Qt::DescendingOrder : Qt::AscendingOrder;
         if (action == sortId)
         {
-            ui.treeView->header()->setSortIndicator(COLUMN_USERID, m_proxyModel->sortColumn() == COLUMN_USERID ? sortToggle : Qt::AscendingOrder);
+            ui.tableView->horizontalHeader()->setSortIndicator(COLUMN_USERID, m_proxyModel->sortColumn() == COLUMN_USERID ? sortToggle : Qt::AscendingOrder);
             ttSettings->setValue(SETTINGS_DISPLAY_ONLINEUSERS_SORT, id);
         }
         else if (action == sortNickname)
         {
-            ui.treeView->header()->setSortIndicator(COLUMN_NICKNAME, m_proxyModel->sortColumn() == COLUMN_NICKNAME ? sortToggle : Qt::AscendingOrder);
+            ui.tableView->horizontalHeader()->setSortIndicator(COLUMN_NICKNAME, m_proxyModel->sortColumn() == COLUMN_NICKNAME ? sortToggle : Qt::AscendingOrder);
             ttSettings->setValue(SETTINGS_DISPLAY_ONLINEUSERS_SORT, nickname);
         }
     }
@@ -174,12 +195,12 @@ void OnlineUsersDlg::slotTreeContextMenu(const QPoint& /*point*/)
 
 void OnlineUsersDlg::menuAction(MenuAction ma)
 {
-    QItemSelectionModel* selModel = ui.treeView->selectionModel();
+    QItemSelectionModel* selModel = ui.tableView->selectionModel();
     QModelIndexList indexes = selModel->selectedRows();
     QVector<int> userids, chanids;
     for(int i=0;i<indexes.size();i++)
     {
-        //QModelIndex index = ui.treeView->indexAt(point);
+        //QModelIndex index = ui.tableView->indexAt(point);
         QModelIndex index = m_proxyModel->mapToSource(indexes[i]);
         if(!index.isValid())
             return;
@@ -197,22 +218,32 @@ void OnlineUsersDlg::menuAction(MenuAction ma)
         switch (ma)
         {
         case VIEW_USERINFORMATION :
-            emit(viewUserInformation(userids[i]));
+            emit viewUserInformation(userids[i]);
             break;
         case SEND_TEXTMESSAGE :
-            emit(sendUserMessage(userids[i]));
+            emit sendUserMessage(userids[i]);
             break;
         case OP :
-            emit(opUser(userids[i], chanids[i]));
+            emit opUser(userids[i], chanids[i]);
             break;
-        case KICK :
-            emit(kickUser(userids[i], chanids[i]));
+        case KICK_FROM_CHANNEL :
+            emit kickUser(userids[i], chanids[i]);
             break;
-        case BAN :
-            emit(kickbanUser(m_model->getUser(userids[i])));
+        case KICK_FROM_SERVER :
+            emit kickUser(userids[i], 0);
             break;
+        case BAN_FROM_CHANNEL :
+            emit kickbanUser(m_model->getUser(userids[i]));
+            break;
+        case BAN_FROM_SERVER :
+        {
+            auto user = m_model->getUser(userids[i]);
+            user.nChannelID = 0;
+            emit kickbanUser(user);
+            break;
+        }
         case MOVE :
-            emit(moveUser(userids[i]));
+            emit moveUser(userids[i]);
             break;
         }
     }
@@ -220,11 +251,11 @@ void OnlineUsersDlg::menuAction(MenuAction ma)
 
 void OnlineUsersDlg::keyPressEvent(QKeyEvent* e)
 {
-    if (ui.treeView->hasFocus())
+    if (ui.tableView->hasFocus())
     {
         if (e->matches(QKeySequence::Copy))
         {
-            QItemSelectionModel* selModel = ui.treeView->selectionModel();
+            QItemSelectionModel* selModel = ui.tableView->selectionModel();
             QModelIndexList indexes = selModel->selectedRows();
             QVector<int> userids, chanids;
             for(int i=0;i<indexes.size();i++)
@@ -257,7 +288,7 @@ void OnlineUsersDlg::keyPressEvent(QKeyEvent* e)
 
 void OnlineUsersDlg::slotUpdateSettings()
 {
-    RestoreItemData r(ui.treeView, m_proxyModel);
+    RestoreItemData r(ui.tableView, m_proxyModel);
     ttSettings->setValue(SETTINGS_KEEP_DISCONNECTED_USERS, ui.keepDisconnectedUsersCheckBox->isChecked());
     if (!ui.keepDisconnectedUsersCheckBox->isChecked())
         m_model->removeDisconnected();

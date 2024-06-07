@@ -24,10 +24,8 @@
 #if !defined(PACKETLAYOUT_H)
 #define PACKETLAYOUT_H
 
-#include "Common.h"
 #include <myace/MyACE.h>
 
-#include <ace/ACE.h>
 #include <vector>
 #include <memory>
 #include <map>
@@ -43,7 +41,7 @@
 #include <stdint.h>
 
 /******************************
-*    TEAMTALK 4 PACKET LAYOUT
+*    TEAMTALK PACKET LAYOUT
 *******************************/
 
 #define TEAMTALK_PACKET_PROTOCOL 1

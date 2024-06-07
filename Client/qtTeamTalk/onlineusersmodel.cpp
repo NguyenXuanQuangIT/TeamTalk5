@@ -1,24 +1,18 @@
 /*
- * Copyright (c) 2005-2018, BearWare.dk
- * 
- * Contact Information:
+ * Copyright (C) 2023, Bjørn D. Rasmussen, BearWare.dk
  *
- * Bjoern D. Rasmussen
- * Kirketoften 5
- * DK-8260 Viby J
- * Denmark
- * Email: contact@bearware.dk
- * Phone: +45 20 20 54 59
- * Web: http://www.bearware.dk
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
  *
- * This source code is part of the TeamTalk SDK owned by
- * BearWare.dk. Use of this file, or its compiled unit, requires a
- * TeamTalk SDK License Key issued by BearWare.dk.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
- * The TeamTalk SDK License Agreement along with its Terms and
- * Conditions are outlined in the file License.txt included with the
- * TeamTalk SDK distribution.
- *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 #include "onlineusersmodel.h"
@@ -27,8 +21,9 @@ extern TTInstance* ttInst;
 
 #define DISCONNECTED_USERID -1
 
-OnlineUsersModel::OnlineUsersModel(QObject* parent)
-: QAbstractItemModel(parent)
+OnlineUsersModel::OnlineUsersModel(QObject* parent, get_logical_index_t getindex)
+: QAbstractTableModel(parent)
+    , m_logical_column(getindex)
 {
 }
 
@@ -54,33 +49,27 @@ void OnlineUsersModel::resetUsers()
     this->endResetModel();
 }
 
-void OnlineUsersModel::addUser(int userid)
+void OnlineUsersModel::addUser(const User& user)
 {
     this->beginResetModel();
-
-    User user;
-    if(TT_GetUser(ttInst, userid, &user))
-    {
-        m_users.insert(user.nUserID, user);
-    }
-
+    m_users.insert(user.nUserID, user);
     this->endResetModel();
 }
 
-void OnlineUsersModel::updateUser(int userid)
+void OnlineUsersModel::updateUser(const User& user)
 {
-    User user;
-    if(TT_GetUser(ttInst, userid, &user))
-        m_users.insert(user.nUserID, user);
+    this->beginResetModel();
+    m_users.insert(user.nUserID, user);
+    this->endResetModel();
 }
 
-void OnlineUsersModel::removeUser(int userid, bool keep)
+void OnlineUsersModel::removeUser(const User& user, bool keep)
 {
     this->beginResetModel();
     if (keep)
-        m_users[userid].nUserID = DISCONNECTED_USERID;
+        m_users[user.nUserID].nUserID = DISCONNECTED_USERID;
     else
-        m_users.remove(userid);
+        m_users.remove(user.nUserID);
 
     this->endResetModel();
 }
@@ -129,31 +118,33 @@ int OnlineUsersModel::rowCount(const QModelIndex& /*parent = QModelIndex()*/) co
     return m_users.size();
 }
 
-QVariant OnlineUsersModel::headerData(int section, Qt::Orientation /*orientation*/,
+QVariant OnlineUsersModel::headerData(int section, Qt::Orientation orientation,
                                       int role) const
 {
     switch(role)
     {
     case Qt::DisplayRole :
-        switch(section)
+        if (orientation == Qt::Horizontal)
         {
-        case COLUMN_NICKNAME :
-            return tr("Nickname");
-        case COLUMN_STATUSMSG :
-            return tr("Status message");
-        case COLUMN_USERNAME :
-            return tr("Username");
-        case COLUMN_CHANNEL :
-            return tr("Channel");
-        case COLUMN_IPADDRESS :
-            return tr("IP-address");
-        case COLUMN_VERSION :
-            return tr("Version");
-        case COLUMN_USERID :
-            return tr("ID");
+            switch (section)
+            {
+            case COLUMN_NICKNAME:
+                return tr("Nickname");
+            case COLUMN_STATUSMSG:
+                return tr("Status message");
+            case COLUMN_USERNAME:
+                return tr("Username");
+            case COLUMN_CHANNEL:
+                return tr("Channel");
+            case COLUMN_IPADDRESS:
+                return tr("IP-address");
+            case COLUMN_VERSION:
+                return tr("Version");
+            case COLUMN_USERID:
+                return tr("ID");
+            }
         }
         break;
-
     case Qt::TextAlignmentRole :
         break;
     }
@@ -192,9 +183,21 @@ QVariant OnlineUsersModel::data(const QModelIndex& index, int role) const
             return user.nUserID;
         }
         break;
-        case Qt::AccessibleTextRole :
+        case Qt::AccessibleTextRole:
         {
-            return QString("%1: %2, %3: %4, %5: %6, %7: %8, %9: %10, %11: %12, %13: %14").arg(headerData(COLUMN_NICKNAME, Qt::Horizontal, Qt::DisplayRole).toString()).arg(data(createIndex(index.row(), COLUMN_NICKNAME, index.internalId()), Qt::DisplayRole).toString()).arg(headerData(COLUMN_STATUSMSG, Qt::Horizontal, Qt::DisplayRole).toString()).arg(data(createIndex(index.row(), COLUMN_STATUSMSG, index.internalId()), Qt::DisplayRole).toString()).arg(headerData(COLUMN_USERNAME, Qt::Horizontal, Qt::DisplayRole).toString()).arg(data(createIndex(index.row(), COLUMN_USERNAME, index.internalId()), Qt::DisplayRole).toString()).arg(headerData(COLUMN_CHANNEL, Qt::Horizontal, Qt::DisplayRole).toString()).arg(data(createIndex(index.row(), COLUMN_CHANNEL, index.internalId()), Qt::DisplayRole).toString()).arg(headerData(COLUMN_IPADDRESS, Qt::Horizontal, Qt::DisplayRole).toString()).arg(data(createIndex(index.row(), COLUMN_IPADDRESS, index.internalId()), Qt::DisplayRole).toString()).arg(headerData(COLUMN_VERSION, Qt::Horizontal, Qt::DisplayRole).toString()).arg(data(createIndex(index.row(), COLUMN_VERSION, index.internalId()), Qt::DisplayRole).toString()).arg(headerData(COLUMN_USERID, Qt::Horizontal, Qt::DisplayRole).toString()).arg(data(createIndex(index.row(), COLUMN_USERID, index.internalId()), Qt::DisplayRole).toString());
+            if (index.column() == m_logical_column(0))
+            {
+                QString accessibleText;
+                int columnCount = this->columnCount(index);
+                for (int i = 0; i < columnCount; ++i)
+                {
+                    int logicalIndex = m_logical_column(i);
+                    accessibleText += QString("%1: %2, ")
+                        .arg(headerData(logicalIndex, Qt::Horizontal, Qt::DisplayRole).toString())
+                        .arg(data(createIndex(index.row(), logicalIndex, index.internalId()), Qt::DisplayRole).toString());
+                }
+                return accessibleText;
+            }
         }
         break;
     }

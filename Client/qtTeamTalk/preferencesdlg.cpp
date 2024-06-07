@@ -1,24 +1,18 @@
 /*
- * Copyright (c) 2005-2018, BearWare.dk
- * 
- * Contact Information:
+ * Copyright (C) 2023, Bjørn D. Rasmussen, BearWare.dk
  *
- * Bjoern D. Rasmussen
- * Kirketoften 5
- * DK-8260 Viby J
- * Denmark
- * Email: contact@bearware.dk
- * Phone: +45 20 20 54 59
- * Web: http://www.bearware.dk
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
  *
- * This source code is part of the TeamTalk SDK owned by
- * BearWare.dk. Use of this file, or its compiled unit, requires a
- * TeamTalk SDK License Key issued by BearWare.dk.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
- * The TeamTalk SDK License Agreement along with its Terms and
- * Conditions are outlined in the file License.txt included with the
- * TeamTalk SDK distribution.
- *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 #include "preferencesdlg.h"
@@ -36,6 +30,7 @@
 #include "utiltts.h"
 #include "utilui.h"
 #include "settings.h"
+#include "soundeventsmodel.h"
 
 #include <QDebug>
 #include <QMessageBox>
@@ -47,6 +42,7 @@
 #if defined(QT_TEXTTOSPEECH_LIB)
 #include <QTextToSpeech>
 #endif
+#include <QMenu>
 #include "stdint.h"
 
 extern TTInstance* ttInst;
@@ -95,22 +91,56 @@ PreferencesDlg::PreferencesDlg(SoundDevice& devin, SoundDevice& devout, QWidget 
     connect(ui.statusbarToolButton, &QAbstractButton::clicked, this, &PreferencesDlg::slotConfigureStatusBar);
     connect(ui.updatesChkBox, &QAbstractButton::clicked, this, &PreferencesDlg::slotUpdateUpdDlgChkBox);
     connect(ui.betaUpdatesChkBox, &QAbstractButton::clicked, this, &PreferencesDlg::slotUpdateUpdDlgChkBox);
+    m_TSFVarMenu = new QMenu(this);
+    connect(ui.TSFVarButton, &QPushButton::clicked, this, [this]()
+    {
+        m_TSFVarMenu->exec(QCursor::pos());
+    });
+    QHash<QString, QString> tsfVariables = {
+        {"d", tr("The day as a number without a leading zero (1 to 31)")},
+        {"dd", tr("The day as a number with a leading zero (01 to 31)")},
+        {"ddd", tr("The abbreviated day name ('Mon' to 'Sun').")},
+        {"dddd", tr("The long day name ('Monday' to 'Sunday').")},
+        {"M", tr("The month as a number without a leading zero (1 to 12)")},
+        {"MM", tr("The month as a number with a leading zero (01 to 12)")},
+        {"MMM", tr("The abbreviated month name ('Jan' to 'Dec').")},
+        {"MMMM", tr("The long month name ('January' to 'December').")},
+        {"yy", tr("The year as a two digit number (00 to 99)")},
+        {"yyyy", tr("The year as a four digit number.")},
+        {"h", tr("The hour without a leading zero (0 to 23)")},
+        {"hh", tr("The hour with a leading zero (00 to 23)")},
+        {"H", tr("The hour without a leading zero (0 to 23)")},
+        {"HH", tr("The hour with a leading zero (00 to 23)")},
+        {"m", tr("The minute without a leading zero (0 to 59)")},
+        {"mm", tr("The minute with a leading zero (00 to 59)")},
+        {"s", tr("The whole second, without any leading zero (0 to 59)")},
+        {"ss", tr("The whole second, with a leading zero where applicable (00 to 59)")}
+    };
+    for (auto it = tsfVariables.constBegin(); it != tsfVariables.constEnd(); ++it)
+    {
+        QAction* action = m_TSFVarMenu->addAction(it.value());
+        action->setData(it.key());
+        connect(action, &QAction::triggered, this, &PreferencesDlg::insertTSFVariable);
+    }
     
     //connection tab
     connect(ui.subdeskinputBtn, &QAbstractButton::clicked,
             this, &PreferencesDlg::slotDesktopAccess);
 
     //sound tab
-    connect(ui.winmmButton, &QAbstractButton::clicked, this, &PreferencesDlg::slotSoundSystemChange);
-    connect(ui.dsoundButton, &QAbstractButton::clicked, this, &PreferencesDlg::slotSoundSystemChange);
     connect(ui.wasapiButton, &QAbstractButton::clicked, this, &PreferencesDlg::slotSoundSystemChange);
+    connect(ui.dsoundButton, &QAbstractButton::clicked, this, &PreferencesDlg::slotSoundSystemChange);
+    connect(ui.winmmButton, &QAbstractButton::clicked, this, &PreferencesDlg::slotSoundSystemChange);
     connect(ui.alsaButton, &QAbstractButton::clicked, this, &PreferencesDlg::slotSoundSystemChange);
     connect(ui.coreaudioButton, &QAbstractButton::clicked, this, &PreferencesDlg::slotSoundSystemChange);
+    connect(ui.pulseaudioButton, &QAbstractButton::clicked, this, &PreferencesDlg::slotSoundSystemChange);
 #if defined(Q_OS_WIN32)
     ui.alsaButton->setDisabled(true);
     ui.alsaButton->hide();
     ui.coreaudioButton->setDisabled(true);
     ui.coreaudioButton->hide();
+    ui.pulseaudioButton->setDisabled(true);
+    ui.pulseaudioButton->hide();
 #elif defined(Q_OS_DARWIN)
     ui.wasapiButton->setDisabled(true);
     ui.wasapiButton->hide();
@@ -121,6 +151,8 @@ PreferencesDlg::PreferencesDlg(SoundDevice& devin, SoundDevice& devout, QWidget 
     ui.alsaButton->setDisabled(true);
     ui.alsaButton->hide();
     ui.winfwChkBox->hide();
+    ui.pulseaudioButton->setDisabled(true);
+    ui.pulseaudioButton->hide();
 #else
     ui.winmmButton->setDisabled(true);
     ui.winmmButton->hide();
@@ -146,78 +178,35 @@ PreferencesDlg::PreferencesDlg(SoundDevice& devin, SoundDevice& devout, QWidget 
             this, &PreferencesDlg::slotSoundDefaults);
 
     //sound events
-    connect(ui.spackBox, static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged), this, &PreferencesDlg::slotSPackChange);
-    connect(ui.newuserButton, &QAbstractButton::clicked,
-            this, &PreferencesDlg::slotEventNewUser);
-    connect(ui.rmuserButton, &QAbstractButton::clicked,
-            this, &PreferencesDlg::slotEventRemoveUser);
-    connect(ui.srvlostButton, &QAbstractButton::clicked,
-            this, &PreferencesDlg::slotEventServerLost);
-    connect(ui.usermsgButton, &QAbstractButton::clicked,
-            this, &PreferencesDlg::slotEventUserTextMsg);
-    connect(ui.sentmsgButton, &QAbstractButton::clicked,
-            this, &PreferencesDlg::slotEventSentTextMsg);
-    connect(ui.chanmsgButton, &QAbstractButton::clicked,
-            this, &PreferencesDlg::slotEventChannelTextMsg);
-    connect(ui.sentchannelmsgButton, &QAbstractButton::clicked,
-            this, &PreferencesDlg::slotEventSentChannelMsg);
-    connect(ui.bcastmsgButton, &QAbstractButton::clicked,
-            this, &PreferencesDlg::slotEventBroadcastTextMsg);
-    connect(ui.hotkeyButton, &QAbstractButton::clicked,
-            this, &PreferencesDlg::slotEventHotKey);
-    connect(ui.chansilentButton, &QAbstractButton::clicked,
-            this, &PreferencesDlg::slotEventSilence);
-    connect(ui.videosessionButton, &QAbstractButton::clicked,
-            this, &PreferencesDlg::slotEventNewVideo);
-    connect(ui.desktopsessionButton, &QAbstractButton::clicked,
-            this, &PreferencesDlg::slotEventNewDesktop);
-    connect(ui.interceptButton, &QAbstractButton::clicked,
-            this, &PreferencesDlg::slotEventIntercept);
-    connect(ui.interceptEndButton, &QAbstractButton::clicked,
-            this, &PreferencesDlg::slotEventInterceptEnd);
-    connect(ui.fileupdButton, &QAbstractButton::clicked,
-            this, &PreferencesDlg::slotEventFilesUpdated);
-    connect(ui.transferdoneButton, &QAbstractButton::clicked,
-            this, &PreferencesDlg::slotEventFileTxDone);
-    connect(ui.questionmodeBtn, &QAbstractButton::clicked,
-            this, &PreferencesDlg::slotEventQuestionMode);
-    connect(ui.desktopaccessBtn, &QAbstractButton::clicked,
-            this, &PreferencesDlg::slotEventDesktopAccess);
-    connect(ui.userloggedinButton, &QAbstractButton::clicked,
-            this, &PreferencesDlg::slotEventUserLoggedIn);
-    connect(ui.userloggedoutButton, &QAbstractButton::clicked,
-            this, &PreferencesDlg::slotEventUserLoggedOut);
-    connect(ui.voiceactonButton, &QAbstractButton::clicked,
-            this, &PreferencesDlg::slotEventVoiceActOn);
-    connect(ui.voiceactoffButton, &QAbstractButton::clicked,
-            this, &PreferencesDlg::slotEventVoiceActOff);
-    connect(ui.muteallonButton, &QAbstractButton::clicked,
-            this, &PreferencesDlg::slotEventMuteAllOn);
-    connect(ui.mutealloffButton, &QAbstractButton::clicked,
-            this, &PreferencesDlg::slotEventMuteAllOff);
-    connect(ui.transmitqueueheadButton, &QAbstractButton::clicked,
-            this, &PreferencesDlg::slotEventTransmitQueueHead);
-    connect(ui.transmitqueuestopButton, &QAbstractButton::clicked,
-            this, &PreferencesDlg::slotEventTransmitQueueStop);
-    connect(ui.voiceacttrigButton, &QAbstractButton::clicked,
-            this, &PreferencesDlg::slotEventVoiceActTrig);
-    connect(ui.voiceactstopButton, &QAbstractButton::clicked,
-            this, &PreferencesDlg::slotEventVoiceActStop);
-    connect(ui.voiceactmeonButton, &QAbstractButton::clicked,
-            this, &PreferencesDlg::slotEventVoiceActMeOn);
-    connect(ui.voiceactmeoffButton, &QAbstractButton::clicked,
-            this, &PreferencesDlg::slotEventVoiceActMeOff);
+    m_soundmodel = new SoundEventsModel(this);
+    ui.soundEventsTableView->setModel(m_soundmodel);
+    connect(ui.soundEventsTableView, &QAbstractItemView::doubleClicked, this, &PreferencesDlg::slotSoundEventToggled);
+    connect(ui.soundEventsTableView->selectionModel(), &QItemSelectionModel::currentChanged, this, &PreferencesDlg::SoundEventSelected);
+    connect(ui.soundEventsBrowseButton, &QPushButton::clicked, this, &PreferencesDlg::slotBrowseSoundEvent);
+    connect(ui.soundEventsDefFileButton, &QPushButton::clicked, this, &PreferencesDlg::soundEventsRestoreDefaultFile);
+    connect(ui.soundEventsEnableallButton, &QAbstractButton::clicked, this, &PreferencesDlg::slotSoundEventsEnableAll);
+    connect(ui.soundEventsClearallButton, &QAbstractButton::clicked, this, &PreferencesDlg::slotSoundEventsClearAll);
+    connect(ui.soundEventsRevertButton, &QAbstractButton::clicked, this, &PreferencesDlg::slotSoundEventsRevert);
+    ui.soundEventsTableView->horizontalHeader()->restoreState(ttSettings->value(SETTINGS_DISPLAY_SOUNDEVENTSHEADER).toByteArray());
 
     //text to speech
     m_ttsmodel = new TTSEventsModel(this);
-    ui.ttsTreeView->setModel(m_ttsmodel);
-    connect(ui.ttsTreeView, &QAbstractItemView::doubleClicked, this, &PreferencesDlg::slotTTSEventToggled);
+    ui.ttsTableView->setModel(m_ttsmodel);
+    connect(ui.ttsTableView, &QAbstractItemView::doubleClicked, this, &PreferencesDlg::slotTTSEventToggled);
+    connect(ui.ttsTableView->selectionModel(), &QItemSelectionModel::currentChanged,
+            this, &PreferencesDlg::TTSEventSelected);
+    m_TTSVarMenu = new QMenu(this);
+    connect(ui.TTSVarButton, &QPushButton::clicked, this, [this]()
+    {
+        m_TTSVarMenu->exec(QCursor::pos());
+    });
+    connect(ui.TTSDefValButton, &QPushButton::clicked, this, &PreferencesDlg::TTSRestoreDefaultMessage);
     connect(ui.ttsengineComboBox, static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged), this, &PreferencesDlg::slotUpdateTTSTab);
     connect(ui.ttsLocaleComboBox, &QComboBox::currentTextChanged, this, &PreferencesDlg::slotTTSLocaleChanged);
     connect(ui.ttsEnableallButton, &QAbstractButton::clicked, this, &PreferencesDlg::slotTTSEnableAll);
     connect(ui.ttsClearallButton, &QAbstractButton::clicked, this, &PreferencesDlg::slotTTSClearAll);
     connect(ui.ttsRevertButton, &QAbstractButton::clicked, this, &PreferencesDlg::slotTTSRevert);
-    ui.ttsTreeView->header()->restoreState(ttSettings->value(SETTINGS_DISPLAY_TTSHEADER).toByteArray());
+    ui.ttsTableView->horizontalHeader()->restoreState(ttSettings->value(SETTINGS_DISPLAY_TTSHEADER).toByteArray());
 
     //keyboard shortcuts
     connect(ui.voiceactButton, &QAbstractButton::clicked,
@@ -268,7 +257,6 @@ PreferencesDlg::~PreferencesDlg()
     ttSettings->setValue(SETTINGS_DISPLAY_PREFERENCESWINDOWPOS, saveGeometry());
     TT_CloseSoundLoopbackTest(m_sndloop);
 }
-
 
 void PreferencesDlg::initDevices()
 {
@@ -337,6 +325,8 @@ SoundSystem PreferencesDlg::getSoundSystem()
         sndsys = SOUNDSYSTEM_ALSA;
     if(ui.coreaudioButton->isChecked())
         sndsys = SOUNDSYSTEM_COREAUDIO;
+    if (ui.pulseaudioButton->isChecked())
+        sndsys = SOUNDSYSTEM_PULSEAUDIO;
 
     // ensure tab has been initialized, otherwise sound system will end up as 'none'
     Q_ASSERT(sndsys != SOUNDSYSTEM_NONE);
@@ -364,6 +354,8 @@ void PreferencesDlg::showDevices(SoundSystem snd)
         ui.alsaButton->setChecked(true);break;
     case SOUNDSYSTEM_COREAUDIO :
         ui.coreaudioButton->setChecked(true);break;
+    case SOUNDSYSTEM_PULSEAUDIO :
+        ui.pulseaudioButton->setChecked(true);break;
     case SOUNDSYSTEM_NONE :
     case SOUNDSYSTEM_OPENSLES_ANDROID :
     case SOUNDSYSTEM_AUDIOUNIT :
@@ -534,6 +526,7 @@ void PreferencesDlg::slotTabChange(int index)
         ui.lasttalkChkBox->setChecked(ttSettings->value(SETTINGS_DISPLAY_LASTTALK, 
                                                         SETTINGS_DISPLAY_LASTTALK_DEFAULT).toBool());
         ui.msgtimestampChkBox->setChecked(ttSettings->value(SETTINGS_DISPLAY_MSGTIMESTAMP, false).toBool());
+        ui.timestampformatEdit->setText(ttSettings->value(SETTINGS_DISPLAY_TIMESTAMP_FORMAT, getTimestampFormat()).toString());
         ui.chanexpChkBox->setChecked(ttSettings->value(SETTINGS_DISPLAY_CHANEXP, SETTINGS_DISPLAY_CHANEXP_DEFAULT).toBool());
         ui.logstatusbarChkBox->setChecked(ttSettings->value(SETTINGS_DISPLAY_LOGSTATUSBAR, SETTINGS_DISPLAY_LOGSTATUSBAR_DEFAULT).toBool());
         ui.updatesChkBox->setChecked(ttSettings->value(SETTINGS_DISPLAY_APPUPDATE, SETTINGS_DISPLAY_APPUPDATE_DEFAULT).toBool());
@@ -547,6 +540,8 @@ void PreferencesDlg::slotTabChange(int index)
                                                             SETTINGS_DISPLAY_SHOWUSERNAME_DEFAULT).toBool());
         ui.emojiChkBox->setChecked(ttSettings->value(SETTINGS_DISPLAY_EMOJI,
                                                      SETTINGS_DISPLAY_EMOJI_DEFAULT).toBool());
+        ui.animChkBox->setChecked(ttSettings->value(SETTINGS_DISPLAY_ANIM,
+                                                     SETTINGS_DISPLAY_ANIM_DEFAULT).toBool());
         ui.ServnameChkBox->setChecked(ttSettings->value(SETTINGS_DISPLAY_SERVNAME,
                                                      SETTINGS_DISPLAY_SERVNAME_DEFAULT).toBool());
 
@@ -574,6 +569,8 @@ void PreferencesDlg::slotTabChange(int index)
 
         ui.closeFileDlgChkBox->setChecked(ttSettings->value(SETTINGS_DISPLAY_CLOSE_FILEDIALOG, SETTINGS_DISPLAY_CLOSE_FILEDIALOG_DEFAULT).toBool());
         ui.dlgExcludeChkBox->setChecked(ttSettings->value(SETTINGS_DISPLAY_CHANEXCLUDE_DLG, SETTINGS_DISPLAY_CHANEXCLUDE_DLG_DEFAULT).toBool());
+        ui.dlgMOTDChkBox->setChecked(ttSettings->value(SETTINGS_DISPLAY_MOTD_DLG, SETTINGS_DISPLAY_MOTD_DLG_DEFAULT).toBool());
+        ui.chanTopicChkBox->setChecked(ttSettings->value(SETTINGS_DISPLAY_CHANNEL_TOPIC, SETTINGS_DISPLAY_CHANNEL_TOPIC_DEFAULT).toBool());
         ui.startServerListChkBox->setVisible(!ttSettings->value(SETTINGS_CONNECTION_AUTOCONNECT, SETTINGS_CONNECTION_AUTOCONNECT_DEFAULT).toBool());
         ui.startServerListChkBox->setChecked(ttSettings->value(SETTINGS_DISPLAY_START_SERVERLIST, SETTINGS_DISPLAY_START_SERVERLIST_DEFAULT).toBool());
     }
@@ -621,41 +618,14 @@ void PreferencesDlg::slotTabChange(int index)
         int index = ui.spackBox->findData(pack);
         if(index>=0)
             ui.spackBox->setCurrentIndex(index);
+        connect(ui.spackBox, static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged), this, &PreferencesDlg::slotSPackChange);
         ui.sndVolSpinBox->setValue(ttSettings->value(SETTINGS_SOUNDEVENT_VOLUME, SETTINGS_SOUNDEVENT_VOLUME_DEFAULT).toInt());
         ui.sndeventPlaybackComboBox->addItem(tr("Default"), PLAYBACKMODE_DEFAULT);
         ui.sndeventPlaybackComboBox->addItem(tr("One by One (TeamTalk Sound Device)"), PLAYBACKMODE_ONEBYONE);
         ui.sndeventPlaybackComboBox->addItem(tr("Overlapping (TeamTalk Sound Device)"), PLAYBACKMODE_OVERLAPPING);
         setCurrentItemData(ui.sndeventPlaybackComboBox, ttSettings->value(SETTINGS_SOUNDEVENT_PLAYBACKMODE, SETTINGS_SOUNDEVENT_PLAYBACKMODE_DEFAULT));
-        ui.newuserEdit->setText(ttSettings->value(SETTINGS_SOUNDEVENT_NEWUSER, SETTINGS_SOUNDEVENT_NEWUSER_DEFAULT).toString());
-        ui.rmuserEdit->setText(ttSettings->value(SETTINGS_SOUNDEVENT_REMOVEUSER, SETTINGS_SOUNDEVENT_REMOVEUSER_DEFAULT).toString());
-        ui.srvlostEdit->setText(ttSettings->value(SETTINGS_SOUNDEVENT_SERVERLOST, SETTINGS_SOUNDEVENT_SERVERLOST_DEFAULT).toString());
-        ui.usermsgEdit->setText(ttSettings->value(SETTINGS_SOUNDEVENT_USERMSG, SETTINGS_SOUNDEVENT_USERMSG_DEFAULT).toString());
-        ui.sentmsgEdit->setText(ttSettings->value(SETTINGS_SOUNDEVENT_USERMSGSENT, SETTINGS_SOUNDEVENT_USERMSGSENT_DEFAULT).toString());
-        ui.chanmsgEdit->setText(ttSettings->value(SETTINGS_SOUNDEVENT_CHANNELMSG, SETTINGS_SOUNDEVENT_CHANNELMSG_DEFAULT).toString());
-        ui.sentchannelmsgEdit->setText(ttSettings->value(SETTINGS_SOUNDEVENT_CHANNELMSGSENT, SETTINGS_SOUNDEVENT_CHANNELMSGSENT_DEFAULT).toString());
-        ui.bcastmsgEdit->setText(ttSettings->value(SETTINGS_SOUNDEVENT_BROADCASTMSG, SETTINGS_SOUNDEVENT_BROADCASTMSG_DEFAULT).toString());
-        ui.hotkeyEdit->setText(ttSettings->value(SETTINGS_SOUNDEVENT_HOTKEY, SETTINGS_SOUNDEVENT_HOTKEY_DEFAULT).toString());
-        ui.chansilentEdit->setText(ttSettings->value(SETTINGS_SOUNDEVENT_SILENCE).toString());
-        ui.videosessionEdit->setText(ttSettings->value(SETTINGS_SOUNDEVENT_NEWVIDEO, SETTINGS_SOUNDEVENT_NEWVIDEO_DEFAULT).toString());
-        ui.desktopsessionEdit->setText(ttSettings->value(SETTINGS_SOUNDEVENT_NEWDESKTOP, SETTINGS_SOUNDEVENT_NEWDESKTOP_DEFAULT).toString());
-        ui.interceptEdit->setText(ttSettings->value(SETTINGS_SOUNDEVENT_INTERCEPT, SETTINGS_SOUNDEVENT_INTERCEPT_DEFAULT).toString());
-        ui.interceptEndEdit->setText(ttSettings->value(SETTINGS_SOUNDEVENT_INTERCEPTEND, SETTINGS_SOUNDEVENT_INTERCEPTEND_DEFAULT).toString());
-        ui.fileupdEdit->setText(ttSettings->value(SETTINGS_SOUNDEVENT_FILESUPD, SETTINGS_SOUNDEVENT_FILESUPD_DEFAULT).toString());
-        ui.transferdoneEdit->setText(ttSettings->value(SETTINGS_SOUNDEVENT_FILETXDONE, SETTINGS_SOUNDEVENT_FILETXDONE_DEFAULT).toString());
-        ui.questionmodeEdit->setText(ttSettings->value(SETTINGS_SOUNDEVENT_QUESTIONMODE, SETTINGS_SOUNDEVENT_QUESTIONMODE_DEFAULT).toString());
-        ui.desktopaccessEdit->setText(ttSettings->value(SETTINGS_SOUNDEVENT_DESKTOPACCESS, SETTINGS_SOUNDEVENT_DESKTOPACCESS_DEFAULT).toString());
-        ui.userloggedinEdit->setText(ttSettings->value(SETTINGS_SOUNDEVENT_USERLOGGEDIN, SETTINGS_SOUNDEVENT_USERLOGGEDIN_DEFAULT).toString());
-        ui.userloggedoutEdit->setText(ttSettings->value(SETTINGS_SOUNDEVENT_USERLOGGEDOUT, SETTINGS_SOUNDEVENT_USERLOGGEDOUT_DEFAULT).toString());
-        ui.voiceactonEdit->setText(ttSettings->value(SETTINGS_SOUNDEVENT_VOICEACTON, SETTINGS_SOUNDEVENT_VOICEACTON_DEFAULT).toString());
-        ui.voiceactoffEdit->setText(ttSettings->value(SETTINGS_SOUNDEVENT_VOICEACTOFF, SETTINGS_SOUNDEVENT_VOICEACTOFF_DEFAULT).toString());
-        ui.muteallonEdit->setText(ttSettings->value(SETTINGS_SOUNDEVENT_MUTEALLON, SETTINGS_SOUNDEVENT_MUTEALLON_DEFAULT).toString());
-        ui.mutealloffEdit->setText(ttSettings->value(SETTINGS_SOUNDEVENT_MUTEALLOFF, SETTINGS_SOUNDEVENT_MUTEALLOFF_DEFAULT).toString());
-        ui.transmitqueueheadEdit->setText(ttSettings->value(SETTINGS_SOUNDEVENT_TRANSMITQUEUE_HEAD, SETTINGS_SOUNDEVENT_TRANSMITQUEUE_HEAD_DEFAULT).toString());
-        ui.transmitqueuestopEdit->setText(ttSettings->value(SETTINGS_SOUNDEVENT_TRANSMITQUEUE_STOP, SETTINGS_SOUNDEVENT_TRANSMITQUEUE_STOP_DEFAULT).toString());
-        ui.voiceacttrigEdit->setText(ttSettings->value(SETTINGS_SOUNDEVENT_VOICEACTTRIG, SETTINGS_SOUNDEVENT_VOICEACTTRIG_DEFAULT).toString());
-        ui.voiceactstopEdit->setText(ttSettings->value(SETTINGS_SOUNDEVENT_VOICEACTSTOP, SETTINGS_SOUNDEVENT_VOICEACTSTOP_DEFAULT).toString());
-        ui.voiceactmeonEdit->setText(ttSettings->value(SETTINGS_SOUNDEVENT_VOICEACTMEON, SETTINGS_SOUNDEVENT_VOICEACTMEON_DEFAULT).toString());
-        ui.voiceactmeoffEdit->setText(ttSettings->value(SETTINGS_SOUNDEVENT_VOICEACTMEOFF, SETTINGS_SOUNDEVENT_VOICEACTMEOFF_DEFAULT).toString());
+        SoundEvents events = ttSettings->value(SETTINGS_SOUNDEVENT_ACTIVEEVENTS, SETTINGS_SOUNDEVENT_ACTIVEEVENTS_DEFAULT).toULongLong();
+        m_soundmodel->setSoundEvents(events);
         break;
     }
     case TTSEVENTS_TAB :
@@ -671,7 +641,7 @@ void PreferencesDlg::slotTabChange(int index)
 #elif defined(Q_OS_LINUX)
         if (QFile::exists(TTSENGINE_NOTIFY_PATH))
             ui.ttsengineComboBox->addItem(tr("Libnotify"), TTSENGINE_NOTIFY);
-#elif defined(Q_OS_MACX)
+#elif defined(Q_OS_MAC)
 
 #endif
 
@@ -845,6 +815,7 @@ void PreferencesDlg::slotSaveChanges()
         ttSettings->setValue(SETTINGS_DISPLAY_USERSCOUNT, ui.usercountChkBox->isChecked());
         ttSettings->setValue(SETTINGS_DISPLAY_LASTTALK, ui.lasttalkChkBox->isChecked());
         ttSettings->setValue(SETTINGS_DISPLAY_MSGTIMESTAMP, ui.msgtimestampChkBox->isChecked());
+        ttSettings->setValue(SETTINGS_DISPLAY_TIMESTAMP_FORMAT, ui.timestampformatEdit->text());
         ttSettings->setValue(SETTINGS_DISPLAY_CHANEXP, ui.chanexpChkBox->isChecked());
         ttSettings->setValue(SETTINGS_DISPLAY_LOGSTATUSBAR, ui.logstatusbarChkBox->isChecked());
         ttSettings->setValue(SETTINGS_DISPLAY_APPUPDATE, ui.updatesChkBox->isChecked());
@@ -853,6 +824,7 @@ void PreferencesDlg::slotSaveChanges()
         ttSettings->setValue(SETTINGS_DISPLAY_MAX_STRING, ui.maxtextSpinBox->value());
         ttSettings->setValue(SETTINGS_DISPLAY_SHOWUSERNAME, ui.showusernameChkBox->isChecked());
         ttSettings->setValue(SETTINGS_DISPLAY_EMOJI, ui.emojiChkBox->isChecked());
+        ttSettings->setValue(SETTINGS_DISPLAY_ANIM, ui.animChkBox->isChecked());
         ttSettings->setValue(SETTINGS_DISPLAY_SERVNAME, ui.ServnameChkBox->isChecked());
 
         int index = ui.languageBox->currentIndex();
@@ -870,6 +842,8 @@ void PreferencesDlg::slotSaveChanges()
         ttSettings->setValue(SETTINGS_DISPLAY_CHANNELSORT, getCurrentItemData(ui.channelsortComboBox, CHANNELSORT_ASCENDING));
         ttSettings->setValue(SETTINGS_DISPLAY_CLOSE_FILEDIALOG, ui.closeFileDlgChkBox->isChecked());
         ttSettings->setValue(SETTINGS_DISPLAY_CHANEXCLUDE_DLG, ui.dlgExcludeChkBox->isChecked());
+        ttSettings->setValue(SETTINGS_DISPLAY_MOTD_DLG, ui.dlgMOTDChkBox->isChecked());
+        ttSettings->setValue(SETTINGS_DISPLAY_CHANNEL_TOPIC, ui.chanTopicChkBox->isChecked());
         ttSettings->setValue(SETTINGS_DISPLAY_START_SERVERLIST, ui.startServerListChkBox->isChecked());
     }
     if(m_modtab.find(CONNECTION_TAB) != m_modtab.end())
@@ -962,6 +936,8 @@ void PreferencesDlg::slotSaveChanges()
             ttSettings->setValue(SETTINGS_SOUND_SOUNDSYSTEM, SOUNDSYSTEM_COREAUDIO);
         else if(ui.alsaButton->isChecked())
             ttSettings->setValue(SETTINGS_SOUND_SOUNDSYSTEM, SOUNDSYSTEM_ALSA);
+        else if (ui.pulseaudioButton->isChecked())
+            ttSettings->setValue(SETTINGS_SOUND_SOUNDSYSTEM, SOUNDSYSTEM_PULSEAUDIO);
 
         ttSettings->setValue(SETTINGS_SOUND_INPUTDEVICE_UID, "");
         for(int i=0;i<m_sounddevices.size();i++)
@@ -1012,39 +988,11 @@ void PreferencesDlg::slotSaveChanges()
     }
     if(m_modtab.find(SOUNDEVENTS_TAB) != m_modtab.end())
     {
-        ttSettings->setValue(SETTINGS_SOUNDS_PACK, ui.spackBox->currentText());
         ttSettings->setValue(SETTINGS_SOUNDEVENT_VOLUME, ui.sndVolSpinBox->value());
         ttSettings->setValue(SETTINGS_SOUNDEVENT_PLAYBACKMODE, getCurrentItemData(ui.sndeventPlaybackComboBox));
-        ttSettings->setValue(SETTINGS_SOUNDEVENT_NEWUSER, ui.newuserEdit->text());
-        ttSettings->setValue(SETTINGS_SOUNDEVENT_REMOVEUSER, ui.rmuserEdit->text());
-        ttSettings->setValue(SETTINGS_SOUNDEVENT_SERVERLOST, ui.srvlostEdit->text());
-        ttSettings->setValue(SETTINGS_SOUNDEVENT_USERMSG, ui.usermsgEdit->text());
-        ttSettings->setValue(SETTINGS_SOUNDEVENT_USERMSGSENT, ui.sentmsgEdit->text());
-        ttSettings->setValue(SETTINGS_SOUNDEVENT_CHANNELMSG, ui.chanmsgEdit->text());
-        ttSettings->setValue(SETTINGS_SOUNDEVENT_CHANNELMSGSENT, ui.sentchannelmsgEdit->text());
-        ttSettings->setValue(SETTINGS_SOUNDEVENT_BROADCASTMSG, ui.bcastmsgEdit->text());
-        ttSettings->setValue(SETTINGS_SOUNDEVENT_HOTKEY, ui.hotkeyEdit->text());
-        ttSettings->setValue(SETTINGS_SOUNDEVENT_SILENCE, ui.chansilentEdit->text());
-        ttSettings->setValue(SETTINGS_SOUNDEVENT_NEWVIDEO, ui.videosessionEdit->text());
-        ttSettings->setValue(SETTINGS_SOUNDEVENT_NEWDESKTOP, ui.desktopsessionEdit->text());
-        ttSettings->setValue(SETTINGS_SOUNDEVENT_INTERCEPT, ui.interceptEdit->text());
-        ttSettings->setValue(SETTINGS_SOUNDEVENT_INTERCEPTEND, ui.interceptEndEdit->text());
-        ttSettings->setValue(SETTINGS_SOUNDEVENT_FILESUPD, ui.fileupdEdit->text());
-        ttSettings->setValue(SETTINGS_SOUNDEVENT_FILETXDONE, ui.transferdoneEdit->text());
-        ttSettings->setValue(SETTINGS_SOUNDEVENT_QUESTIONMODE, ui.questionmodeEdit->text());
-        ttSettings->setValue(SETTINGS_SOUNDEVENT_DESKTOPACCESS, ui.desktopaccessEdit->text());
-        ttSettings->setValue(SETTINGS_SOUNDEVENT_USERLOGGEDIN, ui.userloggedinEdit->text());
-        ttSettings->setValue(SETTINGS_SOUNDEVENT_USERLOGGEDOUT, ui.userloggedoutEdit->text());
-        ttSettings->setValue(SETTINGS_SOUNDEVENT_VOICEACTON, ui.voiceactonEdit->text());
-        ttSettings->setValue(SETTINGS_SOUNDEVENT_VOICEACTOFF, ui.voiceactoffEdit->text());
-        ttSettings->setValue(SETTINGS_SOUNDEVENT_MUTEALLON, ui.muteallonEdit->text());
-        ttSettings->setValue(SETTINGS_SOUNDEVENT_MUTEALLOFF, ui.mutealloffEdit->text());
-        ttSettings->setValue(SETTINGS_SOUNDEVENT_TRANSMITQUEUE_HEAD, ui.transmitqueueheadEdit->text());
-        ttSettings->setValue(SETTINGS_SOUNDEVENT_TRANSMITQUEUE_STOP, ui.transmitqueuestopEdit->text());
-        ttSettings->setValue(SETTINGS_SOUNDEVENT_VOICEACTTRIG, ui.voiceacttrigEdit->text());
-        ttSettings->setValue(SETTINGS_SOUNDEVENT_VOICEACTSTOP, ui.voiceactstopEdit->text());
-        ttSettings->setValue(SETTINGS_SOUNDEVENT_VOICEACTMEON, ui.voiceactmeonEdit->text());
-        ttSettings->setValue(SETTINGS_SOUNDEVENT_VOICEACTMEOFF, ui.voiceactmeoffEdit->text());
+        ttSettings->setValue(SETTINGS_SOUNDEVENT_ACTIVEEVENTS, m_soundmodel->getSoundEvents());
+        ttSettings->setValue(SETTINGS_DISPLAY_SOUNDEVENTSHEADER, ui.soundEventsTableView->horizontalHeader()->saveState());
+        saveCurrentFile();
     }
     if(m_modtab.find(SHORTCUTS_TAB) != m_modtab.end())
     {
@@ -1145,13 +1093,11 @@ void PreferencesDlg::slotSaveChanges()
         ttSettings->setValue(SETTINGS_TTS_TIMESTAMP, ui.ttsNotifTimestampSpinBox->value());
 #elif defined(Q_OS_WIN)
         ttSettings->setValue(SETTINGS_TTS_SAPI, ui.ttsForceSapiChkBox->isChecked());
+        ttSettings->setValue(SETTINGS_TTS_TRY_SAPI, ui.ttsTrySapiChkBox->isChecked());
         ttSettings->setValue(SETTINGS_TTS_OUTPUT_MODE, getCurrentItemData(ui.ttsOutputModeComboBox, ""));
-#elif defined(Q_OS_DARWIN)
-#if QT_VERSION < QT_VERSION_CHECK(6,4,0)
-        ttSettings->setValue(SETTINGS_TTS_SPEAKLISTS, ui.ttsSpeakListsChkBox->isChecked());
 #endif
-#endif
-        ttSettings->setValue(SETTINGS_DISPLAY_TTSHEADER, ui.ttsTreeView->header()->saveState());
+        ttSettings->setValue(SETTINGS_DISPLAY_TTSHEADER, ui.ttsTableView->horizontalHeader()->saveState());
+        saveCurrentMessage();
     }
 }
 
@@ -1227,6 +1173,18 @@ void PreferencesDlg::slotUpdateUpdDlgChkBox()
         ui.updatesDlgChkBox->setEnabled(true);
     else
         ui.updatesDlgChkBox->setEnabled(false);
+}
+
+void PreferencesDlg::insertTSFVariable()
+{
+    QAction* action = qobject_cast<QAction*>(sender());
+    if (action)
+    {
+        QString variable = action->data().toString();
+        int cursorPos = ui.timestampformatEdit->cursorPosition();
+        ui.timestampformatEdit->insert(variable);
+        ui.timestampformatEdit->setCursorPosition(cursorPos + variable.length());
+    }
 }
 
 void PreferencesDlg::slotDesktopAccess()
@@ -1398,214 +1356,80 @@ void PreferencesDlg::slotSoundDefaults()
     ui.mediavsvoiceSlider->setValue(SETTINGS_SOUND_MEDIASTREAM_VOLUME_DEFAULT);
 }
 
-void PreferencesDlg::slotEventNewUser()
+void PreferencesDlg::slotBrowseSoundEvent()
 {
-    QString filename = ui.newuserEdit->text();
+    QString filename = ui.soundEventFileEdit->text();
     if (getSoundFile(filename))
-        ui.newuserEdit->setText(filename);
+        ui.soundEventFileEdit->setText(filename);
 }
 
-void PreferencesDlg::slotEventRemoveUser()
+void PreferencesDlg::slotSoundEventToggled(const QModelIndex &index)
 {
-    QString filename = ui.rmuserEdit->text();
-    if (getSoundFile(filename))
-        ui.rmuserEdit->setText(filename);
+    auto events = m_soundmodel->getSoundEvents();
+    SoundEvent e = SoundEvent(index.internalId());
+
+    if (e & events)
+    {
+        m_soundmodel->setSoundEvents(events & ~e);
+        ui.soundeventsfile_groupbox->hide();
+    }
+    else
+    {
+        m_soundmodel->setSoundEvents(events | e);
+        ui.soundeventsfile_groupbox->show();
+    }
 }
 
-void PreferencesDlg::slotEventServerLost()
+void PreferencesDlg::SoundEventSelected(const QModelIndex &index)
 {
-    QString filename = ui.srvlostEdit->text();
-    if(getSoundFile(filename))
-        ui.srvlostEdit->setText(filename);
+    saveCurrentFile();
+
+    m_currentSoundEventsIndex = index;
+    updateSoundEventFileEdit();
 }
 
-void PreferencesDlg::slotEventUserTextMsg()
+void PreferencesDlg::saveCurrentFile()
 {
-    QString filename = ui.usermsgEdit->text();
-    if(getSoundFile(filename))
-        ui.usermsgEdit->setText(filename);
+    if (!m_currentSoundEventsIndex.isValid()) return;
+
+    auto eventMap = UtilSound::eventToSettingMap();
+    SoundEvents eventId = static_cast<SoundEvents>(m_currentSoundEventsIndex.internalId());
+
+    const SoundEventInfo& eventInfo = eventMap[eventId];
+    QString paramKey = eventInfo.settingKey;
+    QString text = !ui.soundEventFileEdit->text().isEmpty()?ui.soundEventFileEdit->text():UtilSound::getDefaultFile(paramKey);
+    if (!text.isEmpty())
+    {
+        ttSettings->setValue(paramKey, text == UtilTTS::getDefaultValue(paramKey) ? "" : text);
+    }
 }
 
-void PreferencesDlg::slotEventSentTextMsg()
+void PreferencesDlg::soundEventsRestoreDefaultFile()
 {
-    QString filename = ui.sentmsgEdit->text();
-    if (getSoundFile(filename))
-        ui.sentmsgEdit->setText(filename);
+    if (!m_currentSoundEventsIndex.isValid()) return;
+
+    auto eventMap = UtilSound::eventToSettingMap();
+    SoundEvents eventId = static_cast<SoundEvents>(m_currentSoundEventsIndex.internalId());
+
+    const SoundEventInfo& eventInfo = eventMap[eventId];
+    QString defaultFile = UtilSound::getDefaultFile(eventInfo.settingKey);
+    ui.soundEventFileEdit->setText(defaultFile);
 }
 
-void PreferencesDlg::slotEventChannelTextMsg()
+void PreferencesDlg::slotSoundEventsEnableAll(bool /*checked*/)
 {
-    QString filename = ui.chanmsgEdit->text();
-    if(getSoundFile(filename))
-        ui.chanmsgEdit->setText(filename);
+    m_soundmodel->setSoundEvents(~SOUNDEVENT_NONE);
 }
 
-void PreferencesDlg::slotEventSentChannelMsg()
+void PreferencesDlg::slotSoundEventsClearAll(bool /*checked*/)
 {
-    QString filename = ui.sentchannelmsgEdit->text();
-    if (getSoundFile(filename))
-        ui.sentchannelmsgEdit->setText(filename);
+    m_soundmodel->setSoundEvents(SOUNDEVENT_NONE);
 }
 
-void PreferencesDlg::slotEventBroadcastTextMsg()
+void PreferencesDlg::slotSoundEventsRevert(bool /*checked*/)
 {
-    QString filename = ui.bcastmsgEdit->text();
-    if(getSoundFile(filename))
-        ui.bcastmsgEdit->setText(filename);
-}
-
-void PreferencesDlg::slotEventHotKey()
-{
-    QString filename = ui.hotkeyEdit->text();
-    if(getSoundFile(filename))
-        ui.hotkeyEdit->setText(filename);
-}
-
-void PreferencesDlg::slotEventSilence()
-{
-    QString filename = ui.chansilentEdit->text();
-    if(getSoundFile(filename))
-        ui.chansilentEdit->setText(filename);
-}
-
-void PreferencesDlg::slotEventNewVideo()
-{
-    QString filename = ui.videosessionEdit->text();
-    if(getSoundFile(filename))
-        ui.videosessionEdit->setText(filename);
-}
-
-void PreferencesDlg::slotEventNewDesktop()
-{
-    QString filename = ui.desktopsessionEdit->text();
-    if(getSoundFile(filename))
-        ui.desktopsessionEdit->setText(filename);
-}
-
-void PreferencesDlg::slotEventIntercept()
-{
-    QString filename = ui.interceptEdit->text();
-    if(getSoundFile(filename))
-        ui.interceptEdit->setText(filename);
-}
-
-void PreferencesDlg::slotEventInterceptEnd()
-{
-    QString filename = ui.interceptEndEdit->text();
-    if(getSoundFile(filename))
-        ui.interceptEndEdit->setText(filename);
-}
-
-void PreferencesDlg::slotEventFilesUpdated()
-{
-    QString filename = ui.fileupdEdit->text();
-    if(getSoundFile(filename))
-        ui.fileupdEdit->setText(filename);
-}
-
-void PreferencesDlg::slotEventFileTxDone()
-{
-    QString filename = ui.transferdoneEdit->text();
-    if(getSoundFile(filename))
-        ui.transferdoneEdit->setText(filename);
-}
-
-void PreferencesDlg::slotEventQuestionMode()
-{
-    QString filename = ui.questionmodeEdit->text();
-    if(getSoundFile(filename))
-        ui.questionmodeEdit->setText(filename);
-}
-
-void PreferencesDlg::slotEventDesktopAccess()
-{
-    QString filename = ui.desktopaccessEdit->text();
-    if(getSoundFile(filename))
-        ui.desktopaccessEdit->setText(filename);
-}
-
-void PreferencesDlg::slotEventUserLoggedIn()
-{
-    QString filename = ui.userloggedinEdit->text();
-    if(getSoundFile(filename))
-        ui.userloggedinEdit->setText(filename);
-}
-
-void PreferencesDlg::slotEventUserLoggedOut()
-{
-    QString filename = ui.userloggedoutEdit->text();
-    if(getSoundFile(filename))
-        ui.userloggedoutEdit->setText(filename);
-}
-
-void PreferencesDlg::slotEventVoiceActOn()
-{
-    QString filename = ui.voiceactonEdit->text();
-    if(getSoundFile(filename))
-        ui.voiceactonEdit->setText(filename);
-}
-
-void PreferencesDlg::slotEventVoiceActOff()
-{
-    QString filename = ui.voiceactoffEdit->text();
-    if(getSoundFile(filename))
-        ui.voiceactoffEdit->setText(filename);
-}
-
-void PreferencesDlg::slotEventMuteAllOn()
-{
-    QString filename = ui.muteallonEdit->text();
-    if(getSoundFile(filename))
-        ui.muteallonEdit->setText(filename);
-}
-
-void PreferencesDlg::slotEventMuteAllOff()
-{
-    QString filename = ui.mutealloffEdit->text();
-    if(getSoundFile(filename))
-        ui.mutealloffEdit->setText(filename);
-}
-
-void PreferencesDlg::slotEventTransmitQueueHead()
-{
-    QString filename = ui.transmitqueueheadEdit->text();
-    if(getSoundFile(filename))
-        ui.transmitqueueheadEdit->setText(filename);
-}
-
-void PreferencesDlg::slotEventTransmitQueueStop()
-{
-    QString filename = ui.transmitqueuestopEdit->text();
-    if(getSoundFile(filename))
-        ui.transmitqueuestopEdit->setText(filename);
-}
-
-void PreferencesDlg::slotEventVoiceActTrig()
-{
-    QString filename = ui.voiceacttrigEdit->text();
-    if(getSoundFile(filename))
-        ui.voiceacttrigEdit->setText(filename);
-}
-
-void PreferencesDlg::slotEventVoiceActStop()
-{
-    QString filename = ui.voiceactstopEdit->text();
-    if(getSoundFile(filename))
-        ui.voiceactstopEdit->setText(filename);
-}
-
-void PreferencesDlg::slotEventVoiceActMeOn()
-{
-    QString filename = ui.voiceactmeonEdit->text();
-    if(getSoundFile(filename))
-        ui.voiceactmeonEdit->setText(filename);
-}
-
-void PreferencesDlg::slotEventVoiceActMeOff()
-{
-    QString filename = ui.voiceactmeoffEdit->text();
-    if(getSoundFile(filename))
-        ui.voiceactmeoffEdit->setText(filename);
+    SoundEvents events = ttSettings->value(SETTINGS_SOUNDEVENT_ACTIVEEVENTS, SETTINGS_SOUNDEVENT_ACTIVEEVENTS_DEFAULT).toULongLong();
+    m_soundmodel->setSoundEvents(events);
 }
 
 void PreferencesDlg::slotUpdateTTSTab()
@@ -1625,7 +1449,7 @@ void PreferencesDlg::slotUpdateTTSTab()
     ui.ttsNotifTimestampSpinBox->hide();
 
     ui.ttsForceSapiChkBox->hide();
-    ui.ttsSpeakListsChkBox->hide();
+    ui.ttsTrySapiChkBox->hide();
     ui.label_ttsoutputmode->hide();
     ui.ttsOutputModeComboBox->hide();
 
@@ -1642,11 +1466,6 @@ void PreferencesDlg::slotUpdateTTSTab()
         ui.ttsVoiceRateSpinBox->show();
         ui.label_ttsvoicevolume->show();
         ui.ttsVoiceVolumeSpinBox->show();
-#if defined(Q_OS_DARWIN)
-#if QT_VERSION < QT_VERSION_CHECK(6,4,0)
-        ui.ttsSpeakListsChkBox->show();
-#endif
-#endif
         delete ttSpeech;
         ttSpeech = new QTextToSpeech(this);
 
@@ -1667,11 +1486,6 @@ void PreferencesDlg::slotUpdateTTSTab()
         ui.ttsVoiceComboBox->model()->sort(0);
         setCurrentItemData(ui.ttsVoiceComboBox, ttSettings->value(SETTINGS_TTS_VOICE));
 
-#if defined(Q_OS_DARWIN)
-#if QT_VERSION < QT_VERSION_CHECK(6,4,0)
-        ui.ttsSpeakListsChkBox->setChecked(ttSettings->value(SETTINGS_TTS_SPEAKLISTS, SETTINGS_TTS_SPEAKLISTS_DEFAULT).toBool());
-#endif
-#endif
 #endif /* QT_TEXTTOSPEECH_LIB */
     }
     break;
@@ -1691,6 +1505,7 @@ void PreferencesDlg::slotUpdateTTSTab()
         ui.label_ttsoutputmode->show();
         ui.ttsOutputModeComboBox->show();
         ui.ttsForceSapiChkBox->show();
+        ui.ttsTrySapiChkBox->show();
 
         bool tolkLoaded = Tolk_IsLoaded();
         if (!tolkLoaded)
@@ -1701,8 +1516,12 @@ void PreferencesDlg::slotUpdateTTSTab()
         if (!tolkLoaded)
             Tolk_Unload();
         if(currentSR.size())
+        {
             ui.ttsForceSapiChkBox->setText(tr("Use SAPI instead of %1 screenreader").arg(currentSR));
+            ui.ttsTrySapiChkBox->setText(tr("Switch to SAPI if %1 screenreader is not available").arg(currentSR));
+        }
         ui.ttsForceSapiChkBox->setChecked(ttSettings->value(SETTINGS_TTS_SAPI, SETTINGS_TTS_SAPI_DEFAULT).toBool());
+        ui.ttsTrySapiChkBox->setChecked(ttSettings->value(SETTINGS_TTS_TRY_SAPI, SETTINGS_TTS_TRY_SAPI_DEFAULT).toBool());
         ui.ttsOutputModeComboBox->clear();
         if (hasSpeech == true && hasBraille == true)
             ui.ttsOutputModeComboBox->addItem(tr("Speech and Braille"), TTS_OUTPUTMODE_SPEECHBRAILLE);
@@ -1950,10 +1769,101 @@ void PreferencesDlg::slotTTSEventToggled(const QModelIndex &index)
 {
     auto events = m_ttsmodel->getTTSEvents();
     TextToSpeechEvent e = TextToSpeechEvent(index.internalId());
+
     if (e & events)
+    {
         m_ttsmodel->setTTSEvents(events & ~e);
+        ui.ttsmsg_groupbox->hide();
+    }
     else
+    {
         m_ttsmodel->setTTSEvents(events | e);
+        ui.ttsmsg_groupbox->show();
+    }
+}
+
+void PreferencesDlg::TTSEventSelected(const QModelIndex &index)
+{
+    saveCurrentMessage();
+
+    m_currentTTSIndex = index;
+    if (!index.isValid()) return;
+
+    bool customizable = true;
+    auto eventMap = UtilTTS::eventToSettingMap();
+    TTSEvents eventId = static_cast<TTSEvents>(index.internalId());
+
+    if (eventMap.contains(eventId))
+    {
+        const TTSEventInfo& eventInfo = eventMap[eventId];
+        QString paramKey = eventInfo.settingKey;
+        QString defaultValue = UtilTTS::getDefaultValue(paramKey);
+        QString currentMessage = ttSettings->value(paramKey, defaultValue).toString();
+        ui.TTSMsgLabel->setText(eventInfo.eventName.size() > 0?tr("Message for Event \"%1\"").arg(eventInfo.eventName):tr("Message"));
+        ui.TTSMsgEdit->setText(currentMessage);
+
+        m_TTSVarMenu->clear();
+        for (auto it = eventInfo.variables.constBegin(); it != eventInfo.variables.constEnd(); ++it)
+        {
+            QAction* action = m_TTSVarMenu->addAction(it.value());
+            action->setData(it.key());
+            connect(action, &QAction::triggered, this, &PreferencesDlg::insertVariable);
+        }
+    }
+    else
+    {
+        customizable = false;
+    }
+    auto events = m_ttsmodel->getTTSEvents();
+    TextToSpeechEvent e = TextToSpeechEvent(index.internalId());
+    ui.ttsmsg_groupbox->setVisible(customizable&&(e & events));
+}
+
+void PreferencesDlg::insertVariable()
+{
+    QAction* action = qobject_cast<QAction*>(sender());
+    if (action)
+    {
+        QString variable = action->data().toString();
+        int cursorPos = ui.TTSMsgEdit->cursorPosition();
+        ui.TTSMsgEdit->insert(variable);
+        ui.TTSMsgEdit->setCursorPosition(cursorPos + variable.length());
+    }
+}
+
+void PreferencesDlg::saveCurrentMessage()
+{
+    if (!m_currentTTSIndex.isValid()) return;
+
+    auto eventMap = UtilTTS::eventToSettingMap();
+    TTSEvents eventId = static_cast<TTSEvents>(m_currentTTSIndex.internalId());
+
+    if (eventMap.contains(eventId))
+    {
+        const TTSEventInfo& eventInfo = eventMap[eventId];
+        QString paramKey = eventInfo.settingKey;
+        QString text = ui.TTSMsgEdit->text();
+
+        if (!text.isEmpty() && text != ttSettings->value(paramKey))
+        {
+            ttSettings->setValue(paramKey, text);
+        }
+    }
+}
+
+void PreferencesDlg::TTSRestoreDefaultMessage()
+{
+    if (!m_currentTTSIndex.isValid()) return;
+
+    auto eventMap = UtilTTS::eventToSettingMap();
+    TTSEvents eventId = static_cast<TTSEvents>(m_currentTTSIndex.internalId());
+
+    if (eventMap.contains(eventId))
+    {
+        const TTSEventInfo& eventInfo = eventMap[eventId];
+        QString defaultValue = UtilTTS::getDefaultValue(eventInfo.settingKey);
+        ui.TTSMsgEdit->setText(defaultValue);
+    }
 }
 
 void PreferencesDlg::slotTTSEnableAll(bool /*checked*/)
@@ -1979,100 +1889,53 @@ void PreferencesDlg::slotUpdateASBAccessibleName()
 
 void PreferencesDlg::slotSPackChange()
 {
-    ui.newuserEdit->setText(ttSettings->value(SETTINGS_SOUNDEVENT_NEWUSER_DEFAULT, SETTINGS_SOUNDEVENT_NEWUSER_DEFAULT).toString());
-    ui.rmuserEdit->setText(ttSettings->value(SETTINGS_SOUNDEVENT_REMOVEUSER_DEFAULT, SETTINGS_SOUNDEVENT_REMOVEUSER_DEFAULT).toString());
-    ui.srvlostEdit->setText(ttSettings->value(SETTINGS_SOUNDEVENT_SERVERLOST_DEFAULT, SETTINGS_SOUNDEVENT_SERVERLOST_DEFAULT).toString());
-    ui.usermsgEdit->setText(ttSettings->value(SETTINGS_SOUNDEVENT_USERMSG_DEFAULT, SETTINGS_SOUNDEVENT_USERMSG_DEFAULT).toString());
-    ui.sentmsgEdit->setText(ttSettings->value(SETTINGS_SOUNDEVENT_USERMSGSENT_DEFAULT, SETTINGS_SOUNDEVENT_USERMSGSENT_DEFAULT).toString());
-    ui.chanmsgEdit->setText(ttSettings->value(SETTINGS_SOUNDEVENT_CHANNELMSG_DEFAULT, SETTINGS_SOUNDEVENT_CHANNELMSG_DEFAULT).toString());
-    ui.sentchannelmsgEdit->setText(ttSettings->value(SETTINGS_SOUNDEVENT_CHANNELMSGSENT_DEFAULT, SETTINGS_SOUNDEVENT_CHANNELMSGSENT_DEFAULT).toString());
-    ui.bcastmsgEdit->setText(ttSettings->value(SETTINGS_SOUNDEVENT_BROADCASTMSG_DEFAULT, SETTINGS_SOUNDEVENT_BROADCASTMSG_DEFAULT).toString());
-    ui.hotkeyEdit->setText(ttSettings->value(SETTINGS_SOUNDEVENT_HOTKEY_DEFAULT, SETTINGS_SOUNDEVENT_HOTKEY_DEFAULT).toString());
-    ui.videosessionEdit->setText(ttSettings->value(SETTINGS_SOUNDEVENT_NEWVIDEO_DEFAULT, SETTINGS_SOUNDEVENT_NEWVIDEO_DEFAULT).toString());
-    ui.desktopsessionEdit->setText(ttSettings->value(SETTINGS_SOUNDEVENT_NEWDESKTOP_DEFAULT, SETTINGS_SOUNDEVENT_NEWDESKTOP_DEFAULT).toString());
-    ui.interceptEdit->setText(ttSettings->value(SETTINGS_SOUNDEVENT_INTERCEPT_DEFAULT, SETTINGS_SOUNDEVENT_INTERCEPT_DEFAULT).toString());
-    ui.interceptEndEdit->setText(ttSettings->value(SETTINGS_SOUNDEVENT_INTERCEPTEND_DEFAULT, SETTINGS_SOUNDEVENT_INTERCEPTEND_DEFAULT).toString());
-    ui.fileupdEdit->setText(ttSettings->value(SETTINGS_SOUNDEVENT_FILESUPD_DEFAULT, SETTINGS_SOUNDEVENT_FILESUPD_DEFAULT).toString());
-    ui.transferdoneEdit->setText(ttSettings->value(SETTINGS_SOUNDEVENT_FILETXDONE_DEFAULT, SETTINGS_SOUNDEVENT_FILETXDONE_DEFAULT).toString());
-    ui.questionmodeEdit->setText(ttSettings->value(SETTINGS_SOUNDEVENT_QUESTIONMODE_DEFAULT, SETTINGS_SOUNDEVENT_QUESTIONMODE_DEFAULT).toString());
-    ui.desktopaccessEdit->setText(ttSettings->value(SETTINGS_SOUNDEVENT_DESKTOPACCESS_DEFAULT, SETTINGS_SOUNDEVENT_DESKTOPACCESS_DEFAULT).toString());
-    ui.userloggedinEdit->setText(ttSettings->value(SETTINGS_SOUNDEVENT_USERLOGGEDIN_DEFAULT, SETTINGS_SOUNDEVENT_USERLOGGEDIN_DEFAULT).toString());
-    ui.userloggedoutEdit->setText(ttSettings->value(SETTINGS_SOUNDEVENT_USERLOGGEDOUT_DEFAULT, SETTINGS_SOUNDEVENT_USERLOGGEDOUT_DEFAULT).toString());
-    ui.voiceactonEdit->setText(ttSettings->value(SETTINGS_SOUNDEVENT_VOICEACTON_DEFAULT, SETTINGS_SOUNDEVENT_VOICEACTON_DEFAULT).toString());
-    ui.voiceactoffEdit->setText(ttSettings->value(SETTINGS_SOUNDEVENT_VOICEACTOFF_DEFAULT, SETTINGS_SOUNDEVENT_VOICEACTOFF_DEFAULT).toString());
-    ui.muteallonEdit->setText(ttSettings->value(SETTINGS_SOUNDEVENT_MUTEALLON_DEFAULT, SETTINGS_SOUNDEVENT_MUTEALLON_DEFAULT).toString());
-    ui.mutealloffEdit->setText(ttSettings->value(SETTINGS_SOUNDEVENT_MUTEALLOFF_DEFAULT, SETTINGS_SOUNDEVENT_MUTEALLOFF_DEFAULT).toString());
-    ui.transmitqueueheadEdit->setText(ttSettings->value(SETTINGS_SOUNDEVENT_TRANSMITQUEUE_HEAD_DEFAULT, SETTINGS_SOUNDEVENT_TRANSMITQUEUE_HEAD_DEFAULT).toString());
-    ui.transmitqueuestopEdit->setText(ttSettings->value(SETTINGS_SOUNDEVENT_TRANSMITQUEUE_STOP_DEFAULT, SETTINGS_SOUNDEVENT_TRANSMITQUEUE_STOP_DEFAULT).toString());
-    ui.voiceacttrigEdit->setText(ttSettings->value(SETTINGS_SOUNDEVENT_VOICEACTTRIG_DEFAULT, SETTINGS_SOUNDEVENT_VOICEACTTRIG_DEFAULT).toString());
-    ui.voiceactstopEdit->setText(ttSettings->value(SETTINGS_SOUNDEVENT_VOICEACTSTOP_DEFAULT, SETTINGS_SOUNDEVENT_VOICEACTSTOP_DEFAULT).toString());
-    ui.voiceactmeonEdit->setText(ttSettings->value(SETTINGS_SOUNDEVENT_VOICEACTMEON_DEFAULT, SETTINGS_SOUNDEVENT_VOICEACTMEON_DEFAULT).toString());
-    ui.voiceactmeoffEdit->setText(ttSettings->value(SETTINGS_SOUNDEVENT_VOICEACTMEOFF_DEFAULT, SETTINGS_SOUNDEVENT_VOICEACTMEOFF_DEFAULT).toString());
-    QString dirtoscan = QString("%1/%2").arg(SOUNDSPATH).arg(ui.spackBox->currentText());
-    QDir soundsdir( dirtoscan, "*.wav", QDir::Name, QDir::Files|QDir::NoSymLinks);
-    QStringList packfile = soundsdir.entryList();
-    for(int i=0;i<packfile.size();i++)
+    if (ui.spackBox->currentText() != ttSettings->value(SETTINGS_SOUNDS_PACK, QCoreApplication::translate("MainWindow", SETTINGS_SOUNDS_PACK_DEFAULT)).toString())
     {
-        QString filename = packfile[i].left(packfile[i].size()-4);
-        if(filename == "newuser")
-           ui.newuserEdit->setText(QString("%1/%2/%3.wav").arg(SOUNDSPATH).arg(ui.spackBox->currentText()).arg(filename));
-        if(filename == "removeuser")
-           ui.rmuserEdit->setText(QString("%1/%2/%3.wav").arg(SOUNDSPATH).arg(ui.spackBox->currentText()).arg(filename));
-        if(filename == "serverlost")
-           ui.srvlostEdit->setText(QString("%1/%2/%3.wav").arg(SOUNDSPATH).arg(ui.spackBox->currentText()).arg(filename));
-        if(filename == "user_msg")
-           ui.usermsgEdit->setText(QString("%1/%2/%3.wav").arg(SOUNDSPATH).arg(ui.spackBox->currentText()).arg(filename));
-        if(filename == "user_msg_sent")
-           ui.sentmsgEdit->setText(QString("%1/%2/%3.wav").arg(SOUNDSPATH).arg(ui.spackBox->currentText()).arg(filename));
-        if(filename == "channel_msg")
-           ui.chanmsgEdit->setText(QString("%1/%2/%3.wav").arg(SOUNDSPATH).arg(ui.spackBox->currentText()).arg(filename));
-        if(filename == "channel_msg_sent")
-           ui.sentchannelmsgEdit->setText(QString("%1/%2/%3.wav").arg(SOUNDSPATH).arg(ui.spackBox->currentText()).arg(filename));
-        if(filename == "broadcast_msg")
-           ui.bcastmsgEdit->setText(QString("%1/%2/%3.wav").arg(SOUNDSPATH).arg(ui.spackBox->currentText()).arg(filename));
-        if(filename == "hotkey")
-           ui.hotkeyEdit->setText(QString("%1/%2/%3.wav").arg(SOUNDSPATH).arg(ui.spackBox->currentText()).arg(filename));
-        if(filename == "videosession")
-           ui.videosessionEdit->setText(QString("%1/%2/%3.wav").arg(SOUNDSPATH).arg(ui.spackBox->currentText()).arg(filename));
-        if(filename == "desktopsession")
-           ui.desktopsessionEdit->setText(QString("%1/%2/%3.wav").arg(SOUNDSPATH).arg(ui.spackBox->currentText()).arg(filename));
-        if(filename == "intercept")
-           ui.interceptEdit->setText(QString("%1/%2/%3.wav").arg(SOUNDSPATH).arg(ui.spackBox->currentText()).arg(filename));
-        if(filename == "interceptEnd")
-           ui.interceptEndEdit->setText(QString("%1/%2/%3.wav").arg(SOUNDSPATH).arg(ui.spackBox->currentText()).arg(filename));
-        if(filename == "fileupdate")
-           ui.fileupdEdit->setText(QString("%1/%2/%3.wav").arg(SOUNDSPATH).arg(ui.spackBox->currentText()).arg(filename));
-        if(filename == "filetx_complete")
-           ui.transferdoneEdit->setText(QString("%1/%2/%3.wav").arg(SOUNDSPATH).arg(ui.spackBox->currentText()).arg(filename));
-        if(filename == "questionmode")
-           ui.questionmodeEdit->setText(QString("%1/%2/%3.wav").arg(SOUNDSPATH).arg(ui.spackBox->currentText()).arg(filename));
-        if(filename == "desktopaccessreq")
-           ui.desktopaccessEdit->setText(QString("%1/%2/%3.wav").arg(SOUNDSPATH).arg(ui.spackBox->currentText()).arg(filename));
-        if(filename == "logged_on")
-           ui.userloggedinEdit->setText(QString("%1/%2/%3.wav").arg(SOUNDSPATH).arg(ui.spackBox->currentText()).arg(filename));
-        if(filename == "logged_off")
-           ui.userloggedoutEdit->setText(QString("%1/%2/%3.wav").arg(SOUNDSPATH).arg(ui.spackBox->currentText()).arg(filename));
-        if(filename == "vox_enable")
-           ui.voiceactonEdit->setText(QString("%1/%2/%3.wav").arg(SOUNDSPATH).arg(ui.spackBox->currentText()).arg(filename));
-        if(filename == "vox_disable")
-           ui.voiceactoffEdit->setText(QString("%1/%2/%3.wav").arg(SOUNDSPATH).arg(ui.spackBox->currentText()).arg(filename));
-        if(filename == "mute_all")
-           ui.muteallonEdit->setText(QString("%1/%2/%3.wav").arg(SOUNDSPATH).arg(ui.spackBox->currentText()).arg(filename));
-        if(filename == "unmute_all")
-           ui.mutealloffEdit->setText(QString("%1/%2/%3.wav").arg(SOUNDSPATH).arg(ui.spackBox->currentText()).arg(filename));
-        if(filename == "txqueue_start")
-           ui.transmitqueueheadEdit->setText(QString("%1/%2/%3.wav").arg(SOUNDSPATH).arg(ui.spackBox->currentText()).arg(filename));
-        if(filename == "txqueue_stop")
-           ui.transmitqueuestopEdit->setText(QString("%1/%2/%3.wav").arg(SOUNDSPATH).arg(ui.spackBox->currentText()).arg(filename));
-        if(filename == "voiceact_on")
-           ui.voiceacttrigEdit->setText(QString("%1/%2/%3.wav").arg(SOUNDSPATH).arg(ui.spackBox->currentText()).arg(filename));
-        if(filename == "voiceact_off")
-           ui.voiceactstopEdit->setText(QString("%1/%2/%3.wav").arg(SOUNDSPATH).arg(ui.spackBox->currentText()).arg(filename));
-        if(filename == "vox_me_enable")
-           ui.voiceactmeonEdit->setText(QString("%1/%2/%3.wav").arg(SOUNDSPATH).arg(ui.spackBox->currentText()).arg(filename));
-        if(filename == "vox_me_disable")
-           ui.voiceactmeoffEdit->setText(QString("%1/%2/%3.wav").arg(SOUNDSPATH).arg(ui.spackBox->currentText()).arg(filename));
+        resetDefaultSoundsPack();
+
+        QString dirtoscan = QString("%1/%2").arg(SOUNDSPATH).arg(ui.spackBox->currentText());
+        QDir soundsdir(dirtoscan, "*.wav", QDir::Name, QDir::Files | QDir::NoSymLinks);
+        QStringList packfile = soundsdir.entryList();
+
+        auto eventMap = UtilSound::eventToSettingMap();
+
+        for (const auto& filename : packfile)
+        {
+            QString soundEventName = filename.left(filename.size() - 4);
+            for (auto it = eventMap.constBegin(); it != eventMap.constEnd(); ++it)
+            {
+                const SoundEventInfo& eventInfo = it.value();
+                if (soundEventName == eventInfo.defaultFileName)
+                {
+                    QString paramKey = eventInfo.settingKey;
+                    QString soundPath = QString("%1/%2/%3.wav").arg(SOUNDSPATH).arg(ui.spackBox->currentText()).arg(soundEventName);
+                    ttSettings->setValue(paramKey, soundPath);
+                    break;
+                }
+            }
+        }
+        ttSettings->setValue(SETTINGS_SOUNDS_PACK, ui.spackBox->currentText());
     }
+    updateSoundEventFileEdit();
+}
+
+void PreferencesDlg::updateSoundEventFileEdit()
+{
+    if (!m_currentSoundEventsIndex.isValid())
+        return;
+
+    auto eventMap = UtilSound::eventToSettingMap();
+    SoundEvents eventId = static_cast<SoundEvents>(m_currentSoundEventsIndex.internalId());
+
+    const SoundEventInfo& eventInfo = eventMap[eventId];
+    QString paramKey = eventInfo.settingKey;
+    QString defaultValue = UtilSound::getDefaultFile(paramKey);
+    QString currentFile = ttSettings->value(paramKey, defaultValue).toString();
+    ui.soundEventFileEdit->setText(currentFile);
+
+    auto events = m_soundmodel->getSoundEvents();
+    SoundEvent e = SoundEvent(m_currentSoundEventsIndex.internalId());
+    ui.soundeventsfile_groupbox->setVisible(e & events);
 }
 
 void PreferencesDlg::slotConfigureStatusBar()

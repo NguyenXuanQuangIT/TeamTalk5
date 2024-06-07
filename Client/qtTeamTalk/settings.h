@@ -1,24 +1,18 @@
 /*
- * Copyright (c) 2005-2018, BearWare.dk
- * 
- * Contact Information:
+ * Copyright (C) 2023, Bjørn D. Rasmussen, BearWare.dk
  *
- * Bjoern D. Rasmussen
- * Kirketoften 5
- * DK-8260 Viby J
- * Denmark
- * Email: contact@bearware.dk
- * Phone: +45 20 20 54 59
- * Web: http://www.bearware.dk
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
  *
- * This source code is part of the TeamTalk SDK owned by
- * BearWare.dk. Use of this file, or its compiled unit, requires a
- * TeamTalk SDK License Key issued by BearWare.dk.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
- * The TeamTalk SDK License Agreement along with its Terms and
- * Conditions are outlined in the file License.txt included with the
- * TeamTalk SDK distribution.
- *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 #ifndef SETTINGS_H
@@ -34,11 +28,13 @@
 #elif defined(Q_OS_DARWIN)
 #define SOUNDSPATH                                     "/Applications/TeamTalk5.app/Contents/Resources/Sounds"
 #endif
-#define SETTINGS_VERSION                            "5.3"
+#define SETTINGS_VERSION                            "5.4"
 #define SETTINGS_GENERAL_VERSION                    "version"
 #define SETTINGS_GENERAL_VERSION_DEFAULT            SETTINGS_VERSION
+#if defined(ENABLE_TOLK) || defined(Q_OS_LINUX)
 #define SETTINGS_GENERAL_FIRSTSTART                 "general_/first-start"
 #define SETTINGS_GENERAL_FIRSTSTART_DEFAULT         true
+#endif
 
 #define SETTINGS_GENERAL_NICKNAME                   "general_/nickname"
 #define SETTINGS_GENERAL_NICKNAME_DEFAULT           ""
@@ -91,9 +87,12 @@
 #define SETTINGS_DISPLAY_LASTTALK_DEFAULT           true
 #define SETTINGS_DISPLAY_EMOJI                     "display/show-emoji"
 #define SETTINGS_DISPLAY_EMOJI_DEFAULT              true
+#define SETTINGS_DISPLAY_ANIM                     "display/show-animations"
+#define SETTINGS_DISPLAY_ANIM_DEFAULT              true
 #define SETTINGS_DISPLAY_SERVNAME                     "display/show-servname"
 #define SETTINGS_DISPLAY_SERVNAME_DEFAULT              true
 #define SETTINGS_DISPLAY_MSGTIMESTAMP               "display/msgtimestamp"
+#define SETTINGS_DISPLAY_TIMESTAMP_FORMAT               "display/timestamp-format"
 #define SETTINGS_DISPLAY_STARTMINIMIZED             "display/startminimized"
 #define SETTINGS_DISPLAY_MAINWINDOWPOS              "display/windowposition"
 #define SETTINGS_DISPLAY_TEXTMSGWINDOWPOS           "display/textmsg-windowposition"
@@ -103,6 +102,7 @@
 #define SETTINGS_DISPLAY_USERACCOUNTSWINDOWPOS      "display/useraccount-windowposition"
 #define SETTINGS_DISPLAY_CHANNELWINDOWPOS           "display/channel-windowposition"
 #define SETTINGS_DISPLAY_BANNEDUSERSWINDOWPOS       "display/bannedusers-windowposition"
+#define SETTINGS_DISPLAY_BANNEDUSERS_HEADERSIZES    "display/bannedusers-headersize"
 #define SETTINGS_DISPLAY_MEDIASTORAGEWINDOWPOS      "display/mediastorage-windowposition"
 #define SETTINGS_DISPLAY_PREFERENCESWINDOWPOS       "display/preferences-windowposition"
 #define SETTINGS_DISPLAY_SERVERPROPERTIESWINDOWPOS  "display/serverproperties-windowposition"
@@ -110,6 +110,7 @@
 #define SETTINGS_DISPLAY_VIDEOSPLITTER              "display/video-splitter"
 #define SETTINGS_DISPLAY_DESKTOPSPLITTER            "display/desktop-splitter"
 #define SETTINGS_DISPLAY_FILESHEADER                "display/filesheader2"
+#define SETTINGS_DISPLAY_SOUNDEVENTSHEADER                 "display/soundeventsheader"
 #define SETTINGS_DISPLAY_TTSHEADER                  "display/ttsheader"
 #define SETTINGS_DISPLAY_LOGSTATUSBAR               "display/log-statusbar"
 #define SETTINGS_DISPLAY_LOGSTATUSBAR_DEFAULT       true
@@ -134,7 +135,36 @@
 #define SETTINGS_DISPLAY_STATUSBAR_EVENTS_HEADER    "display/status-bar-events-header"
 #define SETTINGS_DISPLAY_STATUSBARDLG_SIZE          "display/status-bar-dialog-size"
 #define SETTINGS_STATUSBAR_ACTIVEEVENTS                   "display/status-bar-active-events"
-#define SETTINGS_STATUSBAR_ACTIVEEVENTS_DEFAULT           StatusBarEvents(STATUSBAR_USER_LOGGEDIN | STATUSBAR_USER_LOGGEDOUT | STATUSBAR_USER_JOINED | STATUSBAR_USER_LEFT | STATUSBAR_USER_JOINED_SAME | STATUSBAR_USER_LEFT_SAME | STATUSBAR_SUBSCRIPTIONS_TEXTMSG_PRIVATE | STATUSBAR_SUBSCRIPTIONS_TEXTMSG_CHANNEL | STATUSBAR_SUBSCRIPTIONS_TEXTMSG_BROADCAST | STATUSBAR_SUBSCRIPTIONS_VOICE | STATUSBAR_SUBSCRIPTIONS_VIDEO | STATUSBAR_SUBSCRIPTIONS_DESKTOP | STATUSBAR_SUBSCRIPTIONS_DESKTOPINPUT | STATUSBAR_SUBSCRIPTIONS_MEDIAFILE | STATUSBAR_SUBSCRIPTIONS_INTERCEPT_TEXTMSG_PRIVATE | STATUSBAR_SUBSCRIPTIONS_INTERCEPT_TEXTMSG_CHANNEL | STATUSBAR_SUBSCRIPTIONS_INTERCEPT_VOICE | STATUSBAR_SUBSCRIPTIONS_INTERCEPT_VIDEO | STATUSBAR_SUBSCRIPTIONS_INTERCEPT_DESKTOP | STATUSBAR_SUBSCRIPTIONS_INTERCEPT_MEDIAFILE | STATUSBAR_CLASSROOM_CHANMSG_TX | STATUSBAR_CLASSROOM_VOICE_TX | STATUSBAR_CLASSROOM_VIDEO_TX | STATUSBAR_CLASSROOM_DESKTOP_TX | STATUSBAR_CLASSROOM_MEDIAFILE_TX | STATUSBAR_FILE_ADD | STATUSBAR_FILE_REMOVE | STATUSBAR_SAVE_SERVER_CONFIG | STATUSBAR_START_RECORD | STATUSBAR_TRANSMISSION_BLOCKED)
+#define SETTINGS_STATUSBAR_ACTIVEEVENTS_DEFAULT         StatusBarEvents(STATUSBAR_USER_LOGGEDIN | \
+                                                        STATUSBAR_USER_LOGGEDOUT | \
+                                                        STATUSBAR_USER_JOINED | \
+                                                        STATUSBAR_USER_LEFT | \
+                                                        STATUSBAR_USER_JOINED_SAME | \
+                                                        STATUSBAR_USER_LEFT_SAME | \
+                                                        STATUSBAR_SUBSCRIPTIONS_TEXTMSG_PRIVATE | \
+                                                        STATUSBAR_SUBSCRIPTIONS_TEXTMSG_CHANNEL | \
+                                                        STATUSBAR_SUBSCRIPTIONS_TEXTMSG_BROADCAST | \
+                                                        STATUSBAR_SUBSCRIPTIONS_VOICE | \
+                                                        STATUSBAR_SUBSCRIPTIONS_VIDEO | \
+                                                        STATUSBAR_SUBSCRIPTIONS_DESKTOP | \
+                                                        STATUSBAR_SUBSCRIPTIONS_DESKTOPINPUT | \
+                                                        STATUSBAR_SUBSCRIPTIONS_MEDIAFILE | \
+                                                        STATUSBAR_SUBSCRIPTIONS_INTERCEPT_TEXTMSG_PRIVATE | \
+                                                        STATUSBAR_SUBSCRIPTIONS_INTERCEPT_TEXTMSG_CHANNEL | \
+                                                        STATUSBAR_SUBSCRIPTIONS_INTERCEPT_VOICE | \
+                                                        STATUSBAR_SUBSCRIPTIONS_INTERCEPT_VIDEO | \
+                                                        STATUSBAR_SUBSCRIPTIONS_INTERCEPT_DESKTOP | \
+                                                        STATUSBAR_SUBSCRIPTIONS_INTERCEPT_MEDIAFILE | \
+                                                        STATUSBAR_CLASSROOM_CHANMSG_TX | \
+                                                        STATUSBAR_CLASSROOM_VOICE_TX | \
+                                                        STATUSBAR_CLASSROOM_VIDEO_TX | \
+                                                        STATUSBAR_CLASSROOM_DESKTOP_TX | \
+                                                        STATUSBAR_CLASSROOM_MEDIAFILE_TX | \
+                                                        STATUSBAR_FILE_ADD | \
+                                                        STATUSBAR_FILE_REMOVE | \
+                                                        STATUSBAR_SAVE_SERVER_CONFIG | \
+                                                        STATUSBAR_START_RECORD | \
+                                                        STATUSBAR_TRANSMISSION_BLOCKED)
 #define SETTINGS_DISPLAY_SERVERLOG_EVENTS_HEADER    "display/serverlog-events-header"
 #define SETTINGS_DISPLAY_CHANEXP                 "display/expand-channels"
 #define SETTINGS_DISPLAY_CHANEXP_DEFAULT         false
@@ -144,6 +174,10 @@
 #define SETTINGS_DISPLAY_CLOSE_FILEDIALOG_DEFAULT             false
 #define SETTINGS_DISPLAY_CHANEXCLUDE_DLG             "display/dlg-alert-exclude"
 #define SETTINGS_DISPLAY_CHANEXCLUDE_DLG_DEFAULT             false
+#define SETTINGS_DISPLAY_MOTD_DLG             "display/MOTD-dlg"
+#define SETTINGS_DISPLAY_MOTD_DLG_DEFAULT             false
+#define SETTINGS_DISPLAY_CHANNEL_TOPIC             "display/channel-topic"
+#define SETTINGS_DISPLAY_CHANNEL_TOPIC_DEFAULT             false
 #define SETTINGS_DISPLAY_START_SERVERLIST             "display/serverlist-on-start"
 #define SETTINGS_DISPLAY_START_SERVERLIST_DEFAULT             false
 #define SETTINGS_DISPLAY_CHANNELSORT                 "display/sort-channels"
@@ -153,14 +187,19 @@
 #define SETTINGS_DISPLAY_SERVERLISTDLG_SIZE         "display/serverlist-dialog-size"
 #define SETTINGS_DISPLAY_USERACCOUNTS_HEADERSIZES     "display/useraccounts-header"
 #define SETTINGS_DISPLAY_USERACCOUNTSDLG_SIZE         "display/useraccounts-dialog-size"
+#define SETTINGS_DISPLAY_USERACCOUNTDLG_USERRIGHTS_HEADERSIZES         "display/useraccount-userrights-header-sizes"
 #define SETTINGS_DISPLAY_SERVERLIST_SORT                            "display/server-list-sort"
 #define SETTINGS_DISPLAY_SERVERLIST_SORT_DEFAULT                            "default"
 #define SETTINGS_DISPLAY_USERACCOUNT_SORT                            "display/user-account-sort"
 #define SETTINGS_DISPLAY_USERACCOUNT_SORT_DEFAULT                            "username"
+#define SETTINGS_DISPLAY_BANLIST_SORT                            "display/ban-list-sort"
+#define SETTINGS_DISPLAY_BANLIST_SORT_DEFAULT                            "bantime"
 #define SETTINGS_DISPLAY_ONLINEUSERS_SORT                            "display/online-users-sort"
 #define SETTINGS_DISPLAY_ONLINEUSERS_SORT_DEFAULT                            "nickname"
 #define SETTINGS_DISPLAY_FILESLIST_SORT                            "display/files-list-sort"
 #define SETTINGS_DISPLAY_FILESLIST_SORT_DEFAULT                            "name"
+#define SETTINGS_DISPLAY_SERVERWINDOWPOS     "display/server-dialog-pos"
+#define SETTINGS_DISPLAY_USERWINDOWPOS     "display/user-dialog-pos"
 
 #define SETTINGS_CONNECTION_AUTOCONNECT             "connection/autoconnect"
 #define SETTINGS_CONNECTION_AUTOCONNECT_DEFAULT     false
@@ -276,6 +315,8 @@
 #define SETTINGS_SOUNDEVENT_INTERCEPT_DEFAULT           (SOUNDSPATH"/intercept.wav")
 #define SETTINGS_SOUNDEVENT_INTERCEPTEND           "soundevents/intercept-stopped"
 #define SETTINGS_SOUNDEVENT_INTERCEPTEND_DEFAULT           (SOUNDSPATH"/interceptEnd.wav")
+#define SETTINGS_SOUNDEVENT_TYPING           "soundevents/user-typing"
+#define SETTINGS_SOUNDEVENT_TYPING_DEFAULT           (SOUNDSPATH"/typing.wav")
 #define SETTINGS_SOUNDS_PACK           "soundevents/sounds-pack"
 #define SETTINGS_SOUNDS_PACK_DEFAULT           QT_TRANSLATE_NOOP("MainWindow", "Default")
 #define SETTINGS_SOUNDEVENT_ENABLE                   "soundevents/sounds-enable"
@@ -284,6 +325,37 @@
 #define SETTINGS_SOUNDEVENT_VOLUME_DEFAULT                 100
 #define SETTINGS_SOUNDEVENT_PLAYBACKMODE            "soundevents/playback-mode"
 #define SETTINGS_SOUNDEVENT_PLAYBACKMODE_DEFAULT    PLAYBACKMODE_DEFAULT
+#define SETTINGS_SOUNDEVENT_ACTIVEEVENTS                   "soundevents/active-events"
+#define SETTINGS_SOUNDEVENT_ACTIVEEVENTS_DEFAULT    SoundEvents(SOUNDEVENT_NEWUSER | \
+                                                    SOUNDEVENT_REMOVEUSER | \
+                                                    SOUNDEVENT_SERVERLOST | \
+                                                    SOUNDEVENT_USERMSG | \
+                                                    SOUNDEVENT_USERMSGSENT | \
+                                                    SOUNDEVENT_CHANNELMSG | \
+                                                    SOUNDEVENT_CHANNELMSGSENT | \
+                                                    SOUNDEVENT_BROADCASTMSG | \
+                                                    SOUNDEVENT_HOTKEY | \
+                                                    SOUNDEVENT_NEWVIDEO | \
+                                                    SOUNDEVENT_NEWDESKTOP | \
+                                                    SOUNDEVENT_FILESUPD | \
+                                                    SOUNDEVENT_FILETXDONE | \
+                                                    SOUNDEVENT_QUESTIONMODE | \
+                                                    SOUNDEVENT_DESKTOPACCESS | \
+                                                    SOUNDEVENT_USERLOGGEDIN | \
+                                                    SOUNDEVENT_USERLOGGEDOUT | \
+                                                    SOUNDEVENT_VOICEACTON | \
+                                                    SOUNDEVENT_VOICEACTOFF | \
+                                                    SOUNDEVENT_MUTEALLON | \
+                                                    SOUNDEVENT_MUTEALLOFF | \
+                                                    SOUNDEVENT_TRANSMITQUEUE_HEAD | \
+                                                    SOUNDEVENT_TRANSMITQUEUE_STOP | \
+                                                    SOUNDEVENT_VOICEACTTRIG | \
+                                                    SOUNDEVENT_VOICEACTSTOP | \
+                                                    SOUNDEVENT_VOICEACTMEON | \
+                                                    SOUNDEVENT_VOICEACTMEOFF | \
+                                                    SOUNDEVENT_INTERCEPT | \
+                                                    SOUNDEVENT_INTERCEPTEND | \
+                                                    SOUNDEVENT_TYPING)
 
 #define SETTINGS_SHORTCUTS_VOICEACTIVATION          "shortcuts/voiceactivation"
 #define SETTINGS_SHORTCUTS_INCVOLUME                "shortcuts/volume-inc"
@@ -312,7 +384,16 @@
 #define SETTINGS_TTS_ENABLE                   "texttospeech/tts-enable"
 #define SETTINGS_TTS_ENABLE_DEFAULT           true
 #define SETTINGS_TTS_ACTIVEEVENTS                   "texttospeech/active-events"
-#define SETTINGS_TTS_ACTIVEEVENTS_DEFAULT           TTSEvents(TTS_USER_LOGGEDIN | TTS_USER_LOGGEDOUT | TTS_USER_JOINED_SAME | TTS_USER_LEFT_SAME | TTS_USER_TEXTMSG_PRIVATE | TTS_USER_TEXTMSG_CHANNEL | TTS_USER_TEXTMSG_BROADCAST | TTS_FILE_ADD | TTS_FILE_REMOVE | TTS_MENU_ACTIONS)
+#define SETTINGS_TTS_ACTIVEEVENTS_DEFAULT           TTSEvents(TTS_USER_LOGGEDIN | \
+                                                    TTS_USER_LOGGEDOUT | \
+                                                    TTS_USER_JOINED_SAME | \
+                                                    TTS_USER_LEFT_SAME | \
+                                                    TTS_USER_TEXTMSG_PRIVATE | \
+                                                    TTS_USER_TEXTMSG_CHANNEL | \
+                                                    TTS_USER_TEXTMSG_BROADCAST | \
+                                                    TTS_FILE_ADD | \
+                                                    TTS_FILE_REMOVE | \
+                                                    TTS_MENU_ACTIONS)
 #define SETTINGS_TTS_ENGINE                         "texttospeech/tts-engine"
 #define SETTINGS_TTS_ENGINE_DEFAULT                 TTSENGINE_NONE
 #define SETTINGS_TTS_LOCALE                         "texttospeech/tts-language"
@@ -327,14 +408,69 @@
 #elif defined(Q_OS_WIN)
 #define SETTINGS_TTS_SAPI                         "texttospeech/force-sapi"
 #define SETTINGS_TTS_SAPI_DEFAULT                 false
+#define SETTINGS_TTS_TRY_SAPI                         "texttospeech/try-sapi"
+#define SETTINGS_TTS_TRY_SAPI_DEFAULT                 true
 #define SETTINGS_TTS_OUTPUT_MODE                         "texttospeech/output-mode"
 #define SETTINGS_TTS_OUTPUT_MODE_DEFAULT                 TTS_OUTPUTMODE_SPEECHBRAILLE
-#elif defined(Q_OS_DARWIN)
-#if QT_VERSION < QT_VERSION_CHECK(6,4,0)
-#define SETTINGS_TTS_SPEAKLISTS                         "texttospeech/speak-lists"
-#define SETTINGS_TTS_SPEAKLISTS_DEFAULT                 true
 #endif
-#endif
+
+#define SETTINGS_TTSMSG_USER_LOGGEDIN                         "texttospeech/messages/user-logged-in"
+#define SETTINGS_TTSMSG_USER_LOGGEDIN_DEFAULT                 QT_TRANSLATE_NOOP("UtilTTS", "{user} has logged in on {server}")
+#define SETTINGS_TTSMSG_USER_LOGGEDOUT                         "texttospeech/messages/user-logged-out"
+#define SETTINGS_TTSMSG_USER_LOGGEDOUT_DEFAULT                 QT_TRANSLATE_NOOP("UtilTTS", "{user} has logged out from {server}")
+#define SETTINGS_TTSMSG_USER_JOINED                         "texttospeech/messages/user-joined-channel"
+#define SETTINGS_TTSMSG_USER_JOINED_DEFAULT                 QT_TRANSLATE_NOOP("UtilTTS", "{user} joined channel {channel}")
+#define SETTINGS_TTSMSG_USER_LEFT                         "texttospeech/messages/user-left-channel"
+#define SETTINGS_TTSMSG_USER_LEFT_DEFAULT                 QT_TRANSLATE_NOOP("UtilTTS", "{user} left channel {channel}")
+#define SETTINGS_TTSMSG_USER_JOINED_SAME                         "texttospeech/messages/user-joined-same-channel"
+#define SETTINGS_TTSMSG_USER_JOINED_SAME_DEFAULT                 QT_TRANSLATE_NOOP("UtilTTS", "{user} joined channel")
+#define SETTINGS_TTSMSG_USER_LEFT_SAME                         "texttospeech/messages/user-left-same-channel"
+#define SETTINGS_TTSMSG_USER_LEFT_SAME_DEFAULT                 QT_TRANSLATE_NOOP("UtilTTS", "{user} left channel")
+#define SETTINGS_TTSMSG_PRIVATEMSG                         "texttospeech/messages/private-message"
+#define SETTINGS_TTSMSG_PRIVATEMSG_DEFAULT                 QT_TRANSLATE_NOOP("UtilTTS", "Private message from {user}: {message}")
+#define SETTINGS_TTSMSG_PRIVATEMSGSEND                         "texttospeech/messages/private-message-send"
+#define SETTINGS_TTSMSG_PRIVATEMSGSEND_DEFAULT                 QT_TRANSLATE_NOOP("UtilTTS", "Private message sent: {message}")
+#define SETTINGS_TTSMSG_TYPING                         "texttospeech/messages/private-message-typing"
+#define SETTINGS_TTSMSG_TYPING_DEFAULT                 QT_TRANSLATE_NOOP("UtilTTS", "{user} is typing...")
+#define SETTINGS_TTSMSG_QUESTIONMODE                         "texttospeech/messages/user-set-question-mode"
+#define SETTINGS_TTSMSG_QUESTIONMODE_DEFAULT                 QT_TRANSLATE_NOOP("UtilTTS", "{user} set question mode")
+#define SETTINGS_TTSMSG_CHANNELMSG                         "texttospeech/messages/channel-message"
+#define SETTINGS_TTSMSG_CHANNELMSG_DEFAULT                 QT_TRANSLATE_NOOP("UtilTTS", "Channel message from {user}: {message}")
+#define SETTINGS_TTSMSG_CHANNELMSGSEND                         "texttospeech/messages/channel-message-send"
+#define SETTINGS_TTSMSG_CHANNELMSGSEND_DEFAULT                 QT_TRANSLATE_NOOP("UtilTTS", "Channel message sent: {message}")
+#define SETTINGS_TTSMSG_BROADCASTMSG                         "texttospeech/messages/broadcast-message"
+#define SETTINGS_TTSMSG_BROADCASTMSG_DEFAULT                 QT_TRANSLATE_NOOP("UtilTTS", "Broadcast message from {user}: {message}")
+#define SETTINGS_TTSMSG_BROADCASTMSGSEND                         "texttospeech/messages/broadcast-message-send"
+#define SETTINGS_TTSMSG_BROADCASTMSGSEND_DEFAULT                 QT_TRANSLATE_NOOP("UtilTTS", "Broadcast message sent: {message}")
+#define SETTINGS_TTSMSG_SUBCHANGE                         "texttospeech/messages/subscription-change"
+#define SETTINGS_TTSMSG_SUBCHANGE_DEFAULT                 QT_TRANSLATE_NOOP("UtilTTS", "Subscription \"{type}\" {state} for {user}")
+#define SETTINGS_TTSMSG_CLASSROOM                         "texttospeech/messages/classroom-transmission-change"
+#define SETTINGS_TTSMSG_CLASSROOM_DEFAULT                 QT_TRANSLATE_NOOP("UtilTTS", "Transmission \"{type}\" {state} for {user}")
+#define SETTINGS_TTSMSG_FILE_ADDED                         "texttospeech/messages/file-added"
+#define SETTINGS_TTSMSG_FILE_ADDED_DEFAULT                 QT_TRANSLATE_NOOP("UtilTTS", "File {filename} added by {user}")
+#define SETTINGS_TTSMSG_FILE_REMOVED                         "texttospeech/messages/file-removed"
+#define SETTINGS_TTSMSG_FILE_REMOVED_DEFAULT                 QT_TRANSLATE_NOOP("UtilTTS", "File {file} removed by {user}")
+
+#define SETTINGS_STATUSBARMSG_USER_LOGGEDIN                         "status-bar-messages/user-logged-in"
+#define SETTINGS_STATUSBARMSG_USER_LOGGEDIN_DEFAULT                 QT_TRANSLATE_NOOP("UtilUI", "{user} has logged in")
+#define SETTINGS_STATUSBARMSG_USER_LOGGEDOUT                         "status-bar-messages/user-logged-out"
+#define SETTINGS_STATUSBARMSG_USER_LOGGEDOUT_DEFAULT                 QT_TRANSLATE_NOOP("UtilUI", "{user} has logged out")
+#define SETTINGS_STATUSBARMSG_USER_JOINED                         "status-bar-messages/user-joined-channel"
+#define SETTINGS_STATUSBARMSG_USER_JOINED_DEFAULT                 QT_TRANSLATE_NOOP("UtilUI", "{user} joined channel {channel}")
+#define SETTINGS_STATUSBARMSG_USER_LEFT                         "status-bar-messages/user-left-channel"
+#define SETTINGS_STATUSBARMSG_USER_LEFT_DEFAULT                 QT_TRANSLATE_NOOP("UtilUI", "{user} left channel {channel}")
+#define SETTINGS_STATUSBARMSG_USER_JOINED_SAME                         "status-bar-messages/user-joined-same-channel"
+#define SETTINGS_STATUSBARMSG_USER_JOINED_SAME_DEFAULT                 QT_TRANSLATE_NOOP("UtilUI", "{user} joined channel")
+#define SETTINGS_STATUSBARMSG_USER_LEFT_SAME                         "status-bar-messages/user-left-same-channel"
+#define SETTINGS_STATUSBARMSG_USER_LEFT_SAME_DEFAULT                 QT_TRANSLATE_NOOP("UtilUI", "{user} left channel")
+#define SETTINGS_STATUSBARMSG_SUBCHANGE                         "status-bar-messages/subscription-change"
+#define SETTINGS_STATUSBARMSG_SUBCHANGE_DEFAULT                 QT_TRANSLATE_NOOP("UtilUI", "Subscription \"{type}\" {state} for {user}")
+#define SETTINGS_STATUSBARMSG_CLASSROOM                         "status-bar-messages/classroom-transmission-change"
+#define SETTINGS_STATUSBARMSG_CLASSROOM_DEFAULT                 QT_TRANSLATE_NOOP("UtilUI", "Transmission \"{type}\" {state} for {user}")
+#define SETTINGS_STATUSBARMSG_FILE_ADDED                         "status-bar-messages/file-added"
+#define SETTINGS_STATUSBARMSG_FILE_ADDED_DEFAULT                 QT_TRANSLATE_NOOP("UtilUI", "File {filename} added by {user}")
+#define SETTINGS_STATUSBARMSG_FILE_REMOVED                         "status-bar-messages/file-removed"
+#define SETTINGS_STATUSBARMSG_FILE_REMOVED_DEFAULT                 QT_TRANSLATE_NOOP("UtilTTS", "File {file} removed by {user}")
 
 #define SETTINGS_MEDIASTORAGE_MODE                  "media-storage/audio-storage-mode"
 #define SETTINGS_MEDIASTORAGE_AUDIOFOLDER           "media-storage/audio-storage-folder"
@@ -378,6 +514,7 @@
 #define SETTINGS_DESKTOPSHARE_CURSOR                "desktop-share/desktop-cursor"
 #define SETTINGS_DESKTOPSHARE_WINDOWTITLE           "desktop-share/desktop-window-title"
 
+#define SETTINGS_LATESTHOST_NAME                "latesthosts/%1_name"
 #define SETTINGS_LATESTHOST_HOSTADDR                "latesthosts/%1_hostaddr"
 #define SETTINGS_LATESTHOST_TCPPORT                 "latesthosts/%1_tcpport"
 #define SETTINGS_LATESTHOST_UDPPORT                 "latesthosts/%1_udpport"
@@ -404,6 +541,7 @@
 #define SETTINGS_SERVERENTRIES_USERNAME             "serverentries/%1_username"
 #define SETTINGS_SERVERENTRIES_PASSWORD             "serverentries/%1_password"
 #define SETTINGS_SERVERENTRIES_NICKNAME             "serverentries/%1_nickname"
+#define SETTINGS_SERVERENTRIES_LASTCHANNEL              "serverentries/%1_join-last-channel"
 #define SETTINGS_SERVERENTRIES_CHANNEL              "serverentries/%1_channel"
 #define SETTINGS_SERVERENTRIES_CHANNELPASSWD        "serverentries/%1_chanpassword"
 

@@ -1,36 +1,37 @@
 /*
- * Copyright (c) 2005-2016, BearWare.dk
+ * Copyright (C) 2023, Bjørn D. Rasmussen, BearWare.dk
  *
- * Contact Information:
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
  *
- * Bjoern D. Rasmussen
- * Kirketoften 5
- * DK-8260 Viby J
- * Denmark
- * Email: contact@bearware.dk
- * Phone: +45 20 20 54 59
- * Web: http://www.bearware.dk
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
- * This source code is part of the TeamTalk 5 SDK owned by
- * BearWare.dk. All copyright statements may not be removed
- * or altered from any source distribution. If you use this
- * software in a product, an acknowledgment in the product
- * documentation is required.
- *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 #include "ttseventsmodel.h"
+#include "settings.h"
 
 #include <QKeyEvent>
+#include <QInputDialog>
+
+extern QSettings* ttSettings;
 
 enum
 {
     COLUMN_NAME = 0,
+    COLUMN_MESSAGE = 1,
     COLUMN_COUNT,
 };
 
 TTSEventsModel::TTSEventsModel(QObject* parent)
-    : QAbstractItemModel(parent)
+    : QAbstractTableModel(parent)
 {
     m_ttsevents.push_back(TTS_USER_LOGGEDIN);
     m_ttsevents.push_back(TTS_USER_LOGGEDOUT);
@@ -38,7 +39,6 @@ TTSEventsModel::TTSEventsModel(QObject* parent)
     m_ttsevents.push_back(TTS_USER_LEFT);
     m_ttsevents.push_back(TTS_USER_JOINED_SAME);
     m_ttsevents.push_back(TTS_USER_LEFT_SAME);
-    m_ttsevents.push_back(TTS_USER_QUESTIONMODE);
     m_ttsevents.push_back(TTS_USER_TEXTMSG_PRIVATE);
     m_ttsevents.push_back(TTS_USER_TEXTMSG_PRIVATE_SEND);
     m_ttsevents.push_back(TTS_USER_TEXTMSG_PRIVATE_TYPING);
@@ -48,6 +48,7 @@ TTSEventsModel::TTSEventsModel(QObject* parent)
     m_ttsevents.push_back(TTS_USER_TEXTMSG_CHANNEL_SEND);
     m_ttsevents.push_back(TTS_USER_TEXTMSG_BROADCAST);
     m_ttsevents.push_back(TTS_USER_TEXTMSG_BROADCAST_SEND);
+    m_ttsevents.push_back(TTS_USER_QUESTIONMODE);
 
     m_ttsevents.push_back(TTS_SUBSCRIPTIONS_TEXTMSG_PRIVATE);
     m_ttsevents.push_back(TTS_SUBSCRIPTIONS_TEXTMSG_CHANNEL);
@@ -80,6 +81,7 @@ TTSEventsModel::TTSEventsModel(QObject* parent)
     m_ttsevents.push_back(TTS_TOGGLE_DESKTOPTRANSMISSION);
 
     m_ttsevents.push_back(TTS_SERVER_CONNECTIVITY);
+
 }
 
 QVariant TTSEventsModel::headerData ( int section, Qt::Orientation orientation, int role /*= Qt::DisplayRole*/ ) const
@@ -91,7 +93,8 @@ QVariant TTSEventsModel::headerData ( int section, Qt::Orientation orientation, 
         {
             switch(section)
             {
-            case COLUMN_NAME: return tr("Event");
+            case COLUMN_NAME : return tr("Event");
+            case COLUMN_MESSAGE : return tr("Message");
             }
         }
         break;
@@ -111,102 +114,131 @@ QVariant TTSEventsModel::data ( const QModelIndex & index, int role /*= Qt::Disp
     switch(role)
     {
     case Qt::DisplayRole :
-        Q_ASSERT(index.column() == COLUMN_NAME);
-        switch(m_ttsevents[index.row()])
+        switch (index.column())
         {
-        case TTS_USER_LOGGEDIN :
-            return tr("User logged in");
-        case TTS_USER_LOGGEDOUT :
-            return tr("User logged out");
-        case TTS_USER_JOINED :
-            return tr("User joined channel");
-        case TTS_USER_LEFT :
-            return tr("User left channel");
-        case TTS_USER_JOINED_SAME :
-            return tr("User join current channel");
-        case TTS_USER_LEFT_SAME :
-            return tr("User left current channel");
-        case TTS_USER_TEXTMSG_PRIVATE :
-            return tr("Received private message");
-        case TTS_USER_TEXTMSG_PRIVATE_SEND :
-            return tr("Sent private message");
-         case TTS_USER_TEXTMSG_PRIVATE_TYPING :
-            return tr("User is typing a private text message in focused window");
-        case TTS_USER_TEXTMSG_PRIVATE_TYPING_GLOBAL :
-           return tr("User is typing a private text message");
-        case TTS_USER_QUESTIONMODE :
-            return tr("User enabled question mode");
-        case TTS_USER_TEXTMSG_CHANNEL :
-            return tr("Received channel message");
-        case TTS_USER_TEXTMSG_CHANNEL_SEND :
-            return tr("Sent channel message");
-        case TTS_USER_TEXTMSG_BROADCAST :
-            return tr("Received broadcast message");
-        case TTS_USER_TEXTMSG_BROADCAST_SEND :
-            return tr("Sent broadcast message");
-        case TTS_SUBSCRIPTIONS_TEXTMSG_PRIVATE :
-            return tr("Subscription private text message changed");
-        case TTS_SUBSCRIPTIONS_TEXTMSG_CHANNEL :
-            return tr("Subscription channel text message changed");
-        case TTS_SUBSCRIPTIONS_TEXTMSG_BROADCAST :
-            return tr("Subscription broadcast text message changed");
-        case TTS_SUBSCRIPTIONS_VOICE :
-            return tr("Subscription voice stream changed");
-        case TTS_SUBSCRIPTIONS_VIDEO :
-            return tr("Subscription webcam stream changed");
-        case TTS_SUBSCRIPTIONS_DESKTOP :
-            return tr("Subscription shared desktop stream changed");
-        case TTS_SUBSCRIPTIONS_DESKTOPINPUT :
-            return tr("Subscription desktop access changed");
-        case TTS_SUBSCRIPTIONS_MEDIAFILE :
-            return tr("Subscription media file stream changed");
-        case TTS_SUBSCRIPTIONS_INTERCEPT_TEXTMSG_PRIVATE :
-            return tr("Subscription intercept private text message changed");
-        case TTS_SUBSCRIPTIONS_INTERCEPT_TEXTMSG_CHANNEL :
-            return tr("Subscription intercept channel text message changed");
-        case TTS_SUBSCRIPTIONS_INTERCEPT_VOICE :
-            return tr("Subscription intercept voice stream changed");
-        case TTS_SUBSCRIPTIONS_INTERCEPT_VIDEO :
-            return tr("Subscription intercept webcam stream changed");
-        case TTS_SUBSCRIPTIONS_INTERCEPT_DESKTOP :
-            return tr("Subscription intercept desktop stream changed");
-        case TTS_SUBSCRIPTIONS_INTERCEPT_MEDIAFILE :
-            return tr("Subscription intercept media file stream changed");
-        case TTS_CLASSROOM_CHANMSG_TX :
-            return tr("Classroom allow channel messages transmission changed");
-        case TTS_CLASSROOM_VOICE_TX :
-            return tr("Classroom allow voice transmission changed");
-        case TTS_CLASSROOM_VIDEO_TX :
-            return tr("Classroom allow webcam transmission changed");
-        case TTS_CLASSROOM_DESKTOP_TX :
-            return tr("Classroom allow desktop transmission changed");
-        case TTS_CLASSROOM_MEDIAFILE_TX :
-            return tr("Classroom allow media file transmission changed");
-        case TTS_FILE_ADD :
-            return tr("File added");
-        case TTS_FILE_REMOVE :
-            return tr("File removed");
-        case TTS_MENU_ACTIONS :
-            return tr("Menu actions");
-        case TTS_TOGGLE_VOICETRANSMISSION :
-            return tr("Voice transmission mode toggled");
-        case TTS_TOGGLE_VIDEOTRANSMISSION :
-            return tr("Video transmission toggled");
-        case TTS_TOGGLE_DESKTOPTRANSMISSION :
-            return tr("Desktop sharing toggled");
-        case TTS_SERVER_CONNECTIVITY :
-            return tr("Server connectivity");
-        case TTS_NEXT_UNUSED :
-        case TTS_NONE :
-            break;
+        case COLUMN_NAME :
+            switch(m_ttsevents[index.row()])
+            {
+            case TTS_USER_LOGGEDIN :
+                return tr("User logged in");
+            case TTS_USER_LOGGEDOUT :
+                return tr("User logged out");
+            case TTS_USER_JOINED :
+                return tr("User joined channel");
+            case TTS_USER_LEFT :
+                return tr("User left channel");
+            case TTS_USER_JOINED_SAME :
+                return tr("User joined current channel");
+            case TTS_USER_LEFT_SAME :
+                return tr("User left current channel");
+            case TTS_USER_TEXTMSG_PRIVATE :
+                return tr("Private message received");
+            case TTS_USER_TEXTMSG_PRIVATE_SEND :
+                return tr("Private message sent");
+            case TTS_USER_TEXTMSG_PRIVATE_TYPING :
+                return tr("User is typing a private message in focused window");
+            case TTS_USER_TEXTMSG_PRIVATE_TYPING_GLOBAL :
+                return tr("User is typing a private message");
+            case TTS_USER_TEXTMSG_CHANNEL :
+                return tr("Channel message received");
+            case TTS_USER_TEXTMSG_CHANNEL_SEND :
+                return tr("Channel message sent");
+            case TTS_USER_TEXTMSG_BROADCAST :
+                return tr("Broadcast message received");
+            case TTS_USER_TEXTMSG_BROADCAST_SEND :
+                return tr("Broadcast message sent");
+            case TTS_USER_QUESTIONMODE :
+                return tr("User enabled question mode");
+            case TTS_SUBSCRIPTIONS_TEXTMSG_PRIVATE :
+                return tr("Subscription private text message changed");
+            case TTS_SUBSCRIPTIONS_TEXTMSG_CHANNEL :
+                return tr("Subscription channel text message changed");
+            case TTS_SUBSCRIPTIONS_TEXTMSG_BROADCAST :
+                return tr("Subscription broadcast text message changed");
+            case TTS_SUBSCRIPTIONS_VOICE :
+                return tr("Subscription voice stream changed");
+            case TTS_SUBSCRIPTIONS_VIDEO :
+                return tr("Subscription webcam stream changed");
+            case TTS_SUBSCRIPTIONS_DESKTOP :
+                return tr("Subscription shared desktop stream changed");
+            case TTS_SUBSCRIPTIONS_DESKTOPINPUT :
+                return tr("Subscription desktop access changed");
+            case TTS_SUBSCRIPTIONS_MEDIAFILE :
+                return tr("Subscription media file stream changed");
+            case TTS_SUBSCRIPTIONS_INTERCEPT_TEXTMSG_PRIVATE :
+                return tr("Subscription intercept private text message changed");
+            case TTS_SUBSCRIPTIONS_INTERCEPT_TEXTMSG_CHANNEL :
+                return tr("Subscription intercept channel text message changed");
+            case TTS_SUBSCRIPTIONS_INTERCEPT_VOICE :
+                return tr("Subscription intercept voice stream changed");
+            case TTS_SUBSCRIPTIONS_INTERCEPT_VIDEO :
+                return tr("Subscription intercept webcam stream changed");
+            case TTS_SUBSCRIPTIONS_INTERCEPT_DESKTOP :
+                return tr("Subscription intercept desktop stream changed");
+            case TTS_SUBSCRIPTIONS_INTERCEPT_MEDIAFILE :
+                return tr("Subscription intercept media file stream changed");
+            case TTS_CLASSROOM_CHANMSG_TX :
+                return tr("Classroom allow channel messages transmission changed");
+            case TTS_CLASSROOM_VOICE_TX :
+                return tr("Classroom allow voice transmission changed");
+            case TTS_CLASSROOM_VIDEO_TX :
+                return tr("Classroom allow webcam transmission changed");
+            case TTS_CLASSROOM_DESKTOP_TX :
+                return tr("Classroom allow desktop transmission changed");
+            case TTS_CLASSROOM_MEDIAFILE_TX :
+                return tr("Classroom allow media file transmission changed");
+            case TTS_FILE_ADD :
+                return tr("File added");
+            case TTS_FILE_REMOVE :
+                return tr("File removed");
+            case TTS_MENU_ACTIONS :
+                return tr("Menu actions");
+            case TTS_TOGGLE_VOICETRANSMISSION :
+                return tr("Voice transmission mode toggled");
+            case TTS_TOGGLE_VIDEOTRANSMISSION :
+                return tr("Video transmission toggled");
+            case TTS_TOGGLE_DESKTOPTRANSMISSION :
+                return tr("Desktop sharing toggled");
+            case TTS_SERVER_CONNECTIVITY :
+                return tr("Server connectivity");
+            case TTS_NEXT_UNUSED :
+            case TTS_NONE :
+                break;
+            }
+        case COLUMN_MESSAGE :
+        {
+            auto eventMap = UtilTTS::eventToSettingMap();
+            if (eventMap.contains(m_ttsevents[index.row()]))
+            {
+                QString paramKey = eventMap[m_ttsevents[index.row()]].settingKey;
+                return UtilTTS::getRawTTSMessage(paramKey);
+            }
+            return QVariant();
+        }
         }
         break;
-#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
     case Qt::AccessibleTextRole :
-        return QString("%1: %2").arg(data(index, Qt::DisplayRole).toString()).arg((m_ttsselected & m_ttsevents[index.row()])? tr("Enabled") : tr("Disabled"));
+        switch (index.column())
+        {
+        case COLUMN_NAME :
+            QString result = data(index, Qt::DisplayRole).toString();
+            QString msg = data(createIndex(index.row(), COLUMN_MESSAGE), Qt::DisplayRole).toString();
+            if (msg.size() > 0)
+                result += " - " + msg;
+#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
+            QString state = (m_ttsselected & m_ttsevents[index.row()])? tr("Enabled") : tr("Disabled");
+            result += ": " + state;
 #endif
+            return result;
+        }
+        break;
     case Qt::CheckStateRole :
-        return (m_ttsselected & m_ttsevents[index.row()])? Qt::Checked : Qt::Unchecked;
+        switch (index.column())
+        {
+        case COLUMN_NAME :
+            return (m_ttsselected & m_ttsevents[index.row()])? Qt::Checked : Qt::Unchecked;
+        }
+        break;
     }
     return QVariant();
 }

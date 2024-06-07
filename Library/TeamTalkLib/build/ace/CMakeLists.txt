@@ -1,5 +1,3 @@
-cmake_minimum_required(VERSION 3.1)
-
 project(ACE)
 
 include(ExternalProject)
@@ -21,7 +19,7 @@ if (MSVC)
     if (${CMAKE_SIZEOF_VOID_P} EQUAL 8)
       ExternalProject_Add(ACE-src
         GIT_REPOSITORY    https://github.com/DOCGroup/ACE_TAO
-        GIT_TAG           ACE+TAO-7_1_1
+        GIT_TAG           ACE+TAO-7_1_3
         GIT_SUBMODULES_RECURSE TRUE
         GIT_SHALLOW       TRUE
         UPDATE_COMMAND    ""
@@ -29,7 +27,7 @@ if (MSVC)
         COMMAND           git apply ${CMAKE_CURRENT_LIST_DIR}/0003-Static-build-config-for-Windows.patch
         COMMAND           git submodule add --force https://github.com/DOCGroup/MPC ACE/MPC
         COMMAND           git submodule update --init ACE/MPC
-        COMMAND           git -C ACE/MPC checkout ACE+TAO-7_1_1
+        COMMAND           git -C ACE/MPC checkout ACE+TAO-7_1_3
         PREFIX            ${TOOLCHAIN_BUILD_PREFIX}/ace
         CONFIGURE_COMMAND ""
         BUILD_IN_SOURCE   TRUE
@@ -59,7 +57,7 @@ if (MSVC)
     else()
       ExternalProject_Add(ACE-src
         GIT_REPOSITORY    https://github.com/DOCGroup/ACE_TAO
-        GIT_TAG           ACE+TAO-7_1_1
+        GIT_TAG           ACE+TAO-7_1_3
         GIT_SUBMODULES_RECURSE TRUE
         GIT_SHALLOW       TRUE
         UPDATE_COMMAND    ""
@@ -67,7 +65,7 @@ if (MSVC)
         COMMAND           git apply ${CMAKE_CURRENT_LIST_DIR}/0003-Static-build-config-for-Windows.patch
         COMMAND           git submodule add --force https://github.com/DOCGroup/MPC ACE/MPC
         COMMAND           git submodule update --init ACE/MPC
-        COMMAND           git -C ACE/MPC checkout ACE+TAO-7_1_1
+        COMMAND           git -C ACE/MPC checkout ACE+TAO-7_1_3
         PREFIX            ${TOOLCHAIN_BUILD_PREFIX}/ace
         CONFIGURE_COMMAND ""
         BUILD_IN_SOURCE   TRUE
@@ -135,7 +133,7 @@ elseif (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
   if (TOOLCHAIN_BUILD_EXTERNALPROJECTS)
     ExternalProject_Add(MPC
       GIT_REPOSITORY    https://github.com/DOCGroup/MPC
-      GIT_TAG           ACE+TAO-7_1_1
+      GIT_TAG           ACE+TAO-7_1_3
       GIT_SUBMODULES_RECURSE TRUE
       GIT_SHALLOW       TRUE
       UPDATE_COMMAND    ""
@@ -149,13 +147,12 @@ elseif (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 
     ExternalProject_Add(ACE-src
       GIT_REPOSITORY    https://github.com/DOCGroup/ACE_TAO
-      GIT_TAG           ACE+TAO-7_1_1
+      GIT_TAG           ACE+TAO-7_1_3
       GIT_SUBMODULES_RECURSE TRUE
       GIT_SHALLOW       TRUE
       INSTALL_DIR       ${TOOLCHAIN_INSTALL_PREFIX_ACE}
       UPDATE_COMMAND    ""
       PATCH_COMMAND     git apply ${CMAKE_CURRENT_LIST_DIR}/0002-Enable-SNI-for-TLS.patch
-      COMMAND           git apply ${CMAKE_CURRENT_LIST_DIR}/0003-Static-build-config-for-Windows.patch
       PREFIX            ${TOOLCHAIN_BUILD_PREFIX}/ace
       # Create 'platform_macros.GNU'
       CONFIGURE_COMMAND echo "shared_libs=0" > <SOURCE_DIR>/ACE/include/makeinclude/platform_macros.GNU
@@ -236,7 +233,7 @@ elseif (${CMAKE_SYSTEM_NAME} MATCHES "iOS")
   if (TOOLCHAIN_BUILD_EXTERNALPROJECTS)
     ExternalProject_Add(MPC
       GIT_REPOSITORY    https://github.com/DOCGroup/MPC
-      GIT_TAG           ACE+TAO-7_1_1
+      GIT_TAG           ACE+TAO-7_1_3
       GIT_SUBMODULES_RECURSE TRUE
       GIT_SHALLOW       TRUE
       UPDATE_COMMAND    ""
@@ -250,11 +247,10 @@ elseif (${CMAKE_SYSTEM_NAME} MATCHES "iOS")
 
     ExternalProject_Add(ACE-src
       GIT_REPOSITORY    https://github.com/DOCGroup/ACE_TAO
-      GIT_TAG           ACE+TAO-7_1_1
+      GIT_TAG           ACE+TAO-7_1_3
       GIT_SUBMODULES_RECURSE TRUE
       GIT_SHALLOW       TRUE
       PATCH_COMMAND     git apply ${CMAKE_CURRENT_LIST_DIR}/0002-Enable-SNI-for-TLS.patch
-      COMMAND           git apply ${CMAKE_CURRENT_LIST_DIR}/0003-Static-build-config-for-Windows.patch
       INSTALL_DIR       ${TOOLCHAIN_INSTALL_PREFIX_ACE}
       UPDATE_COMMAND    ""
       PREFIX            ${TOOLCHAIN_BUILD_PREFIX}/ace
@@ -329,7 +325,7 @@ elseif (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
   if (TOOLCHAIN_BUILD_EXTERNALPROJECTS)
     ExternalProject_Add(MPC
       GIT_REPOSITORY    https://github.com/DOCGroup/MPC
-      GIT_TAG           ACE+TAO-7_1_1
+      GIT_TAG           ACE+TAO-7_1_3
       UPDATE_COMMAND    ""
       PREFIX            ${TOOLCHAIN_BUILD_PREFIX}/MPC
       CONFIGURE_COMMAND ""
@@ -341,11 +337,11 @@ elseif (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 
     ExternalProject_Add(ACE-src
       GIT_REPOSITORY    https://github.com/DOCGroup/ACE_TAO
-      GIT_TAG           ACE+TAO-7_1_1
+      GIT_TAG           ACE+TAO-7_1_3
       INSTALL_DIR       ${TOOLCHAIN_INSTALL_PREFIX_ACE}
       UPDATE_COMMAND    ""
       PATCH_COMMAND     git apply ${CMAKE_CURRENT_LIST_DIR}/0002-Enable-SNI-for-TLS.patch
-      COMMAND           git apply ${CMAKE_CURRENT_LIST_DIR}/0003-Static-build-config-for-Windows.patch
+      COMMAND           git apply ${CMAKE_CURRENT_LIST_DIR}/0004-Fix-compilation-on-systems-using-musl-libc-like-alpi.patch
       PREFIX            ${TOOLCHAIN_BUILD_PREFIX}/ace
       # Create 'platform_macros.GNU'
       CONFIGURE_COMMAND echo "shared_libs=0" > <SOURCE_DIR>/ACE/include/makeinclude/platform_macros.GNU
@@ -419,7 +415,7 @@ elseif (${CMAKE_SYSTEM_NAME} MATCHES "Android")
   if (TOOLCHAIN_BUILD_EXTERNALPROJECTS)
     ExternalProject_Add(MPC
       GIT_REPOSITORY    https://github.com/DOCGroup/MPC
-      GIT_TAG           ACE+TAO-7_1_1
+      GIT_TAG           ACE+TAO-7_1_3
       UPDATE_COMMAND    ""
       PREFIX            ${TOOLCHAIN_BUILD_PREFIX}/MPC
       CONFIGURE_COMMAND ""
@@ -445,12 +441,11 @@ elseif (${CMAKE_SYSTEM_NAME} MATCHES "Android")
 
     ExternalProject_Add(ACE-src
       GIT_REPOSITORY    https://github.com/DOCGroup/ACE_TAO
-      GIT_TAG           ACE+TAO-7_1_1
+      GIT_TAG           ACE+TAO-7_1_3
       INSTALL_DIR       ${TOOLCHAIN_INSTALL_PREFIX_ACE}
       UPDATE_COMMAND    ""
       PATCH_COMMAND     git apply ${CMAKE_CURRENT_LIST_DIR}/0001-Make-CROSS_COMPILE-configurable-for-Android.patch
       COMMAND           git apply ${CMAKE_CURRENT_LIST_DIR}/0002-Enable-SNI-for-TLS.patch
-      COMMAND           git apply ${CMAKE_CURRENT_LIST_DIR}/0003-Static-build-config-for-Windows.patch
       PREFIX            ${TOOLCHAIN_BUILD_PREFIX}/ace
       # Create 'platform_macros.GNU'
       CONFIGURE_COMMAND echo "shared_libs=0" > <SOURCE_DIR>/ACE/include/makeinclude/platform_macros.GNU

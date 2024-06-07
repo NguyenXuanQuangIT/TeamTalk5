@@ -1,31 +1,25 @@
 /*
- * Copyright (c) 2005-2018, BearWare.dk
- * 
- * Contact Information:
+ * Copyright (C) 2023, Bjørn D. Rasmussen, BearWare.dk
  *
- * Bjoern D. Rasmussen
- * Kirketoften 5
- * DK-8260 Viby J
- * Denmark
- * Email: contact@bearware.dk
- * Phone: +45 20 20 54 59
- * Web: http://www.bearware.dk
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
  *
- * This source code is part of the TeamTalk SDK owned by
- * BearWare.dk. Use of this file, or its compiled unit, requires a
- * TeamTalk SDK License Key issued by BearWare.dk.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
- * The TeamTalk SDK License Agreement along with its Terms and
- * Conditions are outlined in the file License.txt included with the
- * TeamTalk SDK distribution.
- *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 #include "chattextedit.h"
 #include "settings.h"
 #include "appinfo.h"
+#include "utilui.h"
 
-#include <QDateTime>
 #include <QDesktopServices>
 #include <QMenu>
 #include <QRegularExpression>
@@ -33,6 +27,7 @@
 #include <QSyntaxHighlighter>
 #include <QTextCursor>
 #include <QUrl>
+#include <QMessageBox>
 
 extern TTInstance* ttInst;
 extern QSettings* ttSettings;
@@ -135,7 +130,7 @@ QString ChatTextEdit::getTimeStamp(const QDateTime& tm, bool force_ts)
 {
     QString dt;
     if(ttSettings->value(SETTINGS_DISPLAY_MSGTIMESTAMP, false).toBool() || force_ts)
-        dt = tm.toString(tr("yyyy-MM-dd HH:mm:ss")) + QString(" ");
+        dt = getFormattedDateTime(tm.toString("yyyy-MM-dd HH:mm:ss"), "yyyy-MM-dd HH:mm:ss") + QString(" ");
     return dt;
 }
 
@@ -154,16 +149,23 @@ void ChatTextEdit::updateServer(const ServerProperties& srvprop)
     font.setBold(true);
     format.setFont(font);
     cursor.setCharFormat(format);
-    QString line = dt + tr("Server Name: %1").arg(_Q(srvprop.szServerName));;
+    QString line = dt + tr("Server Name: %1").arg(_Q(srvprop.szServerName));
     setTextCursor(cursor);
     appendPlainText(line);
     if (_Q(srvprop.szMOTD).size() > 0)
     {
-        line = dt + tr("Message of the Day: %1").arg(_Q(srvprop.szMOTD)) + "\r\n";
-        format.setForeground(QBrush(Qt::darkCyan));
-        cursor.setCharFormat(format);
-        setTextCursor(cursor);
-        appendPlainText(line);
+        if (ttSettings->value(SETTINGS_DISPLAY_MOTD_DLG, SETTINGS_DISPLAY_MOTD_DLG_DEFAULT).toBool() == true)
+        {
+            QMessageBox::information(this, tr("Welcome"), QString(tr("Welcome to %1.\r\nMessage of the day: %2")).arg(_Q(srvprop.szServerName)).arg(_Q(srvprop.szMOTD)));
+        }
+        else
+        {
+            line = dt + tr("Message of the Day: %1").arg(_Q(srvprop.szMOTD)) + "\r\n";
+            format.setForeground(QBrush(Qt::darkCyan));
+            cursor.setCharFormat(format);
+            setTextCursor(cursor);
+            appendPlainText(line);
+        }
     }
 
     //revert bold

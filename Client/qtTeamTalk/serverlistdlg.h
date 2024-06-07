@@ -1,24 +1,18 @@
 /*
- * Copyright (c) 2005-2018, BearWare.dk
- * 
- * Contact Information:
+ * Copyright (C) 2023, Bjørn D. Rasmussen, BearWare.dk
  *
- * Bjoern D. Rasmussen
- * Kirketoften 5
- * DK-8260 Viby J
- * Denmark
- * Email: contact@bearware.dk
- * Phone: +45 20 20 54 59
- * Web: http://www.bearware.dk
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
  *
- * This source code is part of the TeamTalk SDK owned by
- * BearWare.dk. Use of this file, or its compiled unit, requires a
- * TeamTalk SDK License Key issued by BearWare.dk.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
- * The TeamTalk SDK License Agreement along with its Terms and
- * Conditions are outlined in the file License.txt included with the
- * TeamTalk SDK distribution.
- *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 #ifndef SERVERLISTDLG_H
@@ -27,7 +21,7 @@
 #include "ui_serverlist.h"
 #include "common.h"
 
-#include <QAbstractItemModel>
+#include <QAbstractTableModel>
 #include <QNetworkAccessManager>
 #include <QRegularExpression>
 #include <QSortFilterProxyModel>
@@ -58,7 +52,7 @@ struct HostEntryEx : HostEntry
     ServerType srvtype = SERVERTYPE_LOCAL;
 };
 
-class ServerListModel : public QAbstractItemModel
+class ServerListModel : public QAbstractTableModel
 {
     Q_OBJECT
 public:
@@ -74,9 +68,9 @@ public:
     void clearServers();
     const QVector<HostEntryEx>& getServers() const;
     void setServerFilter(ServerTypes srvtypes, const QRegularExpression& regex, int n_users);
+    ServerType getServerType(const HostEntryEx& host) const;
 private:
     void filterServers();
-    ServerType getServerType(const HostEntryEx& host) const;
     QMap<ServerType, QVector<HostEntryEx>> m_servers;
     // servers available after filter is applied
     QVector<HostEntryEx> m_servercache;
@@ -92,6 +86,7 @@ class ServerListDlg : public QDialog
 public:
     ServerListDlg(QWidget * parent = 0);
     ~ServerListDlg();
+    HostEntry getHostEntry() const;
 
 protected:
     void keyPressEvent(QKeyEvent* e) override;
@@ -104,33 +99,35 @@ private:
 
     QNetworkAccessManager* m_httpsrvlist_manager = nullptr, *m_http_srvpublish_manager = nullptr;
     std::unique_ptr<HostEncryption> m_setup_encryption;
+    HostEntry m_hostentry;
 
-    void showHostEntry(const HostEntry& entry);
-    bool getHostEntry(HostEntry& entry);
-    void clearHostEntry();
+    void restoreSelectedHost(const HostEntry& entry);
     void showLatestHosts();
-    void showLatestHostEntry(int index);
-    void deleteHostEntry();
-    void slotClearServerClicked();
+    void deleteLatestHostEntry();
+    void clearLatestHosts();
+    void slotNewServer();
     void slotImportTTFile();
     void slotConnect();
+    void connectToHost(const HostEntry& = HostEntry());
 
     void refreshServerList();
     void applyServerListFilter();
-    void showSelectedServer(const QModelIndex &index);
-    void slotAddUpdServer();
     void deleteSelectedServer();
-    void slotDoubleClicked(const QModelIndex& index);
+    void editSelectedServer();
+    void duplicateSelectedServer();
     void requestServerList();
     void serverlistReply(QNetworkReply* reply);
 
     void saveTTFile();
+    void exportSingleFile();
+    void exportMultipleFiles();
+    void showExportMenu(); // Nouvelle méthode
     void publishServer();
     void publishServerRequest(QNetworkReply* reply);
+    bool getSelectedHost(HostEntry& host);
 
-    void hostEntryNameChanged(const QString& text);
-    void slotGenerateEntryName(const QString&);
     void slotTreeContextMenu(const QPoint&);
+    void slotLatestHostsContextMenu(const QPoint&);
 };
 
 #endif

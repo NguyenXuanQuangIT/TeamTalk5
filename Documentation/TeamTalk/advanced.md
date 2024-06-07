@@ -1,7 +1,7 @@
 # Advanced Topics {#advanced}
 
 The TeamTalk client supports a couple of command-line arguments and
-additionals configuration options which are explain in the following
+additional configuration options which are explain in the following
 sections:
 
 - [Command-line arguments](@ref cmdline)
@@ -53,7 +53,7 @@ Since the TeamTalk executable first tries to load settings from its
 own directory it's possible to run multiple TeamTalk clients with
 different settings. Simply create a new directory, copy TeamTalk5.exe
 and TeamTalk5.dll to that directory and create a file called
-TeamTalk5.ini (TeamTalk5Classic.xml in the Classic client). Launch
+TeamTalk5.ini. Launch
 TeamTalk5.exe and it will use the local settings file instead of the
 settings file in the user-profile.
 

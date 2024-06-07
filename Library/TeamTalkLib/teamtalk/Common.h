@@ -24,7 +24,6 @@
 #ifndef COMMON_H
 #define COMMON_H
 
-#include "PacketLayout.h"
 #include <TeamTalkDefs.h>
 #include <codec/MediaUtil.h>
 
@@ -209,6 +208,8 @@ namespace teamtalk {
         USERRIGHT_LOCKED_STATUS                         = 0x00080000,
         USERRIGHT_RECORD_VOICE                          = 0x00100000,
         USERRIGHT_VIEW_HIDDEN_CHANNELS                  = 0x00200000,
+        USERRIGHT_TEXTMESSAGE_USER                      = 0x00400000,
+        USERRIGHT_TEXTMESSAGE_CHANNEL                   = 0x00800000,
 
         USERRIGHT_DEFAULT = USERRIGHT_MULTI_LOGIN |
                             USERRIGHT_VIEW_ALL_USERS |
@@ -219,13 +220,14 @@ namespace teamtalk {
                             USERRIGHT_TRANSMIT_VIDEOCAPTURE |
                             USERRIGHT_TRANSMIT_DESKTOP |
                             USERRIGHT_TRANSMIT_DESKTOPINPUT |
-                            USERRIGHT_TRANSMIT_MEDIAFILE,
-                               
+                            USERRIGHT_TRANSMIT_MEDIAFILE |
+                            USERRIGHT_TEXTMESSAGE_USER |
+                            USERRIGHT_TEXTMESSAGE_CHANNEL,
 
-        USERRIGHT_ALL                       = 0x0033FFFF,
-        USERRIGHT_KNOWN_MASK                = 0x001FFFFF
+        USERRIGHT_ALL                       =  0x00FFFFFF ^ (USERRIGHT_LOCKED_NICKNAME | USERRIGHT_LOCKED_STATUS),
+        USERRIGHT_KNOWN_MASK                = ~0xFF000000
     };
-    
+
     typedef ACE_UINT32 UserRights;
 
     struct Abuse
@@ -288,36 +290,11 @@ namespace teamtalk {
         ACE_TString chanpath;
         ACE_Time_Value bantime;
         ACE_TString nickname;
-        ACE_TString username;
+        ACE_TString username; // banned username
+        ACE_TString owner; // who made the ban
         BannedUser() : bantype(BANTYPE_NONE) { bantime = ACE_OS::gettimeofday(); }
-
-        bool Same(const BannedUser& user) const
-        {
-            bool same = user.bantype == this->bantype;
-            if (bantype & BANTYPE_IPADDR)
-                same &= user.ipaddr == this->ipaddr;
-            if (bantype & BANTYPE_CHANNEL)
-                same &= user.chanpath == this->chanpath;
-            if (bantype & BANTYPE_USERNAME)
-                same &= user.username == this->username;
-            return same;
-        }
-
-        bool Match(const BannedUser& user) const
-        {
-            bool match = true;
-            if((bantype & BANTYPE_IPADDR) && ipaddr.length())
-            {
-                ACE_TString rgx = ACE_TEXT("^") + ipaddr + ACE_TEXT("$");
-                match &= std::regex_search(user.ipaddr.c_str(), buildregex(rgx.c_str()));
-            }
-            if((bantype & BANTYPE_USERNAME))
-                match &= username == user.username;
-            if((bantype & BANTYPE_CHANNEL))
-                match &= chanpath == user.chanpath;
-            match &= bantype != BANTYPE_NONE;
-            return match;
-        }
+        bool Same(const BannedUser& user) const;
+        bool Match(const BannedUser& user) const;
     };
 
     typedef std::vector<BannedUser> bannedusers_t;
@@ -353,24 +330,21 @@ namespace teamtalk {
         FILETRANSFER_FINISHED   = 3,
     };
 
+#define TRANSFERKEY_SIZE 16
+
     struct FileTransfer
     {
-        FileTransferStatus status;
-        int channelid;
+        FileTransferStatus status = FILETRANSFER_CLOSED;
+        int channelid = 0;
         ACE_TString localfile;
         ACE_TString filename;
-        int userid;
-        ACE_INT64 filesize;
-        ACE_INT64 transferred;
-        int transferid;
-        bool inbound;
-        FileTransfer()
-        {
-            status = FILETRANSFER_CLOSED;
-            filesize = transferred = 0;
-            userid = transferid = 0;
-            inbound = true;
-        }
+        int userid = 0;
+        ACE_INT64 filesize = 0;
+        ACE_INT64 transferred = 0;
+        int transferid = 0;
+        bool inbound = true;
+        ACE_TString transferkey;
+        FileTransfer() { }
     };
 
     /* Remember to updated DLL header file when modifying this */
@@ -705,6 +679,7 @@ namespace teamtalk {
         AFF_MP3_64KBIT_FORMAT    = 5,
         AFF_MP3_128KBIT_FORMAT   = 6,
         AFF_MP3_256KBIT_FORMAT   = 7,
+        AFF_MP3_320KBIT_FORMAT   = 8,
     };
 
     int AFFToMP3Bitrate(AudioFileFormat aff);

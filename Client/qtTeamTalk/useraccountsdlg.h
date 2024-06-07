@@ -1,24 +1,18 @@
 /*
- * Copyright (c) 2005-2018, BearWare.dk
- * 
- * Contact Information:
+ * Copyright (C) 2023, Bjørn D. Rasmussen, BearWare.dk
  *
- * Bjoern D. Rasmussen
- * Kirketoften 5
- * DK-8260 Viby J
- * Denmark
- * Email: contact@bearware.dk
- * Phone: +45 20 20 54 59
- * Web: http://www.bearware.dk
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
  *
- * This source code is part of the TeamTalk SDK owned by
- * BearWare.dk. Use of this file, or its compiled unit, requires a
- * TeamTalk SDK License Key issued by BearWare.dk.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
- * The TeamTalk SDK License Agreement along with its Terms and
- * Conditions are outlined in the file License.txt included with the
- * TeamTalk SDK distribution.
- *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 #ifndef USERACCOUNTSDLG_H
@@ -28,18 +22,12 @@
 
 #include "ui_useraccounts.h"
 
-enum UserAccountsDisplay
-{
-    UAD_READWRITE,
-    UAD_READONLY,
-};
-
 class UserAccountsDlg : public QDialog
 {
     Q_OBJECT
 
 public:
-    UserAccountsDlg(const useraccounts_t& useraccounts, UserAccountsDisplay uad, QWidget* parent = 0);
+    UserAccountsDlg(const useraccounts_t& useraccounts, QWidget* parent = 0);
     ~UserAccountsDlg();
 
 public:
@@ -52,34 +40,16 @@ protected:
 private:
     Ui::UserAccountsDlg ui;
     UserAccountsModel* m_useraccountsModel;
-    UserRightsModel* m_userrightsModel;
     QSortFilterProxyModel* m_proxyModel;
     int m_add_cmdid, m_del_cmdid;
+    UserAccount m_user;
 
-    UserAccount m_add_user;
     QString m_del_username;
 
-    AbusePrevention m_abuse;
-    void lockUI(bool locked);
-    void showUserAccount(const UserAccount& useraccount);
-    void updateUserRights(const UserAccount& useraccount);
-    void toggleUserRights(const QModelIndex &index);
-    UserTypes getUserType();
-    UserAccountsDisplay m_uad;
-
 private:
-    void slotClearUser();
     void slotAddUser();
     void slotDelUser();
-    void slotUserSelected(const QModelIndex & index );
-    void slotEdited(const QString&);
-    void slotUserTypeChanged();
-    void slotCustomCmdLimit(int index);
-
-    void slotAddOpChannel();
-    void slotRemoveOpChannel();
-
-    void slotUsernameChanged(const QString& text);
+    void slotEditUser();
     void slotTreeContextMenu(const QPoint&);
 };
 

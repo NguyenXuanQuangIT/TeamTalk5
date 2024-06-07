@@ -19,9 +19,9 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
 
-    - uses: actions/setup-java@v2
+    - uses: actions/setup-java@v3
       with:
         distribution: 'temurin'
         java-version: '11'
@@ -61,6 +61,7 @@ jobs:
            libssl-dev
            libtinyxml-dev
            libvpx-dev
+           libxss-dev
            ninja-build
            portaudio19-dev
            python3-minimal
@@ -94,7 +95,7 @@ jobs:
       # The CMake binaries on the Github Actions machines are (as of this writing) 3.12
       run: >-
            cmake $GITHUB_WORKSPACE -G Ninja
-           -DCATCH_UNITTEST=ON
+           -DBUILD_TEAMTALK_LIBRARY_UNITTEST_CATCH2=ON
            -DFEATURE_PORTAUDIO=OFF
            -DFEATURE_V4L2=OFF
            -DFEATURE_WEBRTC=OFF

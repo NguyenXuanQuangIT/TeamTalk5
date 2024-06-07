@@ -3439,6 +3439,12 @@ TEAMTALKDLL_API INT32 TT_DBG_SIZEOF(IN TTType nType)
         return sizeof(WebRTCAudioPreprocessor);
     case __ENCRYPTIONCONTEXT:
         return sizeof(EncryptionContext);
+    case __SOUNDDEVICEEFFECTS:
+        return sizeof(SoundDeviceEffects);
+    case __DESKTOPWINDOW:
+        return sizeof(DesktopWindow);
+    case __ABUSEPREVENTION:
+        return sizeof(AbusePrevention);
     }
     return 0;
 }
@@ -3482,7 +3488,8 @@ TEAMTALKDLL_API TTBOOL TT_DBG_WriteAudioFileTone(IN const MediaFileInfo* lpMedia
     case AFF_MP3_32KBIT_FORMAT :
     case AFF_MP3_64KBIT_FORMAT :
     case AFF_MP3_128KBIT_FORMAT :
-    case AFF_MP3_256KBIT_FORMAT :
+    case AFF_MP3_256KBIT_FORMAT:
+    case AFF_MP3_320KBIT_FORMAT :
         return FALSE;
     }
 
@@ -3634,6 +3641,10 @@ TEAMTALKDLL_API TTBOOL TT_PumpMessage(IN TTInstance* lpTTInstance,
 {
     clientnode_t clientnode;
     GET_CLIENTNODE_RET(clientnode, lpTTInstance, FALSE);
+
+    auto inst = GET_CLIENT(lpTTInstance);
+    if (inst && inst->eventhandler->IsSuspended())
+        return FALSE;
 
     switch(nEvent) {
     case CLIENTEVENT_USER_STATECHANGE :

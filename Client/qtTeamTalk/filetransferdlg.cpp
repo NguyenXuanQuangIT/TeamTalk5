@@ -1,30 +1,25 @@
 /*
- * Copyright (c) 2005-2018, BearWare.dk
- * 
- * Contact Information:
+ * Copyright (C) 2023, Bjørn D. Rasmussen, BearWare.dk
  *
- * Bjoern D. Rasmussen
- * Kirketoften 5
- * DK-8260 Viby J
- * Denmark
- * Email: contact@bearware.dk
- * Phone: +45 20 20 54 59
- * Web: http://www.bearware.dk
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
  *
- * This source code is part of the TeamTalk SDK owned by
- * BearWare.dk. Use of this file, or its compiled unit, requires a
- * TeamTalk SDK License Key issued by BearWare.dk.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
- * The TeamTalk SDK License Agreement along with its Terms and
- * Conditions are outlined in the file License.txt included with the
- * TeamTalk SDK distribution.
- *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 #include "filetransferdlg.h"
 #include "appinfo.h"
 #include "settings.h"
 #include "utilsound.h"
+#include "utilui.h"
 
 #include <QDir>
 #include <QUrl>
@@ -56,6 +51,8 @@ FileTransferDlg::FileTransferDlg(const FileTransfer& transfer, QWidget* parent)
     m_timerid = startTimer(1000);
 
     updateFileTransfer(transfer);
+
+    ui.closeChkBox->setChecked(ttSettings->value(SETTINGS_DISPLAY_CLOSE_FILEDIALOG, SETTINGS_DISPLAY_CLOSE_FILEDIALOG_DEFAULT).toBool());
 }
 
 void FileTransferDlg::timerEvent(QTimerEvent* event)
@@ -83,17 +80,8 @@ void FileTransferDlg::updateFileTransfer(const FileTransfer& transfer)
     setWindowTitle(_Q(transfer.szRemoteFileName));
     ui.filenameLabel->setText(_Q(transfer.szRemoteFileName));
     ui.filenameLabel->setAccessibleName(QString("%1 %2").arg(ui.label->text()).arg(_Q(transfer.szRemoteFileName)));
-    if(transfer.nFileSize>=1024)
-    {
-        ui.filesizeLabel->setText(QString("%1 KBytes")
-                                    .arg(transfer.nFileSize/1024));
-        ui.filesizeLabel->setAccessibleName(QString("%1 %2 KBytes").arg(ui.label_2->text()).arg(transfer.nFileSize/1024));
-    }
-    else
-    {
-        ui.filesizeLabel->setText(QString("%1 Bytes").arg(transfer.nFileSize));
-        ui.filesizeLabel->setAccessibleName(QString("%1 %2 Bytes").arg(ui.label_2->text()).arg(transfer.nFileSize));
-    }
+    ui.filesizeLabel->setText(getFormattedFileSize(transfer.nFileSize));
+    ui.filesizeLabel->setAccessibleName(QString("%1 %2").arg(ui.label_2->text()).arg(getFormattedFileSize(transfer.nFileSize)));
     double percent = 100.0;
     if(transfer.nFileSize)
         percent = transfer.nTransferred * 100 / transfer.nFileSize;

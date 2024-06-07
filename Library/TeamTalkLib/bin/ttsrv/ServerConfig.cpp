@@ -362,6 +362,7 @@ void RunWizard(teamtalk::ServerXML& xmlSettings)
         std::string tmp;
         int count = 0;
         while(xmlSettings.GetNextUser(count, user))count++;
+        user = UserAccount();
         cout << endl;
         cout << "Currently there's " << count << " user accounts." << endl;
         cout << LIST_USERACCOUNTS << ") List user accounts." << endl;
@@ -468,6 +469,14 @@ useraccountcfg:
                 cout << "User can create/modify all channels: ";
                 userrights = printGetBool(USERRIGHT_DEFAULT & USERRIGHT_MODIFY_CHANNELS?true:false)?
                             (userrights | USERRIGHT_MODIFY_CHANNELS) : (userrights & ~USERRIGHT_MODIFY_CHANNELS);
+
+                cout << "User can sent private text messages: ";
+                userrights = printGetBool(USERRIGHT_DEFAULT & USERRIGHT_TEXTMESSAGE_USER?true:false)?
+                                 (userrights | USERRIGHT_TEXTMESSAGE_USER) : (userrights & ~USERRIGHT_TEXTMESSAGE_USER);
+
+                cout << "User can sent channel text messages: ";
+                userrights = printGetBool(USERRIGHT_DEFAULT & USERRIGHT_TEXTMESSAGE_CHANNEL?true:false)?
+                                 (userrights | USERRIGHT_TEXTMESSAGE_CHANNEL) : (userrights & ~USERRIGHT_TEXTMESSAGE_CHANNEL);
 
                 cout << "User can broadcast text message to all users: ";
                 userrights = printGetBool(USERRIGHT_DEFAULT & USERRIGHT_TEXTMESSAGE_BROADCAST?true:false)?
@@ -861,7 +870,7 @@ bool LoginBearWare(teamtalk::ServerXML& xmlSettings)
             cout << "To avoid providing your credentials every time the server is started" << endl;
             cout << "it is recommended to store your access token in the server's configuration" << endl;
             cout << "file." << endl << endl;
-            cout << "Store access token in " << TEAMTALK_SETTINGSFILE << "? ";
+            cout << "Store access token in " << xmlSettings.GetFileName() << "? ";
             if (printGetBool(true))
             {
                 xmlSettings.SetBearWareWebLogin(UnicodeToUtf8(loginid).c_str(), UnicodeToUtf8(newtoken).c_str());

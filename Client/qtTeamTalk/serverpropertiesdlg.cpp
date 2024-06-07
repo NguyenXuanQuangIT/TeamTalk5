@@ -1,24 +1,18 @@
 /*
- * Copyright (c) 2005-2018, BearWare.dk
- * 
- * Contact Information:
+ * Copyright (C) 2023, Bjørn D. Rasmussen, BearWare.dk
  *
- * Bjoern D. Rasmussen
- * Kirketoften 5
- * DK-8260 Viby J
- * Denmark
- * Email: contact@bearware.dk
- * Phone: +45 20 20 54 59
- * Web: http://www.bearware.dk
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
  *
- * This source code is part of the TeamTalk SDK owned by
- * BearWare.dk. Use of this file, or its compiled unit, requires a
- * TeamTalk SDK License Key issued by BearWare.dk.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
- * The TeamTalk SDK License Agreement along with its Terms and
- * Conditions are outlined in the file License.txt included with the
- * TeamTalk SDK distribution.
- *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 #include "serverpropertiesdlg.h"
@@ -28,6 +22,7 @@
 
 #include <QMessageBox>
 #include <QPushButton>
+#include <QMenu>
 
 extern TTInstance* ttInst;
 extern QSettings* ttSettings;
@@ -42,7 +37,7 @@ ServerPropertiesDlg::ServerPropertiesDlg(QWidget * parent/* = 0*/)
     ui.buttonBox->button(QDialogButtonBox::Ok)->setText(tr("&OK"));
     ui.buttonBox->button(QDialogButtonBox::Cancel)->setText(tr("&Cancel"));
 
-    ui.serverlogTreeView->header()->restoreState(ttSettings->value(SETTINGS_DISPLAY_SERVERLOG_EVENTS_HEADER).toByteArray());
+    ui.serverlogTableView->horizontalHeader()->restoreState(ttSettings->value(SETTINGS_DISPLAY_SERVERLOG_EVENTS_HEADER).toByteArray());
 
     bool editable = (TT_GetMyUserRights(ttInst) & USERRIGHT_UPDATE_SERVERPROPERTIES);
 
@@ -75,7 +70,7 @@ ServerPropertiesDlg::ServerPropertiesDlg(QWidget * parent/* = 0*/)
     ui.totaltxSpinBox->setValue(m_srvprop.nMaxTotalTxPerSecond/1024);
     ui.serverversionEdit->setText(_Q(m_srvprop.szServerVersion));
     m_serverlogmodel = new ServerLogEventsModel(this);
-    ui.serverlogTreeView->setModel(m_serverlogmodel);
+    ui.serverlogTableView->setModel(m_serverlogmodel);
     m_serverlogmodel->setServerLogEvents(m_srvprop.uServerLogEvents);
     if (!versionSameOrLater(_Q(m_srvprop.szServerProtocolVersion), "5.10"))
         ui.serverlogGroupBox->hide();
@@ -85,6 +80,7 @@ ServerPropertiesDlg::ServerPropertiesDlg(QWidget * parent/* = 0*/)
         ui.servernameEdit->setReadOnly(true);
         ui.maxusersSpinBox->setReadOnly(true);
         ui.motdTextEdit->setReadOnly(true);
+        ui.MOTDVarButton->hide();
         ui.tcpportSpinBox->setReadOnly(true);
         ui.udpportSpinBox->setReadOnly(true);
         ui.usertimeoutSpinBox->setReadOnly(true);
@@ -101,14 +97,26 @@ ServerPropertiesDlg::ServerPropertiesDlg(QWidget * parent/* = 0*/)
     }
     else
     {
-        connect(ui.serverlogTreeView, &QAbstractItemView::doubleClicked, this, &ServerPropertiesDlg::slotServerLogToggled);
+        connect(ui.serverlogTableView, &QAbstractItemView::doubleClicked, this, &ServerPropertiesDlg::slotServerLogToggled);
+        m_varMenu = new QMenu(this);
+        connect(ui.MOTDVarButton, &QPushButton::clicked, this, [this]()
+        {
+            m_varMenu->exec(QCursor::pos());
+        });
+        QHash<QString, QString> variables = {{"%users%", tr("Number of users on server")}, {"%admins%", tr("Number of admins on server")}, {"%uptime%", tr("Server's time online")}, {"%voicerx%", tr("KBytes received")}, {"%voicetx%", tr("KBytes sent")}, {"%lastuser%", tr("last user to log on")}};
+        for (auto it = variables.constBegin(); it != variables.constEnd(); ++it)
+        {
+            QAction* action = m_varMenu->addAction(it.value());
+            action->setData(it.key());
+            connect(action, &QAction::triggered, this, &ServerPropertiesDlg::insertVariable);
+        }
     }
 }
 
 ServerPropertiesDlg::~ServerPropertiesDlg()
 {
     ttSettings->setValue(SETTINGS_DISPLAY_SERVERPROPERTIESWINDOWPOS, saveGeometry());
-    ttSettings->setValue(SETTINGS_DISPLAY_SERVERLOG_EVENTS_HEADER, ui.serverlogTreeView->header()->saveState());
+    ttSettings->setValue(SETTINGS_DISPLAY_SERVERLOG_EVENTS_HEADER, ui.serverlogTableView->horizontalHeader()->saveState());
 }
 
 void ServerPropertiesDlg::slotAccepted()
@@ -161,4 +169,18 @@ void ServerPropertiesDlg::slotServerLogToggled(const QModelIndex &index)
         m_serverlogmodel->setServerLogEvents(events & ~e);
     else
         m_serverlogmodel->setServerLogEvents(events | e);
+}
+
+void ServerPropertiesDlg::insertVariable()
+{
+    QAction* action = qobject_cast<QAction*>(sender());
+    if (action)
+    {
+        QString variable = action->data().toString();
+        QTextCursor cursor = ui.motdTextEdit->textCursor();
+        int cursorPos = cursor.position();
+        cursor.insertText(variable);
+        cursor.setPosition(cursorPos + variable.length());
+        ui.motdTextEdit->setTextCursor(cursor);
+    }
 }

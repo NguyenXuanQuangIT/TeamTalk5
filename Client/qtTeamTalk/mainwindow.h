@@ -1,24 +1,18 @@
 /*
- * Copyright (c) 2005-2018, BearWare.dk
- * 
- * Contact Information:
+ * Copyright (C) 2023, Bjørn D. Rasmussen, BearWare.dk
  *
- * Bjoern D. Rasmussen
- * Kirketoften 5
- * DK-8260 Viby J
- * Denmark
- * Email: contact@bearware.dk
- * Phone: +45 20 20 54 59
- * Web: http://www.bearware.dk
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
  *
- * This source code is part of the TeamTalk SDK owned by
- * BearWare.dk. Use of this file, or its compiled unit, requires a
- * TeamTalk SDK License Key issued by BearWare.dk.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
- * The TeamTalk SDK License Agreement along with its Terms and
- * Conditions are outlined in the file License.txt included with the
- * TeamTalk SDK distribution.
- *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 #ifndef MAINWINDOW_H
@@ -258,7 +252,7 @@ private:
     void enableHotKey(HotKeyID id, const hotkey_t& hk);
     void disableHotKey(HotKeyID id);
     void pttHotKey(bool active);
-    void checkAppUpdate();
+    void checkAppUpdate(bool manualCheck = false);
     void toggleAllowStreamType(bool checked, int userid, int channelid, StreamType st);
     void toggleAllowStreamTypeForAll(bool checked, StreamType st);
     void toggleAllowStreamType(bool checked, StreamType st);
@@ -266,6 +260,7 @@ private:
     void relayAudioStream(int userid, StreamType st, bool enable);
     void enableVoiceActivation(bool checked, SoundEvent on = SOUNDEVENT_VOICEACTON, SoundEvent off = SOUNDEVENT_VOICEACTOFF);
     void updateClassroomChannel(const Channel& oldchan, const Channel& newchan);
+    void moveUsersToChannel(int chanid);
 #if defined(Q_OS_LINUX)
     void executeDesktopInput(const DesktopInput& input);
 #endif
@@ -338,6 +333,7 @@ private:
     void slotUsersAdvancedDecVolumeMediaFile();
     void slotUsersAdvancedStoreForMove(int userid = 0);
     void slotUsersAdvancedMoveUsers();
+    void slotUsersAdvancedMoveUsersDialog();
     void slotUsersAdvancedChanMsgAllowed(bool checked=false);
     void slotUsersAdvancedVoiceAllowed(bool checked=false);
     void slotUsersAdvancedVideoAllowed(bool checked=false);
@@ -351,6 +347,7 @@ private:
     void slotChannelsUpdateChannel(bool checked=false);
     void slotChannelsDeleteChannel(bool checked=false);
     void slotChannelsJoinChannel(bool checked=false);
+    void slotChannelsLeaveChannel(bool checked=false);
     void slotChannelsViewChannelInfo(bool checked=false);
     void slotChannelsSpeakChannelInformationGrid(bool checked=false);
     void slotChannelsSpeakChannelStatusGrid(bool checked=false);
@@ -394,6 +391,7 @@ private:
     void slotUpdateVideoTabUI();
     void slotUpdateDesktopTabUI();
     void slotUploadFiles(const QStringList& files);
+    int getRemoteFileID(int channelid, const QString& filename);
     void slotSendChannelMessage();
     void slotUserDoubleClicked(int userid);
     void slotChannelDoubleClicked(int channelid);
@@ -431,13 +429,14 @@ private:
 
     void slotLoadTTFile(const QString& filepath);
 
-    void slotSoftwareUpdateReply(QNetworkReply* reply);
+    void slotSoftwareUpdateReply(QNetworkReply* reply, bool manualCheck = false);
     void slotBearWareAuthReply(QNetworkReply* reply);
     void slotCmdSuccess(int cmdid);
     void slotClosedOnlineUsersDlg(int);
     void slotClosedServerStatsDlg(int);
     void slotClosedUserAccountsDlg(int);
     void slotClosedBannedUsersDlg(int);
+    void initialScreenReaderSetup();
     void startTTS();
     void slotTextChanged();
     void slotSpeakClientStats(bool checked=false);
@@ -492,6 +491,7 @@ signals:
     void filetransferUpdate(const FileTransfer& transfer);
     void mediaStreamUpdate(const MediaFileInfo& mfi);
     void mediaPlaybackUpdate(int sessionID, const MediaFileInfo& mfi);
+    void cmdProcessing(int cmdid, bool active);
     void cmdSuccess(int cmdid);
     void cmdError(int errorno, int cmdid);
     /* End - CLIENTEVENT_* based events */

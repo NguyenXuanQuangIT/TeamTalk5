@@ -1488,6 +1488,7 @@ void Convert(const teamtalk::BannedUser& banuser, BannedUser& result)
     ACE_OS::strsncpy(result.szNickname, banuser.nickname.c_str(), TT_STRLEN);
     ACE_OS::strsncpy(result.szUsername, banuser.username.c_str(), TT_STRLEN);
     ACE_OS::strsncpy(result.szBanTime, teamtalk::DateToString( banuser.bantime ).c_str(), TT_STRLEN);
+    ACE_OS::strsncpy(result.szOwner, banuser.owner.c_str(), TT_STRLEN);
     result.uBanTypes = BanTypes(banuser.bantype);
 }
 
@@ -1498,6 +1499,7 @@ void Convert(const BannedUser& banuser, teamtalk::BannedUser& result)
     result.ipaddr = banuser.szIPAddress;
     result.nickname = banuser.szNickname;
     result.username = banuser.szUsername;
+    result.owner = banuser.szOwner;
 }
 
 void Convert(const teamtalk::FileTransfer& transfer, FileTransfer& result)
@@ -1699,7 +1701,7 @@ void Convert(const teamtalk::ClientStats& stats, ClientStatistics& result)
 
 void Convert(const ClientKeepAlive& ka, teamtalk::ClientKeepAlive& result)
 {
-    result.connection_lost.msec(ka.nConnectionLostMSec);
+    result.connection_lost_timeout.msec(ka.nConnectionLostMSec);
     result.tcp_keepalive_interval.msec(ka.nTcpKeepAliveIntervalMSec);
     result.udp_keepalive_interval.msec(ka.nUdpKeepAliveIntervalMSec);
     result.udp_keepalive_rtx.msec(ka.nUdpKeepAliveRTXMSec);
@@ -1709,7 +1711,7 @@ void Convert(const ClientKeepAlive& ka, teamtalk::ClientKeepAlive& result)
 
 void Convert(const teamtalk::ClientKeepAlive& ka, ClientKeepAlive& result)
 {
-    result.nConnectionLostMSec = ka.connection_lost.msec();
+    result.nConnectionLostMSec = ka.connection_lost_timeout.msec();
     result.nTcpKeepAliveIntervalMSec = ka.tcp_keepalive_interval.msec();
     result.nUdpKeepAliveIntervalMSec = ka.udp_keepalive_interval.msec();
     result.nUdpKeepAliveRTXMSec = ka.udp_keepalive_rtx.msec();

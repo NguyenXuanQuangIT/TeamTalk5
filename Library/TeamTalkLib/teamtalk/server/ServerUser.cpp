@@ -104,6 +104,8 @@ bool ServerUser::SendData(ACE_Message_Queue_Base& msg_queue)
             return true;
         }
 
+        m_servernode.UserEndFileTransfer(m_filetransfer->transferid);
+
         CloseTransfer();
     }
     else if(m_sendbuf.length())
@@ -888,6 +890,12 @@ ErrorMsg ServerUser::HandleNewUserAccount(const mstrings_t& properties)
     GET_PROP_OR_RETURN(properties, TT_USERTYPE, account.usertype);
     GetProperties(properties, account);
 
+    if (!VersionSameOrLater(GetStreamProtocol(), ACE_TEXT("5.13")))
+    {
+        account.userrights |= USERRIGHT_TEXTMESSAGE_USER;
+        account.userrights |= USERRIGHT_TEXTMESSAGE_CHANNEL;
+    }
+
     return m_servernode.UserNewUserAccount(GetUserID(), account);
 }
 
@@ -903,6 +911,7 @@ ErrorMsg ServerUser::HandleUserBan(const mstrings_t& properties)
 {
     int ban_userid = 0, chanid = 0;
     BannedUser ban;
+    // Deprecated TeamTalk v6
     ban.bantype = BANTYPE_DEFAULT; //default pre-TT-protocol 5.3
 
     GetProperty(properties, TT_USERID, ban_userid);
@@ -916,13 +925,15 @@ ErrorMsg ServerUser::HandleUserBan(const mstrings_t& properties)
     if (chanid)
         ban.bantype |= BANTYPE_CHANNEL;
 
-    //ban if admin
-    return m_servernode.UserBan(GetUserID(), ban_userid, ban);
+    return (ban_userid != 0) ?
+        m_servernode.UserBan(GetUserID(), ban_userid, ban) :
+        m_servernode.UserBan(GetUserID(), ban);
 }
 
 ErrorMsg ServerUser::HandleUserUnban(const mstrings_t& properties)
 {
     BannedUser ban;
+    // Deprecated TeamTalk v6
     ban.bantype = BANTYPE_DEFAULT; //default pre-TT-protocol 5.3
 
     GetProperty(properties, TT_IPADDR, ban.ipaddr);
@@ -956,6 +967,7 @@ ErrorMsg ServerUser::HandleRegSendFile(const mstrings_t& properties)
     GET_PROP_OR_RETURN(properties, TT_CHANNELID, transfer.channelid);
     GET_PROP_OR_RETURN(properties, TT_FILENAME, transfer.filename);
     GET_PROP_OR_RETURN(properties, TT_FILESIZE, transfer.filesize);
+    GetProperty(properties, TT_TRANSFERKEY, transfer.transferkey);
 
     return m_servernode.UserRegFileTransfer(transfer);
 }
@@ -969,20 +981,22 @@ ErrorMsg ServerUser::HandleRegRecvFile(const mstrings_t& properties)
 
     GET_PROP_OR_RETURN(properties, TT_CHANNELID, transfer.channelid);
     GET_PROP_OR_RETURN(properties, TT_FILENAME, transfer.filename);
+    GetProperty(properties, TT_TRANSFERKEY, transfer.transferkey);
 
     return m_servernode.UserRegFileTransfer(transfer);
 }
 
 ErrorMsg ServerUser::HandleSendFile(const mstrings_t& properties)
 {
-    int transferid = 0;
-    GET_PROP_OR_RETURN(properties, TT_TRANSFERID, transferid);
+    FileTransfer transfer;
+    transfer.inbound = true;
+    GET_PROP_OR_RETURN(properties, TT_TRANSFERID, transfer.transferid);
+    GetProperty(properties, TT_TRANSFERKEY, transfer.transferkey);
 
     m_filetransfer.reset(new LocalFileTransfer());
 
-    FileTransfer transfer;
-    ErrorMsg err = m_servernode.UserBeginFileTransfer(transferid, transfer, m_filetransfer->file);
-    if(err.errorno != TT_CMDERR_SUCCESS)
+    ErrorMsg err = m_servernode.UserBeginFileTransfer(transfer, m_filetransfer->file);
+    if (err.errorno != TT_CMDERR_SUCCESS)
     {
         DoError(err);
         m_filetransfer.reset();
@@ -990,11 +1004,10 @@ ErrorMsg ServerUser::HandleSendFile(const mstrings_t& properties)
     else
     {
         m_filetransfer->filesize = transfer.filesize;
-        m_filetransfer->inbound = true;
+        m_filetransfer->inbound = transfer.inbound;
         m_filetransfer->transferid = transfer.transferid;
         m_filetransfer->filename = transfer.localfile;
 
-        int size = FILEBUFFERSIZE, optlen = sizeof(size);
         DoFileDeliver(transfer);
         m_filetransfer->active = true;
     }
@@ -1003,13 +1016,14 @@ ErrorMsg ServerUser::HandleSendFile(const mstrings_t& properties)
 
 ErrorMsg ServerUser::HandleRecvFile(const mstrings_t& properties)
 {
-    int transferid = 0;
-    GET_PROP_OR_RETURN(properties, TT_TRANSFERID, transferid);
+    FileTransfer transfer;
+    transfer.inbound = false;
+    GET_PROP_OR_RETURN(properties, TT_TRANSFERID, transfer.transferid);
+    GetProperty(properties, TT_TRANSFERKEY, transfer.transferkey);
 
     m_filetransfer.reset(new LocalFileTransfer());
 
-    FileTransfer transfer;
-    ErrorMsg err = m_servernode.UserBeginFileTransfer(transferid, transfer, m_filetransfer->file);
+    ErrorMsg err = m_servernode.UserBeginFileTransfer(transfer, m_filetransfer->file);
     if(err.errorno != TT_CMDERR_SUCCESS)
     {
         m_filetransfer.reset();
@@ -1020,7 +1034,7 @@ ErrorMsg ServerUser::HandleRecvFile(const mstrings_t& properties)
         m_filetransfer->filesize = transfer.filesize;
         m_filetransfer->transferid = transfer.transferid;
         m_filetransfer->filename = transfer.localfile;
-        m_filetransfer->inbound = false;
+        m_filetransfer->inbound = transfer.inbound;
         DoFileReady();
     }
     return TT_CMDERR_IGNORE;
@@ -1078,7 +1092,7 @@ ErrorMsg ServerUser::HandleQueryStats(const mstrings_t& properties)
     return TT_CMDERR_SUCCESS;
 }
 
-BannedUser ServerUser::GetBan(BanTypes bantype, const ACE_TString& chanpath) const
+BannedUser ServerUser::GenerateBan(BanTypes bantype, const ACE_TString& chanpath) const
 {
     BannedUser ban;
     ban.bantype = bantype;
@@ -1739,6 +1753,7 @@ void ServerUser::DoShowBan(const BannedUser& ban)
     AppendProperty(TT_NICKNAME, ban.nickname, command);
     AppendProperty(TT_USERNAME, ban.username, command);
     AppendProperty(TT_BANTIME, ban.bantime, command);
+    AppendProperty(TT_BANOWNER, ban.owner, command);
     command += ACE_TString(EOL);
 
     TransmitCommand(command);

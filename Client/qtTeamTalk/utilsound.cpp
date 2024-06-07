@@ -1,24 +1,18 @@
 /*
- * Copyright (c) 2005-2018, BearWare.dk
- * 
- * Contact Information:
+ * Copyright (C) 2023, Bjørn D. Rasmussen, BearWare.dk
  *
- * Bjoern D. Rasmussen
- * Kirketoften 5
- * DK-8260 Viby J
- * Denmark
- * Email: contact@bearware.dk
- * Phone: +45 20 20 54 59
- * Web: http://www.bearware.dk
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
  *
- * This source code is part of the TeamTalk SDK owned by
- * BearWare.dk. Use of this file, or its compiled unit, requires a
- * TeamTalk SDK License Key issued by BearWare.dk.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
- * The TeamTalk SDK License Agreement along with its Terms and
- * Conditions are outlined in the file License.txt included with the
- * TeamTalk SDK distribution.
- *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 #include "utilsound.h"
@@ -40,6 +34,45 @@
 extern QSettings* ttSettings;
 extern TTInstance* ttInst;
 extern PlaySoundEvent* playsoundevent;
+
+QHash<SoundEvents, SoundEventInfo> UtilSound::eventToSettingMap()
+{
+    static QHash<SoundEvents, SoundEventInfo> map =
+    {
+        { SOUNDEVENT_NEWUSER, {SETTINGS_SOUNDEVENT_NEWUSER, "newuser"} },
+        { SOUNDEVENT_REMOVEUSER, {SETTINGS_SOUNDEVENT_REMOVEUSER, "removeuser"} },
+        { SOUNDEVENT_SERVERLOST, {SETTINGS_SOUNDEVENT_SERVERLOST, "serverlost"} },
+        { SOUNDEVENT_USERMSG, {SETTINGS_SOUNDEVENT_USERMSG, "user_msg"} },
+        { SOUNDEVENT_USERMSGSENT, {SETTINGS_SOUNDEVENT_USERMSGSENT, "user_msg_sent"} },
+        { SOUNDEVENT_CHANNELMSG, {SETTINGS_SOUNDEVENT_CHANNELMSG, "channel_msg"} },
+        { SOUNDEVENT_CHANNELMSGSENT, {SETTINGS_SOUNDEVENT_CHANNELMSGSENT, "channel_msg_sent"} },
+        { SOUNDEVENT_BROADCASTMSG, {SETTINGS_SOUNDEVENT_BROADCASTMSG, "broadcast_msg"} },
+        { SOUNDEVENT_HOTKEY, {SETTINGS_SOUNDEVENT_HOTKEY, "hotkey"} },
+        { SOUNDEVENT_SILENCE, {SETTINGS_SOUNDEVENT_SILENCE, ""} },
+        { SOUNDEVENT_NEWVIDEO, {SETTINGS_SOUNDEVENT_NEWVIDEO, "videosession"} },
+        { SOUNDEVENT_NEWDESKTOP, {SETTINGS_SOUNDEVENT_NEWDESKTOP, "desktopsession"} },
+        { SOUNDEVENT_FILESUPD, {SETTINGS_SOUNDEVENT_FILESUPD, "fileupdate"} },
+        { SOUNDEVENT_FILETXDONE, {SETTINGS_SOUNDEVENT_FILETXDONE, "filetx_complete"} },
+        { SOUNDEVENT_QUESTIONMODE, {SETTINGS_SOUNDEVENT_QUESTIONMODE, "questionmode"} },
+        { SOUNDEVENT_DESKTOPACCESS, {SETTINGS_SOUNDEVENT_DESKTOPACCESS, "desktopaccessreq"} },
+        { SOUNDEVENT_USERLOGGEDIN, {SETTINGS_SOUNDEVENT_USERLOGGEDIN, "logged_on"} },
+        { SOUNDEVENT_USERLOGGEDOUT, {SETTINGS_SOUNDEVENT_USERLOGGEDOUT, "logged_off"} },
+        { SOUNDEVENT_VOICEACTON, {SETTINGS_SOUNDEVENT_VOICEACTON, "vox_enable"} },
+        { SOUNDEVENT_VOICEACTOFF, {SETTINGS_SOUNDEVENT_VOICEACTOFF, "vox_disable"} },
+        { SOUNDEVENT_MUTEALLON, {SETTINGS_SOUNDEVENT_MUTEALLON, "mute_all"} },
+        { SOUNDEVENT_MUTEALLOFF, {SETTINGS_SOUNDEVENT_MUTEALLOFF, "unmute_all"} },
+        { SOUNDEVENT_TRANSMITQUEUE_HEAD, {SETTINGS_SOUNDEVENT_TRANSMITQUEUE_HEAD, "txqueue_start"} },
+        { SOUNDEVENT_TRANSMITQUEUE_STOP, {SETTINGS_SOUNDEVENT_TRANSMITQUEUE_STOP, "txqueue_stop"} },
+        { SOUNDEVENT_VOICEACTTRIG, {SETTINGS_SOUNDEVENT_VOICEACTTRIG, "voiceact_on"} },
+        { SOUNDEVENT_VOICEACTSTOP, {SETTINGS_SOUNDEVENT_VOICEACTSTOP, "voiceact_off"} },
+        { SOUNDEVENT_VOICEACTMEON, {SETTINGS_SOUNDEVENT_VOICEACTMEON, "vox_me_enable"} },
+        { SOUNDEVENT_VOICEACTMEOFF, {SETTINGS_SOUNDEVENT_VOICEACTMEOFF, "vox_me_disable"} },
+        { SOUNDEVENT_INTERCEPT, {SETTINGS_SOUNDEVENT_INTERCEPT, "intercept"} },
+        { SOUNDEVENT_INTERCEPTEND, {SETTINGS_SOUNDEVENT_INTERCEPTEND, "interceptEnd"} },
+        { SOUNDEVENT_TYPING, {SETTINGS_SOUNDEVENT_TYPING, "typing"} },
+    };
+    return map;
+}
 
 QVector<SoundDevice> getSoundDevices()
 {
@@ -490,6 +523,12 @@ QString getSoundEventFilename(SoundEvent event)
         case SOUNDEVENT_INTERCEPTEND:
             filename = ttSettings->value(SETTINGS_SOUNDEVENT_INTERCEPTEND, SETTINGS_SOUNDEVENT_INTERCEPTEND_DEFAULT).toString();
             break;
+        case SOUNDEVENT_TYPING:
+            filename = ttSettings->value(SETTINGS_SOUNDEVENT_TYPING, SETTINGS_SOUNDEVENT_TYPING_DEFAULT).toString();
+            break;
+        case SOUNDEVENT_NONE :
+        case SOUNDEVENT_NEXT_UNUSED :
+            break;
         }
     }
     return filename;
@@ -588,7 +627,9 @@ void PlaySoundEvent::playDefaultSoundEvent(const QString& filename)
 #if QT_VERSION < QT_VERSION_CHECK(6,0,0)
     QSound::play(filename);
 #else
-    static QSoundEffect* effect = new QSoundEffect(ttSettings);
+    static QSoundEffect* effect = nullptr;
+    delete effect;
+    effect = new QSoundEffect(ttSettings);
     effect->setSource(QUrl::fromLocalFile(filename));
     effect->setVolume(ttSettings->value(SETTINGS_SOUNDEVENT_VOLUME, SETTINGS_SOUNDEVENT_VOLUME_DEFAULT).toInt()/100.0);
     effect->play();
@@ -598,40 +639,94 @@ void PlaySoundEvent::playDefaultSoundEvent(const QString& filename)
 
 void playSoundEvent(SoundEvent event)
 {
-    Q_ASSERT(playsoundevent);
-    playsoundevent->queueSoundEvent(event);
+    if (ttSettings->value(SETTINGS_SOUNDEVENT_ACTIVEEVENTS, SETTINGS_SOUNDEVENT_ACTIVEEVENTS_DEFAULT).toULongLong() & event)
+    {
+        Q_ASSERT(playsoundevent);
+        playsoundevent->queueSoundEvent(event);
+    }
 }
 
 void resetDefaultSoundsPack()
 {
-    ttSettings->setValue(SETTINGS_SOUNDEVENT_NEWUSER, SETTINGS_SOUNDEVENT_NEWUSER_DEFAULT);
-    ttSettings->setValue(SETTINGS_SOUNDEVENT_REMOVEUSER, SETTINGS_SOUNDEVENT_REMOVEUSER_DEFAULT);
-    ttSettings->setValue(SETTINGS_SOUNDEVENT_SERVERLOST, SETTINGS_SOUNDEVENT_SERVERLOST_DEFAULT);
-    ttSettings->setValue(SETTINGS_SOUNDEVENT_USERMSG, SETTINGS_SOUNDEVENT_USERMSG_DEFAULT);
-    ttSettings->setValue(SETTINGS_SOUNDEVENT_USERMSGSENT, SETTINGS_SOUNDEVENT_USERMSGSENT_DEFAULT);
-    ttSettings->setValue(SETTINGS_SOUNDEVENT_CHANNELMSG, SETTINGS_SOUNDEVENT_CHANNELMSG_DEFAULT);
-    ttSettings->setValue(SETTINGS_SOUNDEVENT_CHANNELMSGSENT, SETTINGS_SOUNDEVENT_CHANNELMSGSENT_DEFAULT);
-    ttSettings->setValue(SETTINGS_SOUNDEVENT_BROADCASTMSG, SETTINGS_SOUNDEVENT_BROADCASTMSG_DEFAULT);
-    ttSettings->setValue(SETTINGS_SOUNDEVENT_HOTKEY, SETTINGS_SOUNDEVENT_HOTKEY_DEFAULT);
-    ttSettings->setValue(SETTINGS_SOUNDEVENT_NEWVIDEO, SETTINGS_SOUNDEVENT_NEWVIDEO_DEFAULT);
-    ttSettings->setValue(SETTINGS_SOUNDEVENT_NEWDESKTOP, SETTINGS_SOUNDEVENT_NEWDESKTOP_DEFAULT);
-    ttSettings->setValue(SETTINGS_SOUNDEVENT_FILESUPD, SETTINGS_SOUNDEVENT_FILESUPD_DEFAULT);
-    ttSettings->setValue(SETTINGS_SOUNDEVENT_FILETXDONE, SETTINGS_SOUNDEVENT_FILETXDONE_DEFAULT);
-    ttSettings->setValue(SETTINGS_SOUNDEVENT_QUESTIONMODE, SETTINGS_SOUNDEVENT_QUESTIONMODE_DEFAULT);
-    ttSettings->setValue(SETTINGS_SOUNDEVENT_DESKTOPACCESS, SETTINGS_SOUNDEVENT_DESKTOPACCESS_DEFAULT);
-    ttSettings->setValue(SETTINGS_SOUNDEVENT_USERLOGGEDIN, SETTINGS_SOUNDEVENT_USERLOGGEDIN_DEFAULT);
-    ttSettings->setValue(SETTINGS_SOUNDEVENT_USERLOGGEDOUT, SETTINGS_SOUNDEVENT_USERLOGGEDOUT_DEFAULT);
-    ttSettings->setValue(SETTINGS_SOUNDEVENT_VOICEACTON, SETTINGS_SOUNDEVENT_VOICEACTON_DEFAULT);
-    ttSettings->setValue(SETTINGS_SOUNDEVENT_VOICEACTOFF, SETTINGS_SOUNDEVENT_VOICEACTOFF_DEFAULT);
-    ttSettings->setValue(SETTINGS_SOUNDEVENT_MUTEALLON, SETTINGS_SOUNDEVENT_MUTEALLON_DEFAULT);
-    ttSettings->setValue(SETTINGS_SOUNDEVENT_MUTEALLOFF, SETTINGS_SOUNDEVENT_MUTEALLOFF_DEFAULT);
-    ttSettings->setValue(SETTINGS_SOUNDEVENT_TRANSMITQUEUE_HEAD, SETTINGS_SOUNDEVENT_TRANSMITQUEUE_HEAD_DEFAULT);
-    ttSettings->setValue(SETTINGS_SOUNDEVENT_TRANSMITQUEUE_STOP, SETTINGS_SOUNDEVENT_TRANSMITQUEUE_STOP_DEFAULT);
-    ttSettings->setValue(SETTINGS_SOUNDEVENT_VOICEACTTRIG, SETTINGS_SOUNDEVENT_VOICEACTTRIG_DEFAULT);
-    ttSettings->setValue(SETTINGS_SOUNDEVENT_VOICEACTSTOP, SETTINGS_SOUNDEVENT_VOICEACTSTOP_DEFAULT);
-    ttSettings->setValue(SETTINGS_SOUNDEVENT_VOICEACTMEON, SETTINGS_SOUNDEVENT_VOICEACTMEON_DEFAULT);
-    ttSettings->setValue(SETTINGS_SOUNDEVENT_VOICEACTMEOFF, SETTINGS_SOUNDEVENT_VOICEACTMEOFF_DEFAULT);
-    ttSettings->setValue(SETTINGS_SOUNDEVENT_INTERCEPT, SETTINGS_SOUNDEVENT_INTERCEPT_DEFAULT);
-    ttSettings->setValue(SETTINGS_SOUNDEVENT_INTERCEPTEND, SETTINGS_SOUNDEVENT_INTERCEPTEND_DEFAULT);
+    auto eventMap = UtilSound::eventToSettingMap();
+
+    for (auto it = eventMap.constBegin(); it != eventMap.constEnd(); ++it)
+    {
+        const SoundEventInfo& eventInfo = it.value();
+        QString paramKey = eventInfo.settingKey;
+        QString defaultValue = UtilSound::getDefaultFile(paramKey);
+        ttSettings->setValue(paramKey, defaultValue);
+    }
+
     ttSettings->setValue(SETTINGS_SOUNDS_PACK, QCoreApplication::translate("MainWindow", SETTINGS_SOUNDS_PACK_DEFAULT));
+}
+
+QString UtilSound::getDefaultFile(const QString& paramKey)
+{
+    if (paramKey == SETTINGS_SOUNDEVENT_NEWUSER)
+        return SETTINGS_SOUNDEVENT_NEWUSER_DEFAULT;
+    if (paramKey == SETTINGS_SOUNDEVENT_REMOVEUSER)
+        return SETTINGS_SOUNDEVENT_REMOVEUSER_DEFAULT;
+    if (paramKey == SETTINGS_SOUNDEVENT_SERVERLOST)
+        return SETTINGS_SOUNDEVENT_SERVERLOST_DEFAULT;
+    if (paramKey == SETTINGS_SOUNDEVENT_USERMSG)
+        return SETTINGS_SOUNDEVENT_USERMSG_DEFAULT;
+    if (paramKey == SETTINGS_SOUNDEVENT_USERMSGSENT)
+        return SETTINGS_SOUNDEVENT_USERMSGSENT_DEFAULT;
+    if (paramKey == SETTINGS_SOUNDEVENT_CHANNELMSG)
+        return SETTINGS_SOUNDEVENT_CHANNELMSG_DEFAULT;
+    if (paramKey == SETTINGS_SOUNDEVENT_CHANNELMSGSENT)
+        return SETTINGS_SOUNDEVENT_CHANNELMSGSENT_DEFAULT;
+    if (paramKey == SETTINGS_SOUNDEVENT_BROADCASTMSG)
+        return SETTINGS_SOUNDEVENT_BROADCASTMSG_DEFAULT;
+    if (paramKey == SETTINGS_SOUNDEVENT_HOTKEY)
+        return SETTINGS_SOUNDEVENT_HOTKEY_DEFAULT;
+    if (paramKey == SETTINGS_SOUNDEVENT_NEWVIDEO)
+        return SETTINGS_SOUNDEVENT_NEWVIDEO_DEFAULT;
+    if (paramKey == SETTINGS_SOUNDEVENT_NEWDESKTOP)
+        return SETTINGS_SOUNDEVENT_NEWDESKTOP_DEFAULT;
+    if (paramKey == SETTINGS_SOUNDEVENT_FILESUPD)
+        return SETTINGS_SOUNDEVENT_FILESUPD_DEFAULT;
+    if (paramKey == SETTINGS_SOUNDEVENT_FILETXDONE)
+        return SETTINGS_SOUNDEVENT_FILETXDONE_DEFAULT;
+    if (paramKey == SETTINGS_SOUNDEVENT_QUESTIONMODE)
+        return SETTINGS_SOUNDEVENT_QUESTIONMODE_DEFAULT;
+    if (paramKey == SETTINGS_SOUNDEVENT_DESKTOPACCESS)
+        return SETTINGS_SOUNDEVENT_DESKTOPACCESS_DEFAULT;
+    if (paramKey == SETTINGS_SOUNDEVENT_USERLOGGEDIN)
+        return SETTINGS_SOUNDEVENT_USERLOGGEDIN_DEFAULT;
+    if (paramKey == SETTINGS_SOUNDEVENT_USERLOGGEDOUT)
+        return SETTINGS_SOUNDEVENT_USERLOGGEDOUT_DEFAULT;
+    if (paramKey == SETTINGS_SOUNDEVENT_VOICEACTON)
+        return SETTINGS_SOUNDEVENT_VOICEACTON_DEFAULT;
+    if (paramKey == SETTINGS_SOUNDEVENT_VOICEACTOFF)
+        return SETTINGS_SOUNDEVENT_VOICEACTOFF_DEFAULT;
+    if (paramKey == SETTINGS_SOUNDEVENT_MUTEALLON)
+        return SETTINGS_SOUNDEVENT_MUTEALLON_DEFAULT;
+    if (paramKey == SETTINGS_SOUNDEVENT_MUTEALLOFF)
+        return SETTINGS_SOUNDEVENT_MUTEALLOFF_DEFAULT;
+    if (paramKey == SETTINGS_SOUNDEVENT_TRANSMITQUEUE_HEAD)
+        return SETTINGS_SOUNDEVENT_TRANSMITQUEUE_HEAD_DEFAULT;
+    if (paramKey == SETTINGS_SOUNDEVENT_TRANSMITQUEUE_STOP)
+        return SETTINGS_SOUNDEVENT_TRANSMITQUEUE_STOP_DEFAULT;
+    if (paramKey == SETTINGS_SOUNDEVENT_VOICEACTTRIG)
+        return SETTINGS_SOUNDEVENT_VOICEACTTRIG_DEFAULT;
+    if (paramKey == SETTINGS_SOUNDEVENT_VOICEACTSTOP)
+        return SETTINGS_SOUNDEVENT_VOICEACTSTOP_DEFAULT;
+    if (paramKey == SETTINGS_SOUNDEVENT_VOICEACTMEON)
+        return SETTINGS_SOUNDEVENT_VOICEACTMEON_DEFAULT;
+    if (paramKey == SETTINGS_SOUNDEVENT_VOICEACTMEOFF)
+        return SETTINGS_SOUNDEVENT_VOICEACTMEOFF_DEFAULT;
+    if (paramKey == SETTINGS_SOUNDEVENT_INTERCEPT)
+        return SETTINGS_SOUNDEVENT_INTERCEPT_DEFAULT;
+    if (paramKey == SETTINGS_SOUNDEVENT_INTERCEPTEND)
+        return SETTINGS_SOUNDEVENT_INTERCEPTEND_DEFAULT;
+    if (paramKey == SETTINGS_SOUNDEVENT_TYPING)
+        return SETTINGS_SOUNDEVENT_TYPING_DEFAULT;
+    return QString();
+}
+
+QString UtilSound::getFile(const QString& paramKey)
+{
+    return ttSettings->value(paramKey, getDefaultFile(paramKey)).toString();
 }

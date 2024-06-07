@@ -95,6 +95,7 @@ class SoundSystem(INT32):
     SOUNDSYSTEM_WASAPI = 5
     SOUNDSYSTEM_OPENSLES_ANDROID = 7
     SOUNDSYSTEM_AUDIOUNIT = 8
+    SOUNDSYSTEM_PULSEAUDIO = 10
 
 class SoundDeviceFeature(UINT32):
     SOUNDDEVICEFEATURE_NONE = 0x0000
@@ -185,6 +186,7 @@ class AudioFileFormat(INT32):
     AFF_MP3_64KBIT_FORMAT = 5
     AFF_MP3_128KBIT_FORMAT = 6
     AFF_MP3_256KBIT_FORMAT = 7
+    AFF_MP3_320KBIT_FORMAT = 8
 
 class AudioFormat(Structure):
     _fields_ = [
@@ -517,6 +519,8 @@ class UserRight(UINT32):
     USERRIGHT_LOCKED_STATUS = 0x00080000
     USERRIGHT_RECORD_VOICE = 0x00100000
     USERRIGHT_VIEW_HIDDEN_CHANNELS = 0x00200000
+    USERRIGHT_TEXTMESSAGE_USER = 0x00400000
+    USERRIGHT_TEXTMESSAGE_CHANNEL = 0x00800000
 
 class ServerLogEvent(UINT32):
     SERVERLOGEVENT_NONE = 0x00000000
@@ -606,7 +610,8 @@ class BannedUser(Structure):
     ("szBanTime", TTCHAR*TT_STRLEN),
     ("szNickname", TTCHAR*TT_STRLEN),
     ("szUsername", TTCHAR*TT_STRLEN),
-    ("uBanTypes", UINT32)
+    ("uBanTypes", UINT32),
+    ("szOwner", TTCHAR*TT_STRLEN)
     ]
     def __init__(self):
         assert(DBG_SIZEOF(TTType.BANNEDUSER) == ctypes.sizeof(BannedUser))
@@ -884,6 +889,7 @@ class ClientError(INT32):
     CMDERR_MAX_CHANNELS_EXCEEDED = 2013
     CMDERR_COMMAND_FLOOD = 2014
     CMDERR_CHANNEL_BANNED = 2015
+    CMDERR_MAX_FILETRANSFERS_EXCEEDED = 2016
     CMDERR_NOT_LOGGEDIN = 3000
     CMDERR_ALREADY_LOGGEDIN = 3001
     CMDERR_NOT_IN_CHANNEL = 3002
@@ -1018,6 +1024,9 @@ class TTType(INT32):
     JITTERCONFIG = 41
     WEBRTCAUDIOPREPROCESSOR = 42
     ENCRYPTIONCONTEXT = 43
+    SOUNDDEVICEEFFECTS = 44
+    DESKTOPWINDOW = 45
+    ABUSEPREVENTION = 46
 
 class TTMessageUnion(Union):
     _fields_ = [
@@ -1148,7 +1157,7 @@ _StopStreamingMediaFileToChannel = function_factory(dll.TT_StopStreamingMediaFil
 _InitLocalPlayback = function_factory(dll.TT_InitLocalPlayback, [INT32, [_TTInstance, TTCHAR_P, POINTER(MediaFilePlayback)]])
 _UpdateLocalPlayback = function_factory(dll.TT_UpdateLocalPlayback, [BOOL, [_TTInstance, INT32, POINTER(MediaFilePlayback)]])
 _StopLocalPlayback = function_factory(dll.TT_StopLocalPlayback, [BOOL, [_TTInstance, INT32]])
-_GetMediaFileInfo = function_factory(dll.TT_GetMediaFileInfo, [BOOL, [_TTInstance, TTCHAR_P, POINTER(MediaFileInfo)]])
+_GetMediaFileInfo = function_factory(dll.TT_GetMediaFileInfo, [BOOL, [TTCHAR_P, POINTER(MediaFileInfo)]])
 _SetEncryptionContext = function_factory(dll.TT_SetEncryptionContext, [BOOL, [_TTInstance, POINTER(EncryptionContext)]])
 _Connect = function_factory(dll.TT_Connect, [BOOL, [_TTInstance, TTCHAR_P, INT32, INT32, INT32, INT32, BOOL]])
 _ConnectSysID = function_factory(dll.TT_ConnectSysID, [BOOL, [_TTInstance, TTCHAR_P, INT32, INT32, INT32, INT32, BOOL, TTCHAR_P]])
@@ -1625,6 +1634,10 @@ class TeamTalk(object):
     def releaseUserAudioBlock(self, lpAudioBlock: POINTER(AudioBlock)) -> bool:
         return _ReleaseUserAudioBlock(self._tt, lpAudioBlock)
 
+    def getMediaFileInfo(szMediaFilePath) -> MediaFileInfo:
+        mfi = MediaFileInfo()
+        _GetMediaFileInfo(szMediaFilePath, mfi)
+        return mfi
 
     # event handling
 

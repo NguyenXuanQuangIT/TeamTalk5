@@ -35,6 +35,10 @@
 #include <ace/OS.h>
 #include <ace/Synch_Options.h>
 
+#if defined(ENABLE_ENCRYPTION)
+#include <openssl/rand.h>
+#endif
+
 using namespace teamtalk;
 using namespace std;
 using namespace media;
@@ -327,6 +331,9 @@ void ClientNode::UpdateKeepAlive(const ClientKeepAlive& keepalive)
     // set TCP keepalive (DoPing) to half of usertimeout
     m_keepalive.tcp_keepalive_interval = std::max(ACE_Time_Value(m_serverinfo.usertimeout / 2, 0),
                                                   ACE_Time_Value(1, 0));
+    // if server has not "seen us" for twice the user timeout then
+    // we've been disconnected anyway
+    m_keepalive.connection_lost_timeout = ACE_Time_Value(m_serverinfo.usertimeout * 2, 0);
 
     bool restarttcp = false, restartudp = false;
     if (m_keepalive.tcp_keepalive_interval != keepalive.tcp_keepalive_interval)
@@ -642,8 +649,8 @@ int ClientNode::Timer_OneSecond()
 
     //check whether server has replied within the timeout limit on TCP and within
     //TIMER_UDPKEEPALIVE_INTERVAL_MS * 3 on UDP
-    if (ACE_Time_Value(m_clientstats.tcp_silence_sec, 0) >= m_keepalive.connection_lost ||
-        (ACE_Time_Value(m_clientstats.udp_silence_sec, 0) >= m_keepalive.connection_lost &&
+    if (ACE_Time_Value(m_clientstats.tcp_silence_sec, 0) >= m_keepalive.connection_lost_timeout ||
+        (ACE_Time_Value(m_clientstats.udp_silence_sec, 0) >= m_keepalive.connection_lost_timeout &&
          m_serverinfo.udpaddr != ACE_INET_Addr()))
     {
 
@@ -4532,13 +4539,19 @@ int ClientNode::DoFileSend(int channelid, const ACE_TString& localfilepath)
     transfer.inbound = false;
     transfer.transferid = 0;
     transfer.userid = GetUserID();
+#if defined(ENABLE_ENCRYPTION)
+    uint8_t transferkey[TRANSFERKEY_SIZE];
+    RAND_bytes(transferkey, sizeof(transferkey));
+    transfer.transferkey = KeyToHexString(transferkey, TRANSFERKEY_SIZE);
+#endif
     TTASSERT(GetUserID()>0);
 
     //first register file transfer before sending
     ACE_TString command = CLIENT_REGSENDFILE;
     AppendProperty(TT_FILENAME, transfer.filename, command);
-    AppendProperty(TT_FILESIZE, filesize, command);
-    AppendProperty(TT_CHANNELID, channelid, command);
+    AppendProperty(TT_FILESIZE, transfer.filesize, command);
+    AppendProperty(TT_CHANNELID, transfer.channelid, command);
+    AppendProperty(TT_TRANSFERKEY, transfer.transferkey, command);
     AppendProperty(TT_CMDID, GEN_NEXT_ID(m_cmdid_counter), command);
     command += EOL;
     int cmdid = TransmitCommand(command, m_cmdid_counter);
@@ -4562,12 +4575,18 @@ int ClientNode::DoFileRecv(int channelid,
     transfer.inbound = true;
     transfer.transferid = 0;
     transfer.userid = GetUserID();
+#if defined(ENABLE_ENCRYPTION)
+    uint8_t transferkey[TRANSFERKEY_SIZE];
+    RAND_bytes(transferkey, sizeof(transferkey));
+    transfer.transferkey = KeyToHexString(transferkey, TRANSFERKEY_SIZE);
+#endif
     TTASSERT(GetUserID()>0);
 
     //first register file transfer before sending
     ACE_TString command = CLIENT_REGRECVFILE;
-    AppendProperty(TT_FILENAME, remotefilename, command);
-    AppendProperty(TT_CHANNELID, channelid, command);
+    AppendProperty(TT_FILENAME, transfer.filename, command);
+    AppendProperty(TT_CHANNELID, transfer.channelid, command);
+    AppendProperty(TT_TRANSFERKEY, transfer.transferkey, command);
     AppendProperty(TT_CMDID, GEN_NEXT_ID(m_cmdid_counter), command);
     command += EOL;
     int cmdid = TransmitCommand(command, m_cmdid_counter);
@@ -5852,6 +5871,7 @@ void ClientNode::HandleBannedUser(const mstrings_t& properties)
     GetProperty(properties, TT_NICKNAME, ban.nickname);
     GetProperty(properties, TT_USERNAME, ban.username);
     GetProperty(properties, TT_BANTIME, ban.bantime);
+    GetProperty(properties, TT_BANOWNER, ban.owner);
 
     m_listener->OnBannedUser(ban);
 }

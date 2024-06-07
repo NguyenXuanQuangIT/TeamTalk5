@@ -24,6 +24,7 @@
 #include "Commands.h"
 #include "ttassert.h"
 #include <myace/MyACE.h>
+#include <myace/MyINet.h>
 
 #include <ctime>
 #include <ace/OS.h>
@@ -78,6 +79,8 @@ namespace teamtalk {
             errmsg = ACE_TEXT("Commands are issued too fast. Flood protection."); break;
         case TT_CMDERR_CHANNEL_BANNED:
             errmsg = ACE_TEXT("Banned from channel"); break;
+        case TT_CMDERR_MAX_FILETRANSFERS_EXCEEDED :
+            errmsg = ACE_TEXT("Maximum number of file transfers exceeded"); break;
 
             // state errors
         case TT_CMDERR_NOT_LOGGEDIN :
@@ -769,12 +772,4 @@ namespace teamtalk {
             return input.substr(0,input.length()-1);
         return input;
     }
-
-    ACE_TString InetAddrToString(const ACE_INET_Addr& addr)
-    {
-        ACE_TCHAR buf[MAX_STRING_LENGTH+1] = {};
-        addr.addr_to_string(buf, MAX_STRING_LENGTH);
-        return buf;
-    }
-
 }

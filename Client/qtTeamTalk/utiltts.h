@@ -1,30 +1,26 @@
 /*
- * Copyright (c) 2005-2018, BearWare.dk
- * 
- * Contact Information:
+ * Copyright (C) 2023, Bjørn D. Rasmussen, BearWare.dk
  *
- * Bjoern D. Rasmussen
- * Kirketoften 5
- * DK-8260 Viby J
- * Denmark
- * Email: contact@bearware.dk
- * Phone: +45 20 20 54 59
- * Web: http://www.bearware.dk
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
  *
- * This source code is part of the TeamTalk SDK owned by
- * BearWare.dk. Use of this file, or its compiled unit, requires a
- * TeamTalk SDK License Key issued by BearWare.dk.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
- * The TeamTalk SDK License Agreement along with its Terms and
- * Conditions are outlined in the file License.txt included with the
- * TeamTalk SDK distribution.
- *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 #ifndef UTILTTS_H
 #define UTILTTS_H
 
+#include <QHash>
 #include <QString>
+#include <QObject>
 
 #if defined(ENABLE_TOLK)
 #include <Tolk.h>
@@ -89,6 +85,12 @@ enum TextToSpeechEvent : qulonglong
 
 typedef qulonglong TTSEvents;
 
+struct TTSEventInfo {
+    QString settingKey;
+    QHash<QString, QString> variables;
+    QString eventName;
+};
+
 enum TextToSpeechEngine
 {
     TTSENGINE_NONE = 0,
@@ -109,5 +111,16 @@ enum TTSOutputMode
 
 void addTextToSpeechMessage(TextToSpeechEvent event, const QString& msg);
 void addTextToSpeechMessage(const QString& msg);
+
+class UtilTTS : public QObject
+{
+    Q_OBJECT
+
+public:
+    static QHash<TTSEvents, TTSEventInfo> eventToSettingMap();
+    static QString getDefaultValue(const QString& paramKey);
+    static QString getTTSMessage(const QString& paramKey, const QHash<QString, QString>& variables);
+    static QString getRawTTSMessage(const QString& paramKey);
+};
 
 #endif

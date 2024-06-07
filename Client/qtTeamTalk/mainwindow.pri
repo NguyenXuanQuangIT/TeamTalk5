@@ -21,9 +21,10 @@ HEADERS    = mainwindow.h preferencesdlg.h uservideowidget.h \
              audiopreprocessordlg.h ttseventsmodel.h \
              statusbardlg.h statusbareventsmodel.h mycombobox.h \
              utilsound.h utilvideo.h utiltts.h utilui.h utilhotkey.h \
-             serverlogeventsmodel.h mytreeview.h textmessagecontainer.h \
+             serverlogeventsmodel.h textmessagecontainer.h \
              useraccountsmodel.h encryptionsetupdlg.h utiltt.h utilxml.h \
-             utilos.h
+             utilos.h serverdlg.h moveusersdlg.h useraccountdlg.h soundeventsmodel.h \
+             mytableview.h
 
 SOURCES    = main.cpp mainwindow.cpp preferencesdlg.cpp uservideowidget.cpp \
              channelstree.cpp channeldlg.cpp userinfodlg.cpp \
@@ -41,9 +42,10 @@ SOURCES    = main.cpp mainwindow.cpp preferencesdlg.cpp uservideowidget.cpp \
              bearwarelogindlg.cpp audiopreprocessordlg.cpp ttseventsmodel.cpp \
              statusbardlg.cpp statusbareventsmodel.cpp mycombobox.cpp \
              utilsound.cpp utilvideo.cpp utiltts.cpp utilui.cpp utilhotkey.cpp \
-             serverlogeventsmodel.cpp mytreeview.cpp textmessagecontainer.cpp \
+             serverlogeventsmodel.cpp textmessagecontainer.cpp \
              useraccountsmodel.cpp encryptionsetupdlg.cpp utiltt.cpp utilxml.cpp \
-             utilos.cpp
+             utilos.cpp serverdlg.cpp moveusersdlg.cpp useraccountdlg.cpp soundeventsmodel.cpp \
+             mytableview.cpp
 
 FORMS      = mainwindow.ui channel.ui preferences.ui \
              serverlist.ui userinfo.ui bannedusers.ui useraccounts.ui \
@@ -52,7 +54,8 @@ FORMS      = mainwindow.ui channel.ui preferences.ui \
              serverstats.ui onlineusers.ui mediastorage.ui userdesktop.ui \
              desktopshare.ui streammediafile.ui videotext.ui desktopaccess.ui \
              generatettfile.ui customvideofmt.ui bearwarelogindlg.ui \
-             audiopreprocessor.ui statusbardlg.ui encryptionsetupdlg.ui
+             audiopreprocessor.ui statusbardlg.ui encryptionsetupdlg.ui \
+             serverdlg.ui useraccountdlg.ui
 
 RESOURCES += resources.qrc
 
@@ -71,11 +74,11 @@ win32 {
 }
 
 x11 {
-    LIBS += -lX11
+    LIBS += -lX11 -lXss
 }
 
 linux {
-    LIBS += -lX11
+    LIBS += -lX11 -lXss
 
     greaterThan(QT_MAJOR_VERSION, 4): QT += x11extras
 }
@@ -116,6 +119,8 @@ TRANSLATIONS = languages/Bulgarian.ts \
                languages/Hungarian.ts \
                languages/Indonesian.ts \
                languages/Italian.ts \
+               languages/Korean.ts \
+               languages/Persian.ts \
                languages/Polish.ts \
                languages/Portuguese_BR.ts \
                languages/Portuguese_EU.ts \

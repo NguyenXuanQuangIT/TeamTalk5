@@ -1005,19 +1005,10 @@
            <property name="selectionBehavior">
             <enum>QAbstractItemView::SelectRows</enum>
            </property>
-           <property name="indentation">
-            <number>0</number>
-           </property>
-           <property name="rootIsDecorated">
-            <bool>false</bool>
-           </property>
-           <property name="itemsExpandable">
-            <bool>false</bool>
-           </property>
            <property name="sortingEnabled">
             <bool>true</bool>
            </property>
-           <property name="expandsOnDoubleClick">
+           <property name="tabKeyNavigation">
             <bool>false</bool>
            </property>
            <attribute name="headerShowSortIndicator" stdset="0">
@@ -1211,6 +1202,7 @@
      <addaction name="separator"/>
      <addaction name="actionStoreForMove"/>
      <addaction name="actionMoveUser"/>
+     <addaction name="actionMoveUsersDialog"/>
      <addaction name="separator"/>
      <addaction name="separator"/>
      <addaction name="actionRelayVoiceStream"/>
@@ -1282,6 +1274,7 @@
      <addaction name="actionSpeakChannelStat"/>
     </widget>
     <addaction name="actionJoinChannel"/>
+    <addaction name="actionLeaveChannel"/>
     <addaction name="menu_InfoChannel"/>
     <addaction name="actionGenerateTTURL"/>
     <addaction name="separator"/>
@@ -1320,6 +1313,7 @@
     <addaction name="actionResetPreferencesToDefault"/>
     <addaction name="actionVisitBearWare"/>
     <addaction name="separator"/>
+    <addaction name="actionCheckUpdate"/>
     <addaction name="actionAbout"/>
    </widget>
    <addaction name="menuClient"/>
@@ -1458,6 +1452,11 @@
     <string>Ctrl+Shift+T</string>
    </property>
   </action>
+  <action name="actionCheckUpdate">
+   <property name="text">
+    <string>&amp;Check for Update</string>
+   </property>
+  </action>
   <action name="actionAbout">
    <property name="text">
     <string>&amp;About</string>
@@ -1512,6 +1511,14 @@
    </property>
    <property name="shortcut">
     <string>Ctrl+J</string>
+   </property>
+  </action>
+  <action name="actionLeaveChannel">
+   <property name="text">
+    <string>&amp;Leave Channel</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+L</string>
    </property>
   </action>
   <action name="actionEnableVoiceActivation">
@@ -1897,6 +1904,14 @@
    </property>
    <property name="shortcut">
     <string>Ctrl+Alt+V</string>
+   </property>
+  </action>
+  <action name="actionMoveUsersDialog">
+   <property name="text">
+    <string>Move Users &amp;Dialog</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Alt+M</string>
    </property>
   </action>
   <action name="actionVisitBearWare">
@@ -2358,7 +2373,7 @@
   </customwidget>
   <customwidget>
    <class>FilesView</class>
-   <extends>QTreeView</extends>
+   <extends>MyTableView</extends>
    <header>filesview.h</header>
   </customwidget>
   <customwidget>

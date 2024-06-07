@@ -1,36 +1,26 @@
 /*
- * Copyright (c) 2005-2018, BearWare.dk
- * 
- * Contact Information:
+ * Copyright (C) 2023, Bjørn D. Rasmussen, BearWare.dk
  *
- * Bjoern D. Rasmussen
- * Kirketoften 5
- * DK-8260 Viby J
- * Denmark
- * Email: contact@bearware.dk
- * Phone: +45 20 20 54 59
- * Web: http://www.bearware.dk
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
  *
- * This source code is part of the TeamTalk SDK owned by
- * BearWare.dk. Use of this file, or its compiled unit, requires a
- * TeamTalk SDK License Key issued by BearWare.dk.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
- * The TeamTalk SDK License Agreement along with its Terms and
- * Conditions are outlined in the file License.txt included with the
- * TeamTalk SDK distribution.
- *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 #include "filesmodel.h"
 
-#if QT_VERSION >= QT_VERSION_CHECK(5,10,0)
-#include <QLocale>
-#endif
-
 extern TTInstance* ttInst;
 
 FilesModel::FilesModel(QObject* parent)
-: QAbstractItemModel(parent)
+: QAbstractTableModel(parent)
 , m_channelid(0)
 {
 }
@@ -84,31 +74,33 @@ QVariant FilesModel::data ( const QModelIndex & index, int role /*= Qt::DisplayR
         case COLUMN_INDEX_NAME :
             return _Q(m_files[index.row()].szFileName);
         case COLUMN_INDEX_SIZE :
-            {
-                QString result;
-#if QT_VERSION < QT_VERSION_CHECK(5,10,0)
-                if (m_files[index.row()].nFileSize >= 1024*1024*1024)
-                    result = QString("%1 G").arg(m_files[index.row()].nFileSize/(1024*1024*1024));
-                else if (m_files[index.row()].nFileSize >= 1024*1024)
-                    result = QString("%1 M").arg(m_files[index.row()].nFileSize/(1024*1024));
-                else if (m_files[index.row()].nFileSize >= 1024)
-                    result = QString("%1 K").arg(m_files[index.row()].nFileSize/1024);
-                else
-                    result = QString("%1").arg(m_files[index.row()].nFileSize);
-#else
-                result = QLocale().formattedDataSize(m_files[index.row()].nFileSize, 1, QLocale::DataSizeSIFormat);
-#endif
-                return result;
-            }
+            return getFormattedFileSize(m_files[index.row()].nFileSize);
         case COLUMN_INDEX_OWNER :
             return _Q(m_files[index.row()].szUsername);
         case COLUMN_INDEX_UPLOADED :
+            return getFormattedDateTime(_Q(m_files[index.row()].szUploadTime), "yyyy/MM/dd hh:mm");
+        }
+        break;
+    case Qt::UserRole :
+        switch(index.column())
+        {
+        case COLUMN_INDEX_UPLOADED :
             return _Q(m_files[index.row()].szUploadTime);
+            break;
+        case COLUMN_INDEX_SIZE :
+            return m_files[index.row()].nFileSize;
+            break;
+        default :
+            return data(index, Qt::DisplayRole);
+            break;
         }
         break;
     case Qt::AccessibleTextRole :
     {
-        return QString("%1: %2, %3: %4, %5: %6, %7: %8").arg(headerData(COLUMN_INDEX_NAME, Qt::Horizontal, Qt::DisplayRole).toString()).arg(data(createIndex(index.row(), COLUMN_INDEX_NAME, index.internalId()), Qt::DisplayRole).toString()).arg(headerData(COLUMN_INDEX_SIZE, Qt::Horizontal, Qt::DisplayRole).toString()).arg(data(createIndex(index.row(), COLUMN_INDEX_SIZE, index.internalId()), Qt::DisplayRole).toString()).arg(headerData(COLUMN_INDEX_OWNER, Qt::Horizontal, Qt::DisplayRole).toString()).arg(data(createIndex(index.row(), COLUMN_INDEX_OWNER, index.internalId()), Qt::DisplayRole).toString()).arg(headerData(COLUMN_INDEX_UPLOADED, Qt::Horizontal, Qt::DisplayRole).toString()).arg(data(createIndex(index.row(), COLUMN_INDEX_UPLOADED, index.internalId()), Qt::DisplayRole).toString());
+        if (index.column() == COLUMN_INDEX_NAME)
+        {
+            return QString("%1: %2, %3: %4, %5: %6, %7: %8").arg(headerData(COLUMN_INDEX_NAME, Qt::Horizontal, Qt::DisplayRole).toString()).arg(data(createIndex(index.row(), COLUMN_INDEX_NAME, index.internalId()), Qt::DisplayRole).toString()).arg(headerData(COLUMN_INDEX_SIZE, Qt::Horizontal, Qt::DisplayRole).toString()).arg(data(createIndex(index.row(), COLUMN_INDEX_SIZE, index.internalId()), Qt::DisplayRole).toString()).arg(headerData(COLUMN_INDEX_OWNER, Qt::Horizontal, Qt::DisplayRole).toString()).arg(data(createIndex(index.row(), COLUMN_INDEX_OWNER, index.internalId()), Qt::DisplayRole).toString()).arg(headerData(COLUMN_INDEX_UPLOADED, Qt::Horizontal, Qt::DisplayRole).toString()).arg(data(createIndex(index.row(), COLUMN_INDEX_UPLOADED, index.internalId()), Qt::DisplayRole).toString());
+        }
     }
     break;
     }

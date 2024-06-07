@@ -18,6 +18,39 @@
   </property>
   <layout class="QVBoxLayout" name="verticalLayout_4">
    <item>
+    <layout class="QVBoxLayout" name="filterLayout_1">
+     <item>
+      <widget class="QGroupBox" name="filterGroupBox">
+       <property name="title">
+        <string>Filter Banned Users</string>
+       </property>
+       <layout class="QHBoxLayout" name="filterLayout_2">
+        <item>
+         <widget class="QLabel" name="filterLabel">
+          <property name="text">
+           <string>Search an Username or IP-Address</string>
+          </property>
+          <property name="buddy">
+           <cstring>filterEdit</cstring>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLineEdit" name="filterEdit"/>
+        </item>
+        <item>
+         <widget class="QPushButton" name="filterButton">
+          <property name="text">
+           <string>Search</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item>
     <layout class="QHBoxLayout" name="horizontalLayout">
      <item>
       <widget class="QGroupBox" name="groupBox">
@@ -26,11 +59,17 @@
        </property>
        <layout class="QVBoxLayout" name="verticalLayout_2" stretch="1,0">
         <item>
-         <widget class="MyTreeView" name="bannedTreeView">
+         <widget class="MyTableView" name="bannedTableView">
           <property name="font">
            <font>
             <pointsize>8</pointsize>
            </font>
+          </property>
+          <property name="accessibleName">
+           <string>Banned users</string>
+          </property>
+          <property name="tabKeyNavigation">
+           <bool>false</bool>
           </property>
           <property name="editTriggers">
            <set>QAbstractItemView::NoEditTriggers</set>
@@ -41,23 +80,14 @@
           <property name="alternatingRowColors">
            <bool>true</bool>
           </property>
+          <property name="selectionMode">
+           <enum>QAbstractItemView::ExtendedSelection</enum>
+          </property>
           <property name="selectionBehavior">
            <enum>QAbstractItemView::SelectRows</enum>
           </property>
-          <property name="indentation">
-           <number>0</number>
-          </property>
-          <property name="itemsExpandable">
-           <bool>false</bool>
-          </property>
           <property name="sortingEnabled">
            <bool>true</bool>
-          </property>
-          <property name="expandsOnDoubleClick">
-           <bool>false</bool>
-          </property>
-          <property name="accessibleName">
-           <string>Banned users</string>
           </property>
          </widget>
         </item>
@@ -149,32 +179,29 @@
        </property>
        <layout class="QVBoxLayout" name="verticalLayout_3">
         <item>
-         <widget class="MyTreeView" name="unbannedTreeView">
+         <widget class="MyTableView" name="unbannedTableView">
           <property name="font">
            <font>
             <pointsize>8</pointsize>
            </font>
           </property>
+          <property name="accessibleName">
+           <string>Unbanned users</string>
+          </property>
+          <property name="tabKeyNavigation">
+           <bool>false</bool>
+          </property>
           <property name="alternatingRowColors">
            <bool>true</bool>
+          </property>
+          <property name="selectionMode">
+           <enum>QAbstractItemView::ExtendedSelection</enum>
           </property>
           <property name="selectionBehavior">
            <enum>QAbstractItemView::SelectRows</enum>
           </property>
-          <property name="indentation">
-           <number>0</number>
-          </property>
-          <property name="itemsExpandable">
-           <bool>false</bool>
-          </property>
           <property name="sortingEnabled">
            <bool>true</bool>
-          </property>
-          <property name="expandsOnDoubleClick">
-           <bool>false</bool>
-          </property>
-          <property name="accessibleName">
-           <string>Unbanned users</string>
           </property>
          </widget>
         </item>
@@ -197,9 +224,9 @@
  </widget>
  <customwidgets>
   <customwidget>
-   <class>MyTreeView</class>
-   <extends>QTreeView</extends>
-   <header>mytreeview.h</header>
+   <class>MyTableView</class>
+   <extends>QTableView</extends>
+   <header>mytableview.h</header>
   </customwidget>
  </customwidgets>
  <resources/>

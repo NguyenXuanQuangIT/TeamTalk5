@@ -1,24 +1,18 @@
 /*
- * Copyright (c) 2005-2018, BearWare.dk
- * 
- * Contact Information:
+ * Copyright (C) 2023, Bjørn D. Rasmussen, BearWare.dk
  *
- * Bjoern D. Rasmussen
- * Kirketoften 5
- * DK-8260 Viby J
- * Denmark
- * Email: contact@bearware.dk
- * Phone: +45 20 20 54 59
- * Web: http://www.bearware.dk
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
  *
- * This source code is part of the TeamTalk SDK owned by
- * BearWare.dk. Use of this file, or its compiled unit, requires a
- * TeamTalk SDK License Key issued by BearWare.dk.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
- * The TeamTalk SDK License Agreement along with its Terms and
- * Conditions are outlined in the file License.txt included with the
- * TeamTalk SDK distribution.
- *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 #ifndef PREFERENCESDLG_H
@@ -68,6 +62,8 @@ private:
     QVector<SoundDevice> m_sounddevices;
     /* sound events */
     bool getSoundFile(QString& filename);
+    void slotBrowseSoundEvent();
+    class SoundEventsModel* m_soundmodel = nullptr;
     typedef QMap<HotKeyID, hotkey_t> hotkeys_t;
     hotkeys_t m_hotkeys;
     /* video tab */
@@ -95,6 +91,8 @@ private:
     void slotSelectVideoText();
     void slotConfigureStatusBar();
     void slotUpdateUpdDlgChkBox();
+    QMenu* m_TSFVarMenu;
+    void insertTSFVariable();
     //connection tab
     void slotDesktopAccess();
     //sound tab
@@ -106,36 +104,14 @@ private:
     void slotSoundDefaults();
     void slotUpdateSoundCheckBoxes();
     //sound events
-    void slotEventNewUser();
-    void slotEventRemoveUser();
-    void slotEventServerLost();
-    void slotEventUserTextMsg();
-    void slotEventSentTextMsg();
-    void slotEventChannelTextMsg();
-    void slotEventSentChannelMsg();
-    void slotEventBroadcastTextMsg();
-    void slotEventHotKey();
-    void slotEventSilence();
-    void slotEventNewVideo();
-    void slotEventNewDesktop();
-    void slotEventIntercept();
-    void slotEventInterceptEnd();
-    void slotEventFilesUpdated();
-    void slotEventFileTxDone();
-    void slotEventQuestionMode();
-    void slotEventDesktopAccess();
-    void slotEventUserLoggedIn();
-    void slotEventUserLoggedOut();
-    void slotEventVoiceActOn();
-    void slotEventVoiceActOff();
-    void slotEventMuteAllOn();
-    void slotEventMuteAllOff();
-    void slotEventTransmitQueueHead();
-    void slotEventTransmitQueueStop();
-    void slotEventVoiceActTrig();
-    void slotEventVoiceActStop();
-    void slotEventVoiceActMeOn();
-    void slotEventVoiceActMeOff();
+    void slotSoundEventToggled(const QModelIndex &index);
+    void SoundEventSelected(const QModelIndex &index);
+    void saveCurrentFile();
+    void soundEventsRestoreDefaultFile();
+    QModelIndex m_currentSoundEventsIndex;
+    void slotSoundEventsEnableAll(bool checked);
+    void slotSoundEventsClearAll(bool checked);
+    void slotSoundEventsRevert(bool checked);
     //TTS
     void slotUpdateTTSTab();
     void slotTTSLocaleChanged(const QString& locale);
@@ -150,11 +126,18 @@ private:
     void slotDefaultVideoSettings();
     //tts tab
     void slotTTSEventToggled(const QModelIndex &index);
+    void TTSEventSelected(const QModelIndex &index);
+    void insertVariable();
+    void saveCurrentMessage();
+    void TTSRestoreDefaultMessage();
+    QMenu* m_TTSVarMenu;
+    QModelIndex m_currentTTSIndex;
     void slotTTSEnableAll(bool checked);
     void slotTTSClearAll(bool checked);
     void slotTTSRevert(bool checked);
     void slotUpdateASBAccessibleName();
     void slotSPackChange();
+    void updateSoundEventFileEdit();
 
 public:
     void slotNewVideoFrame(int userid, int stream_id);

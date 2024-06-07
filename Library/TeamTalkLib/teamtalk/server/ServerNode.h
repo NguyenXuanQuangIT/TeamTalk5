@@ -24,12 +24,10 @@
 #if !defined(SERVERNODE_H)
 #define SERVERNODE_H
 
+#include "AcceptHandler.h"
+#include "ServerChannel.h"
+#include "ServerUser.h"
 #include "Server.h"
-
-// ACE
-#include <ace/Recursive_Thread_Mutex.h>
-#include <ace/Guard_T.h>
-#include <ace/Acceptor.h>
 
 #include <teamtalk/Commands.h>
 #include <teamtalk/PacketHandler.h>
@@ -37,9 +35,10 @@
 #include <myace/TimerHandler.h>
 #include <myace/MyACE.h>
 
-#include "AcceptHandler.h"
-#include "ServerChannel.h"
-#include "ServerUser.h"
+// ACE
+#include <ace/Recursive_Thread_Mutex.h>
+#include <ace/Guard_T.h>
+#include <ace/Acceptor.h>
 
 // STL
 #include <map>
@@ -280,6 +279,7 @@ namespace teamtalk {
         ErrorMsg UserOpDeOp(int userid, int channelid, //op user in a channel
                             const ACE_TString& oppasswd, int op_userid, bool op); 
         ErrorMsg UserKick(int userid, int kick_userid, int chanid, bool force_kick);
+        ErrorMsg UserBan(int userid, BannedUser ban);
         ErrorMsg UserBan(int userid, int ban_userid, BannedUser ban);
         ErrorMsg UserUnBan(int userid, const BannedUser& ban);
         ErrorMsg UserListServerBans(int userid, int chanid, int index, int count);
@@ -290,7 +290,7 @@ namespace teamtalk {
 
         //transfer id will be set if successful
         ErrorMsg UserRegFileTransfer(FileTransfer& transfer);
-        ErrorMsg UserBeginFileTransfer(int transferid, FileTransfer& transfer, 
+        ErrorMsg UserBeginFileTransfer(FileTransfer& transfer,
                                        MyFile& file);
         ErrorMsg UserEndFileTransfer(int transferid);
         ErrorMsg UserDeleteFile(int userid, int channelid, const ACE_TString& filename);
@@ -352,6 +352,9 @@ namespace teamtalk {
         void StopDesktopTransmitter(const ServerUser& src_user,
                                     ServerUser& dest_user,
                                     bool start_nak_timer);
+        ErrorMsg FileInboundCompleted(const ServerUser& user, const ServerChannel& chan, const FileTransfer& transfer);
+        ErrorMsg FileOutboundCompleted(const ServerUser& user, const ServerChannel& chan, const FileTransfer& transfer);
+        int CountFileTransfers(int userid);
 
         //all connected users
         typedef std::map<int, serveruser_t> mapusers_t;
@@ -451,7 +454,7 @@ namespace teamtalk {
         virtual void OnFileDownloaded(const ServerUser& user, const ServerChannel& chan, const RemoteFile& file) = 0;
         virtual void OnFileDeleted(const ServerUser& user, const ServerChannel& chan, const RemoteFile& file) = 0;
 
-        virtual void OnServerUpdated(const ServerUser& user, const ServerSettings& srvprop) = 0;
+        virtual void OnServerUpdated(const ServerUser* user, const ServerSettings& srvprop) = 0;
         virtual void OnSaveConfiguration(const ServerUser* user = nullptr) = 0;
 
         virtual void OnShutdown(const ServerStats& stats) = 0;

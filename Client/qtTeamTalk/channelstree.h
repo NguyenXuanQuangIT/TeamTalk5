@@ -1,24 +1,18 @@
 /*
- * Copyright (c) 2005-2018, BearWare.dk
- * 
- * Contact Information:
+ * Copyright (C) 2023, Bjørn D. Rasmussen, BearWare.dk
  *
- * Bjoern D. Rasmussen
- * Kirketoften 5
- * DK-8260 Viby J
- * Denmark
- * Email: contact@bearware.dk
- * Phone: +45 20 20 54 59
- * Web: http://www.bearware.dk
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
  *
- * This source code is part of the TeamTalk SDK owned by
- * BearWare.dk. Use of this file, or its compiled unit, requires a
- * TeamTalk SDK License Key issued by BearWare.dk.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
- * The TeamTalk SDK License Agreement along with its Terms and
- * Conditions are outlined in the file License.txt included with the
- * TeamTalk SDK distribution.
- *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 #ifndef CHANNELSTREE_H
@@ -45,14 +39,16 @@ public:
     bool getChannel(int channelid, Channel& chan) const;
     bool getSelectedChannel(Channel& chan) const;
     bool getUser(int userid, User& user) const;
+    User getUser(int userid) const;
     bool getSelectedUser(User& user) const;
     QVector<User> getSelectedUsers() const;
 
     QVector<int> getUsersInChannel(int channelid) const;
     QVector<int> getUsers() const;
+    QVector<int> getChannels() const;
     users_t getUsers(int channelid) const;
 
-    void getTransmitUsers(int channelid, QMap<int, StreamTypes>& transmitUsers);
+    void getTransmitUsers(int channelid, QMap<int, StreamTypes>& transmitUsers) const;
 
     void resetChannels();
 
@@ -93,18 +89,25 @@ private:
     int m_statTimerId, m_questionTimerId, m_desktopaccesTimerId;
 
     QPoint m_dragStartPos;
-
-    QTreeWidgetItem* getChannelItem(int channelid);
-    QTreeWidgetItem* getUserItem(int userid);
-    /* return the "should be" index. Not the current index */
-    int getUserIndex(const QTreeWidgetItem* parent, const QString& name);
-    /* return the "should be" index. Not the current index */
-    int getChannelIndex(const QTreeWidgetItem* item);
-    void updateChannelItem(int channelid);
-
     bool m_ignore_item_changes;
 
-private:
+    QTreeWidgetItem* getChannelItem(int channelid) const;
+    QTreeWidgetItem* getUserItem(int userid) const;
+    QPixmap getChannelIcon(const Channel& chan, const QTreeWidgetItem* item) const;
+    QPixmap getUserIcon(const User& user, const Channel& chan, const QTreeWidgetItem* item) const;
+    void setChannelTransmitUsers(const Channel& chan, QTreeWidgetItem* item);
+    void setUserTransmitUser(const User& user, const Channel& chan, QTreeWidgetItem* item);
+    /* return the "should be" index. Not the current index */
+    int getUserIndex(const QTreeWidgetItem* parent, const QString& name) const;
+    /* return the "should be" index. Not the current index */
+    int getChannelIndex(const QTreeWidgetItem* item) const;
+    void updateChannelItem(int channelid);
+    void updateChannelItem(QTreeWidgetItem* item);
+    void updateUserItem(QTreeWidgetItem* item);
+    void updateUserStatistics();
+    void updateUserDesktopAccess();
+    void updateUserQuestionMode();
+
     void slotItemDoubleClicked(QTreeWidgetItem* item, int column);
     void slotItemChanged(QTreeWidgetItem* item, int column);
     void slotUpdateTreeWidgetItem(QTreeWidgetItem* item);
@@ -122,7 +125,7 @@ public:
     void slotUserStateChange(const User& user);
     void slotUpdateMyself();
     void slotUserVideoFrame(int userid, int stream_id);
-    QString getItemText();
+    QString getItemText() const;
 };
 
 #endif

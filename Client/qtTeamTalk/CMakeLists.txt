@@ -1,5 +1,3 @@
-cmake_minimum_required(VERSION 3.1)
-
 if (CMAKE_VERSION VERSION_LESS "3.7.0")
   set(CMAKE_INCLUDE_CURRENT_DIR ON)
 endif()
@@ -29,7 +27,7 @@ endif()
 
 # Locate Qt Framework
 if (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-  find_package (Qt5 COMPONENTS Widgets Xml Network Multimedia TextToSpeech X11Extras)
+  find_package (Qt5 COMPONENTS Widgets Xml Network Multimedia TextToSpeech DBus X11Extras)
 else()
   find_package (Qt5 COMPONENTS Widgets Xml Network Multimedia TextToSpeech)
 endif()
@@ -89,10 +87,10 @@ if (Qt5_FOUND OR Qt6_FOUND)
     audiopreprocessordlg.h ttseventsmodel.h
     statusbardlg.h statusbareventsmodel.h mycombobox.h
     utilsound.h utilvideo.h utiltts.h utilui.h utilhotkey.h
-    serverlogeventsmodel.h mytreeview.h textmessagecontainer.h
+    serverlogeventsmodel.h textmessagecontainer.h
     useraccountsmodel.h encryptionsetupdlg.h utiltt.h utilxml.h
-    utilos.h
-
+    utilos.h serverdlg.h moveusersdlg.h useraccountdlg.h soundeventsmodel.h
+    mytableview.h
     main.cpp mainwindow.cpp preferencesdlg.cpp uservideowidget.cpp
     channelstree.cpp channeldlg.cpp userinfodlg.cpp
     bannedusersdlg.cpp useraccountsdlg.cpp videogridwidget.cpp
@@ -109,10 +107,10 @@ if (Qt5_FOUND OR Qt6_FOUND)
     bearwarelogindlg.cpp audiopreprocessordlg.cpp ttseventsmodel.cpp
     statusbardlg.cpp statusbareventsmodel.cpp mycombobox.cpp
     utilsound.cpp utilvideo.cpp utiltts.cpp utilui.cpp utilhotkey.cpp
-    serverlogeventsmodel.cpp mytreeview.cpp textmessagecontainer.cpp
+    serverlogeventsmodel.cpp textmessagecontainer.cpp
     useraccountsmodel.cpp encryptionsetupdlg.cpp utiltt.cpp utilxml.cpp
-    utilos.cpp
-
+    utilos.cpp serverdlg.cpp moveusersdlg.cpp useraccountdlg.cpp soundeventsmodel.cpp
+    mytableview.cpp
     mainwindow.ui channel.ui preferences.ui
     serverlist.ui userinfo.ui bannedusers.ui useraccounts.ui
     serverproperties.ui uservideo.ui keycomp.ui textmessage.ui
@@ -121,33 +119,15 @@ if (Qt5_FOUND OR Qt6_FOUND)
     desktopshare.ui streammediafile.ui videotext.ui desktopaccess.ui
     generatettfile.ui customvideofmt.ui bearwarelogindlg.ui
     audiopreprocessor.ui statusbardlg.ui encryptionsetupdlg.ui
+    serverdlg.ui useraccountdlg.ui
     resources.qrc mainwindow.rc
     )
-
-  # Setup translations
-  file (GLOB TS_FILES ${CMAKE_CURRENT_SOURCE_DIR}/languages/*.ts)
-  set_source_files_properties(${TS_FILES} PROPERTIES OUTPUT_LOCATION ${CMAKE_CURRENT_SOURCE_DIR}/languages)
-  if (Qt6_FOUND)
-    find_package(Qt6LinguistTools)
-    if (Qt6LinguistTools_FOUND)
-      qt6_add_translation (QM_FILES ${TS_FILES})
-      add_custom_target(QtTeamTalk5-Translations DEPENDS ${QM_FILES})
-        install (FILES ${QM_FILES} DESTINATION Client/qtTeamTalk/languages)
-    endif()
-  else()
-    find_package(Qt5LinguistTools)
-    if (Qt5LinguistTools_FOUND)
-      qt5_add_translation (QM_FILES ${TS_FILES})
-      add_custom_target(QtTeamTalk5-Translations DEPENDS ${QM_FILES})
-        install (FILES ${QM_FILES} DESTINATION Client/qtTeamTalk/languages)
-    endif()
-  endif()
 
   if (Qt6_FOUND)
     set (TEAMTALK_LINK_FLAGS Qt6::Widgets Qt6::Xml Qt6::Network Qt6::Multimedia Qt6::TextToSpeech)
   else()
     if (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-      set (TEAMTALK_LINK_FLAGS Qt5::Widgets Qt5::Xml Qt5::Network Qt5::Multimedia Qt5::TextToSpeech Qt5::X11Extras -lX11)
+      set (TEAMTALK_LINK_FLAGS Qt5::Widgets Qt5::Xml Qt5::Network Qt5::Multimedia Qt5::TextToSpeech Qt5::DBus Qt5::X11Extras -lX11 -lXss)
     else()
       set (TEAMTALK_LINK_FLAGS Qt5::Widgets Qt5::Xml Qt5::Network Qt5::Multimedia Qt5::TextToSpeech)
     endif()
@@ -172,7 +152,7 @@ if (Qt5_FOUND OR Qt6_FOUND)
     set_source_files_properties (${TEAMTALK_ICON_FILE} PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
   endif()
 
-  option (BUILD_TEAMTALK_CLIENT_QT_EXAMPLE "Build Qt TeamTalk client example" ON)
+  option (BUILD_TEAMTALK_CLIENT_QTTEAMTALK "Build Qt TeamTalk client example" ON)
 
   if (BUILD_TEAMTALK_CLIENT_TOLK)
     list (APPEND TEAMTALK_LINK_FLAGS Tolk)
@@ -185,8 +165,27 @@ if (Qt5_FOUND OR Qt6_FOUND)
     find_program(WINDEPLOYQT_EXE_PATH windeployqt)
   endif()
 
-  if (BUILD_TEAMTALK_CLIENT_QT_EXAMPLE)
+  if (BUILD_TEAMTALK_CLIENT_QTTEAMTALK)
 
+    # Build translations
+    file (GLOB TS_FILES ${CMAKE_CURRENT_SOURCE_DIR}/languages/*.ts)
+    set_source_files_properties(${TS_FILES} PROPERTIES OUTPUT_LOCATION ${CMAKE_CURRENT_SOURCE_DIR}/languages)
+    if (Qt6_FOUND)
+      find_package(Qt6LinguistTools)
+      if (Qt6LinguistTools_FOUND)
+        qt6_add_translation (QM_FILES ${TS_FILES})
+        add_custom_target(QtTeamTalk5-Translations DEPENDS ${QM_FILES})
+        install (FILES ${QM_FILES} DESTINATION Client/qtTeamTalk/languages)
+      endif()
+    else()
+      find_package(Qt5LinguistTools)
+      if (Qt5LinguistTools_FOUND)
+        qt5_add_translation (QM_FILES ${TS_FILES})
+        add_custom_target(QtTeamTalk5-Translations DEPENDS ${QM_FILES})
+        install (FILES ${QM_FILES} DESTINATION Client/qtTeamTalk/languages)
+      endif()
+    endif()
+    
     if (MSVC)
       add_executable (${TEAMTALK_TARGET} WIN32 ${QTTEAMTALK_SOURCES})
 
@@ -251,7 +250,7 @@ if (Qt5_FOUND OR Qt6_FOUND)
       add_executable (${TEAMTALK_TARGET} ${QTTEAMTALK_SOURCES})
     endif()
 
-    if (BUILD_TEAMTALK_DLL)
+    if (BUILD_TEAMTALK_LIBRARY_DLL)
       target_include_directories (${TEAMTALK_TARGET} PUBLIC ./)
       target_link_libraries (${TEAMTALK_TARGET} ${TEAMTALK_LINK_FLAGS} TeamTalk5DLL)
     else()
@@ -270,7 +269,9 @@ if (Qt5_FOUND OR Qt6_FOUND)
       target_compile_options(${TEAMTALK_TARGET} PUBLIC -DUNICODE -D_UNICODE -D_CRT_SECURE_NO_WARNINGS)
     endif()
 
-    add_dependencies(${TEAMTALK_TARGET} QtTeamTalk5-Translations)
+    if (Qt5LinguistTools_FOUND OR Qt6LinguistTools_FOUND)
+      add_dependencies(${TEAMTALK_TARGET} QtTeamTalk5-Translations)
+    endif()
 
     set_property(TARGET ${TEAMTALK_TARGET} PROPERTY VS_DEBUGGER_WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../../Library/TeamTalk_DLL)
 
@@ -278,9 +279,9 @@ if (Qt5_FOUND OR Qt6_FOUND)
 
     if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 
-      option (BUILD_TEAMTALK_CLIENT_QT_EXAMPLE_PRODUCT "Build Qt TeamTalk 5 Installer" OFF)
+      option (BUILD_TEAMTALK_CLIENT_QTTEAMTALK_PRODUCT "Build Qt TeamTalk 5 Installer" OFF)
 
-      if (BUILD_TEAMTALK_CLIENT_QT_EXAMPLE_PRODUCT)
+      if (BUILD_TEAMTALK_CLIENT_QTTEAMTALK_PRODUCT)
 
         if (MACDEPLOYQT_EXECUTABLE-NOTFOUND)
           message(WARNING "Cannot deploy Qt to TeamTalk 5 Installer due to missing macdeployqt")
@@ -318,9 +319,9 @@ if (Qt5_FOUND OR Qt6_FOUND)
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             DEPENDS tt5srv QtTeamTalk5ClientProduct)
 
-          option (BUILD_TEAMTALK_CLIENT_QT_EXAMPLE_PRODUCT_CODESIGN "Sign Qt TeamTalk 5 Install Package" OFF)
+          option (BUILD_TEAMTALK_CLIENT_QTTEAMTALK_PRODUCT_CODESIGN "Sign Qt TeamTalk 5 Install Package" OFF)
 
-          if (BUILD_TEAMTALK_CLIENT_QT_EXAMPLE_PRODUCT_CODESIGN)
+          if (BUILD_TEAMTALK_CLIENT_QTTEAMTALK_PRODUCT_CODESIGN)
 
             # Build TeamTalk 5 installer for Apple AppStore, i.e. without server application
             add_custom_target(QtTeamTalk5Product ALL

@@ -21,22 +21,31 @@
  *
  */
 
-import javax.xml.xpath.XPathExpressionException;
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
+import dk.bearware.TeamTalk5;
 import java.io.IOException;
 import java.net.URISyntaxException;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Vector;
+import java.util.logging.FileHandler;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import java.util.logging.SimpleFormatter;
+import javax.xml.xpath.XPathExpressionException;
 
 public class Main {
 
-    public static void main(String[] args) throws IOException, InterruptedException, URISyntaxException, XPathExpressionException {
+    public static void main(String[] args) throws IOException,
+        InterruptedException, URISyntaxException, XPathExpressionException {
 
         System.out.println("TeamTalk 5 SpamBot for Java");
+
+        Logger logger = Logger.getLogger("dk.bearware");
+        FileHandler fh = new FileHandler("spambot.log");
+        fh.setFormatter(new SimpleFormatter());
+        logger.addHandler(fh);
+        logger.setLevel(Level.ALL);
+        logger.setUseParentHandlers(false);
+
+        logger.info("Starting SpamBot");
 
         String username, passwd;
         username = System.getProperty("dk.bearware.username");
@@ -46,30 +55,32 @@ public class Main {
         if (passwd == null)
             passwd = new String(System.console().readPassword());
 
-        WebLogin weblogin = new WebLogin(username, passwd);
+        int iplogins = Integer.parseInt(System.getProperty("dk.bearware.iplogincount", "10"));
+        int ipjoins = Integer.parseInt(System.getProperty("dk.bearware.ipjoinscount", "10"));
+        int ipkicks = Integer.parseInt(System.getProperty("dk.bearware.ipkickscount", "10"));
+        int ipcmdduration = Integer.parseInt(System.getProperty("dk.bearware.ipcmdduration", "60"));
+        int ipv4banprefix = Integer.parseInt(System.getProperty("dk.bearware.ipv4banprefix", "32"));
+        int ipv6banprefix = Integer.parseInt(System.getProperty("dk.bearware.ipv6banprefix", "128"));
+        String abuseIPDBKey = System.getProperty("dk.bearware.abuseipdbkey", "");
+        int abuseIPDBTotalReports = Integer.parseInt(System.getProperty("dk.bearware.abuseipdbtotalreports", "2"));
+        int abuseIPDBDistinctUsers = Integer.parseInt(System.getProperty("dk.bearware.abuseipdbdistinctusers", "2"));
+        int abuseIPDBConfidenceScore = Integer.parseInt(System.getProperty("dk.bearware.abuseipdbconfidencescore", "2"));
 
-        Map<String, String> files_badwords = new HashMap<>();
-        // languages must be lower case
-        files_badwords.put("", "badwords.txt");
-        files_badwords.put("english", "badwords.txt");
-        files_badwords.put("french", "badwords_french.txt");
-        Map<String, Vector<String>> lang_badwords = new HashMap<>();
+        TeamTalk5.loadLibrary();
+        String regname = System.getProperty("dk.bearware.regname", "");
+        String regkey = System.getProperty("dk.bearware.regkey", "");
+        TeamTalk5.setLicenseInformation(regname, regkey);
 
-        for (String lang : files_badwords.keySet()) {
-            Vector<String> badwords = new Vector<>();
-            File file = new File(files_badwords.get(lang));
-            if (file.exists()) {
-                try (BufferedReader br = new BufferedReader(new FileReader(file))) {
-                    String line;
-                    while ((line = br.readLine()) != null) {
-                        badwords.addAll(Arrays.asList(line.split(",")));
-                    }
+        BadWords badwords = new BadWords(logger);
+        badwords.loadFile("", "badwords.txt");
+        badwords.loadFile("english", "badwords.txt");
+        badwords.loadFile("french", "badwords_french.txt");
 
-                    while (badwords.remove(""));
-                }
-            }
-            lang_badwords.put(lang, badwords);
-        }
+        var bannetworks = IPBan.loadFile("vpnips.txt", logger);
+
+        AbuseDB abusedb = new AbuseDB(abuseIPDBKey, abuseIPDBTotalReports,
+                                      abuseIPDBDistinctUsers, abuseIPDBConfidenceScore,
+                                      logger);
 
         var sessions = new Vector<SpamBotSession>();
         var lastServers = new Vector<TeamTalkServer>();
@@ -79,16 +90,36 @@ public class Main {
 
             // update list of spambot servers
             if (System.nanoTime() >= serverlistUpdateTimeout) {
-                System.out.println("Updating server list...");
-                var servers = weblogin.getServerList();
+                logger.info("Updating server list...");
+                var servers = getServerList();
+                if (servers.size() == 0) {
+                    try {
+                        servers = new WebLogin(username, passwd, logger).getServerList();
+                    }
+                    catch (IOException e) {
+                        logger.severe("Failed to retrieve server list: " + e);
+                    }
+                }
+
                 if (!lastServers.equals(servers)) {
-                    System.out.println("Dirty server list. Updating...");
+                    logger.info("Dirty server list. Updating...");
                     for (var session : sessions) {
                         session.close();
                     }
                     sessions.clear();
                     for (var server : servers) {
-                        sessions.add(new SpamBotSession(server, weblogin, lang_badwords));
+                        try {
+                            var spambot = new SpamBotSession(server,
+                                                             new WebLogin(username, passwd, logger),
+                                                             new IPBan(bannetworks, logger), badwords,
+                                                             new Abuse(ipjoins, iplogins, ipkicks, ipcmdduration),
+                                                             abusedb, ipv4banprefix, ipv6banprefix, logger);
+
+                            sessions.add(spambot);
+                        }
+                        catch (IOException e) {
+                            logger.severe("Failed to add spambot: " + e);
+                        }
                     }
                     lastServers = servers;
                 }
@@ -98,7 +129,8 @@ public class Main {
 
             // initiate connection (if not already open)
             if (System.nanoTime() >= connectionUpdateTimeout) {
-                System.out.println("Updating connections...");
+                logger.info("Updating connections...");
+
                 for (var session : sessions) {
                     session.runConnectionEventLoop();
                 }
@@ -134,5 +166,18 @@ public class Main {
     static String getInput(String prompt, String def) {
         System.out.print(prompt);
         return getInput(def);
+    }
+
+    static Vector<TeamTalkServer> getServerList() {
+        Vector<TeamTalkServer> servers = new Vector<>();
+        String ipaddr = System.getProperty("dk.bearware.test.server.ipaddr");
+        if (ipaddr != null) {
+            int tcpport = Integer.parseInt(System.getProperty("dk.bearware.test.server.tcpport"));
+            int udpport = Integer.parseInt(System.getProperty("dk.bearware.test.server.udpport"));
+            int encrypted = Integer.parseInt(System.getProperty("dk.bearware.test.server.encrypted"));
+            TeamTalkServer s = new TeamTalkServer(ipaddr, tcpport, udpport, encrypted != 0);
+            servers.add(s);
+        }
+        return servers;
     }
 }

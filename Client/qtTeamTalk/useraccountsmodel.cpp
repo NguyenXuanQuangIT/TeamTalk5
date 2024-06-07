@@ -1,30 +1,26 @@
 /*
- * Copyright (c) 2005-2018, BearWare.dk
+ * Copyright (C) 2023, Bjørn D. Rasmussen, BearWare.dk
  *
- * Contact Information:
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
  *
- * Bjoern D. Rasmussen
- * Kirketoften 5
- * DK-8260 Viby J
- * Denmark
- * Email: contact@bearware.dk
- * Phone: +45 20 20 54 59
- * Web: http://www.bearware.dk
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
- * This source code is part of the TeamTalk SDK owned by
- * BearWare.dk. Use of this file, or its compiled unit, requires a
- * TeamTalk SDK License Key issued by BearWare.dk.
- *
- * The TeamTalk SDK License Agreement along with its Terms and
- * Conditions are outlined in the file License.txt included with the
- * TeamTalk SDK distribution.
- *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 #include "useraccountsmodel.h"
+#include "utilui.h"
 
-UserAccountsModel::UserAccountsModel(QObject* parent)
-: QAbstractItemModel(parent)
+UserAccountsModel::UserAccountsModel(QObject* parent, get_logical_index_t getindex)
+: QAbstractTableModel(parent)
+, m_logical_column(getindex)
 {
 }
 
@@ -81,14 +77,35 @@ QVariant UserAccountsModel::data(const QModelIndex & index, int role /*= Qt::Dis
         case COLUMN_INDEX_CHANNEL :
             return _Q(m_users[index.row()].szInitChannel);
         case COLUMN_INDEX_MODIFIED :
-            return _Q(m_users[index.row()].szLastModified);
+            return getFormattedDateTime(_Q(m_users[index.row()].szLastModified), "yyyy/MM/dd hh:mm");
         }
         break;
-    case Qt::AccessibleTextRole :
-    {
-        return QString("%1: %2, %3: %4, %5: %6, %7: %8, %9: %10, %11: %12").arg(headerData(COLUMN_INDEX_USERNAME, Qt::Horizontal, Qt::DisplayRole).toString()).arg(data(createIndex(index.row(), COLUMN_INDEX_USERNAME, index.internalId()), Qt::DisplayRole).toString()).arg(headerData(COLUMN_INDEX_PASSWORD, Qt::Horizontal, Qt::DisplayRole).toString()).arg(data(createIndex(index.row(), COLUMN_INDEX_PASSWORD, index.internalId()), Qt::DisplayRole).toString()).arg(headerData(COLUMN_INDEX_USERTYPE, Qt::Horizontal, Qt::DisplayRole).toString()).arg(data(createIndex(index.row(), COLUMN_INDEX_USERTYPE, index.internalId()), Qt::DisplayRole).toString()).arg(headerData(COLUMN_INDEX_NOTE, Qt::Horizontal, Qt::DisplayRole).toString()).arg(data(createIndex(index.row(), COLUMN_INDEX_NOTE, index.internalId()), Qt::DisplayRole).toString()).arg(headerData(COLUMN_INDEX_CHANNEL, Qt::Horizontal, Qt::DisplayRole).toString()).arg(data(createIndex(index.row(), COLUMN_INDEX_CHANNEL, index.internalId()), Qt::DisplayRole).toString()).arg(headerData(COLUMN_INDEX_MODIFIED, Qt::Horizontal, Qt::DisplayRole).toString()).arg(data(createIndex(index.row(), COLUMN_INDEX_MODIFIED, index.internalId()), Qt::DisplayRole).toString());
-    }
-    break;
+    case Qt::AccessibleTextRole:
+        if (index.column() == m_logical_column(0))
+        {
+            QString accessibleText;
+            int columnCount = this->columnCount(index);
+            for (int i = 0; i < columnCount; ++i)
+            {
+                int logicalIndex = m_logical_column(i);
+                accessibleText += QString("%1: %2, ")
+                                      .arg(headerData(logicalIndex, Qt::Horizontal, Qt::DisplayRole).toString())
+                                      .arg(data(createIndex(index.row(), logicalIndex, index.internalId()), Qt::DisplayRole).toString());
+            }
+            return accessibleText;
+        }
+        break;
+    case Qt::UserRole :
+        switch(index.column())
+        {
+        case COLUMN_INDEX_MODIFIED :
+            return _Q(m_users[index.row()].szLastModified);
+            break;
+        default :
+            return data(index, Qt::DisplayRole);
+            break;
+        }
+        break;
     }
     return QVariant();
 }
@@ -151,7 +168,7 @@ void UserAccountsModel::delRegUser(const QString& username)
     this->endResetModel();
 }
 
-UserRightsModel::UserRightsModel(QObject* parent) : QAbstractItemModel(parent)
+UserRightsModel::UserRightsModel(QObject* parent) : QAbstractTableModel(parent)
 {
 }
 
@@ -179,7 +196,21 @@ void UserRightsModel::insertUserRights()
     m_userrights.push_back(USERRIGHT_TRANSMIT_DESKTOPINPUT);
     m_userrights.push_back(USERRIGHT_TRANSMIT_MEDIAFILE_AUDIO);
     m_userrights.push_back(USERRIGHT_TRANSMIT_MEDIAFILE_VIDEO);
+    m_userrights.push_back(USERRIGHT_TEXTMESSAGE_USER);
+    m_userrights.push_back(USERRIGHT_TEXTMESSAGE_CHANNEL);
     //m_userrights.push_back(USERRIGHT_LOCKED_STATUS);
+}
+
+QVariant UserRightsModel::headerData(int section, Qt::Orientation orientation, int role/* = Qt::DisplayRole*/) const
+{
+    switch (role)
+    {
+    case Qt::DisplayRole:
+        if (orientation == Qt::Horizontal)
+            return tr("Name");
+        break;
+    }
+    return QVariant();
 }
 
 int UserRightsModel::columnCount(const QModelIndex & /*parent = QModelIndex()*/) const
@@ -242,6 +273,10 @@ QVariant UserRightsModel::data(const QModelIndex & index, int role /*= Qt::Displ
             // OR'ed value
             Q_ASSERT(m_userrights[index.row()] != USERRIGHT_TRANSMIT_MEDIAFILE);
             break;
+        case USERRIGHT_TEXTMESSAGE_USER :
+            return tr("User can send private text messages");
+        case USERRIGHT_TEXTMESSAGE_CHANNEL :
+            return tr("User can send channel text messages");
         case USERRIGHT_LOCKED_NICKNAME :
             return tr("User can change nickname"); // inverted text explanation due to compatibility
         case USERRIGHT_LOCKED_STATUS :
@@ -249,6 +284,7 @@ QVariant UserRightsModel::data(const QModelIndex & index, int role /*= Qt::Displ
         }
 
         break;
+#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
     case Qt::AccessibleTextRole :
         switch (m_userrights[index.row()])
         {
@@ -258,6 +294,7 @@ QVariant UserRightsModel::data(const QModelIndex & index, int role /*= Qt::Displ
         default :
             return QString("%1: %2").arg(data(index, Qt::DisplayRole).toString()).arg((m_activeUserRights & m_userrights[index.row()])? tr("Enabled") : tr("Disabled"));
         }
+#endif
     case Qt::CheckStateRole :
         switch (m_userrights[index.row()])
         {
@@ -269,6 +306,11 @@ QVariant UserRightsModel::data(const QModelIndex & index, int role /*= Qt::Displ
         }
     }
     return QVariant();
+}
+
+Qt::ItemFlags UserRightsModel::flags(const QModelIndex &index) const
+{
+    return Qt::ItemIsEnabled | Qt::ItemIsSelectable | Qt::ItemIsUserCheckable |  Qt::ItemIsEditable;
 }
 
 QModelIndex UserRightsModel::index(int row, int column, const QModelIndex & /*parent = QModelIndex()*/) const

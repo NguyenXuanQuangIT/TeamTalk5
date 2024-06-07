@@ -23,6 +23,9 @@
 
 #include "Common.h"
 #include "Commands.h"
+#include "Channel.h"
+#include <myace/MyINet.h>
+
 #include <time.h>
 #include <ace/Date_Time.h>
 #include <regex>
@@ -54,6 +57,60 @@ namespace teamtalk
         return false;
 #endif
     }
+
+    bool BannedUser::Same(const BannedUser& user) const
+    {
+        bool same = user.bantype == this->bantype;
+        if (bantype & BANTYPE_IPADDR)
+            same &= user.ipaddr == this->ipaddr;
+        if (bantype & BANTYPE_CHANNEL)
+            same &= user.chanpath == this->chanpath;
+        if (bantype & BANTYPE_USERNAME)
+            same &= user.username == this->username;
+        return same;
+    }
+
+    bool BannedUser::Match(const BannedUser& user) const
+    {
+        bool match = bantype != BANTYPE_NONE;
+
+        if ((bantype & BANTYPE_IPADDR) && ipaddr.length())
+        {
+            const ACE_TString rgxsubnet = ACE_TEXT("^") ACE_TEXT("(.*)/(\\d+)") ACE_TEXT("$");
+#if defined(UNICODE)
+            std::wsmatch sm;
+            std::wstring bannedip = ipaddr.c_str();
+#else
+            std::smatch sm;
+            std::string bannedip = ipaddr.c_str();
+#endif
+            if (user.ipaddr.is_empty())
+                match = false; // do not report banned if user has no IP-address
+            else if (std::regex_search(bannedip, sm, buildregex(rgxsubnet.c_str())) && sm.size() == 3)
+            {
+                // check if network ban
+                ACE_TString net = sm[1].str().c_str();
+                uint32_t prefix = string2i(sm[2].str().c_str());
+                // match &= INetAddrNetwork(user.ipaddr, prefix) == net;
+                // to prevent invalid network (192.168.1.0/23 = 192.168.0.0/23) ?
+                match &= INetAddrNetwork(user.ipaddr, prefix) == INetAddrNetwork(net, prefix);
+            }
+            else
+            {
+                ACE_TString rgx = ACE_TEXT("^") + ipaddr + ACE_TEXT("$");
+                match &= std::regex_search(user.ipaddr.c_str(), buildregex(rgx.c_str()));
+            }
+        }
+
+        if ((bantype & BANTYPE_USERNAME))
+            match &= username == user.username;
+
+        if ((bantype & BANTYPE_CHANNEL))
+            match &= ChannelsEquals(chanpath, user.chanpath);
+
+        return match;
+    }
+
 
     ACE_TString DateToString(const ACE_Time_Value& tv)
     {
@@ -104,6 +161,7 @@ namespace teamtalk
         case AFF_MP3_64KBIT_FORMAT: return 64000;
         case AFF_MP3_128KBIT_FORMAT: return 128000;
         case AFF_MP3_256KBIT_FORMAT: return 256000;
+        case AFF_MP3_320KBIT_FORMAT: return 320000;
         default: return 0;
         }
     }

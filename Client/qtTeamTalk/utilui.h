@@ -1,24 +1,18 @@
 /*
- * Copyright (c) 2005-2018, BearWare.dk
- * 
- * Contact Information:
+ * Copyright (C) 2023, Bjørn D. Rasmussen, BearWare.dk
  *
- * Bjoern D. Rasmussen
- * Kirketoften 5
- * DK-8260 Viby J
- * Denmark
- * Email: contact@bearware.dk
- * Phone: +45 20 20 54 59
- * Web: http://www.bearware.dk
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
  *
- * This source code is part of the TeamTalk SDK owned by
- * BearWare.dk. Use of this file, or its compiled unit, requires a
- * TeamTalk SDK License Key issued by BearWare.dk.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
- * The TeamTalk SDK License Agreement along with its Terms and
- * Conditions are outlined in the file License.txt included with the
- * TeamTalk SDK distribution.
- *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 #ifndef UTILUI_H
@@ -33,6 +27,11 @@
 #include <QDialog>
 #include <QAbstractItemView>
 #include <QSortFilterProxyModel>
+#include <QHash>
+#include <QString>
+#include <QObject>
+
+#include <functional>
 
 enum DoubleClickChannelAction
 {
@@ -89,6 +88,13 @@ enum StatusBarEvent : qulonglong
 };
 
 typedef qulonglong StatusBarEvents;
+
+struct StatusBarEventInfo
+{
+    QString settingKey;
+    QHash<QString, QString> variables;
+    QString eventName;
+};
 
 enum ChannelSort
 {
@@ -149,8 +155,25 @@ public:
     ~RestoreItemData();
 };
 
+typedef std::function<int (int visualIndex)> get_logical_index_t;
+
 void saveWindowPosition(const QString& setting, QWidget* widget);
 bool restoreWindowPosition(const QString& setting, QWidget* widget);
 QStringList extractLanguages();
 bool switchLanguage(const QString& language);
+QString getFormattedDateTime(QString originalDateTimeString, QString inputFormat);
+QString getTimestampFormat();
+QString getFormattedFileSize(qint64 filesize);
+
+class UtilUI : public QObject
+{
+    Q_OBJECT
+
+public:
+    static QHash<StatusBarEvents, StatusBarEventInfo> eventToSettingMap();
+    static QString getDefaultValue(const QString& paramKey);
+    static QString getStatusBarMessage(const QString& paramKey, const QHash<QString, QString>& variables);
+    static QString getRawStatusBarMessage(const QString& paramKey);
+};
+
 #endif

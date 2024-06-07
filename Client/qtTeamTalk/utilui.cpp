@@ -1,24 +1,18 @@
 /*
- * Copyright (c) 2005-2018, BearWare.dk
- * 
- * Contact Information:
+ * Copyright (C) 2023, Bjørn D. Rasmussen, BearWare.dk
  *
- * Bjoern D. Rasmussen
- * Kirketoften 5
- * DK-8260 Viby J
- * Denmark
- * Email: contact@bearware.dk
- * Phone: +45 20 20 54 59
- * Web: http://www.bearware.dk
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
  *
- * This source code is part of the TeamTalk SDK owned by
- * BearWare.dk. Use of this file, or its compiled unit, requires a
- * TeamTalk SDK License Key issued by BearWare.dk.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
- * The TeamTalk SDK License Agreement along with its Terms and
- * Conditions are outlined in the file License.txt included with the
- * TeamTalk SDK distribution.
- *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 #include "utilui.h"
@@ -28,6 +22,8 @@
 
 #include <QTranslator>
 #include <QDir>
+#include <QDateTime>
+#include <QLocale>
 #if QT_VERSION < QT_VERSION_CHECK(6,0,0)
 #include <QDesktopWidget>
 #include <QApplication>
@@ -39,6 +35,41 @@
 extern TTInstance* ttInst;
 extern QSettings* ttSettings;
 extern QTranslator* ttTranslator;
+
+QHash<StatusBarEvents, StatusBarEventInfo> UtilUI::eventToSettingMap()
+{
+    static QHash<StatusBarEvents, StatusBarEventInfo> map =
+    {
+        { STATUSBAR_USER_LOGGEDIN, {SETTINGS_STATUSBARMSG_USER_LOGGEDIN, {{"{user}", tr("User's nickname who logged in")}, {"{server}", tr("Server's name from which event was emited")}}, "" } },
+        { STATUSBAR_USER_LOGGEDOUT, {SETTINGS_STATUSBARMSG_USER_LOGGEDOUT, {{"{user}", tr("User's nickname who logged out")}, {"{server}", tr("Server's name from which event was emited")}}, "" } },
+        { STATUSBAR_USER_JOINED, {SETTINGS_STATUSBARMSG_USER_JOINED, {{"{user}", tr("User's nickname who joined channel")}, {"{channel}", tr("Channel's name joined by user")}, {"{server}", tr("Server's name from which event was emited")}}, "" } },
+        { STATUSBAR_USER_LEFT, {SETTINGS_STATUSBARMSG_USER_LEFT, {{"{user}", tr("User's nickname who left channel")}, {"{channel}", tr("Channel's name left by user")}, {"{server}", tr("Server's name from which event was emited")}}, "" } },
+        { STATUSBAR_USER_JOINED_SAME, {SETTINGS_STATUSBARMSG_USER_JOINED_SAME, {{"{user}", tr("User's nickname who joined channel")}}, "" } },
+        { STATUSBAR_USER_LEFT_SAME, {SETTINGS_STATUSBARMSG_USER_LEFT_SAME, {{"{user}", tr("User's nickname who left channel")}}, "" } },
+        { STATUSBAR_SUBSCRIPTIONS_TEXTMSG_PRIVATE, {SETTINGS_STATUSBARMSG_SUBCHANGE, {{"{user}", tr("User concerns by change")}, {"{type}", tr("Subscription type")}, {"{state}", tr("Subscription state")}}, tr("Subscription change") } },
+        { STATUSBAR_SUBSCRIPTIONS_TEXTMSG_CHANNEL, {SETTINGS_STATUSBARMSG_SUBCHANGE, {{"{user}", tr("User concerns by change")}, {"{type}", tr("Subscription type")}, {"{state}", tr("Subscription state")}}, tr("Subscription change") } },
+        { STATUSBAR_SUBSCRIPTIONS_TEXTMSG_BROADCAST, {SETTINGS_STATUSBARMSG_SUBCHANGE, {{"{user}", tr("User concerns by change")}, {"{type}", tr("Subscription type")}, {"{state}", tr("Subscription state")}}, tr("Subscription change") } },
+        { STATUSBAR_SUBSCRIPTIONS_VOICE, {SETTINGS_STATUSBARMSG_SUBCHANGE, {{"{user}", tr("User concerns by change")}, {"{type}", tr("Subscription type")}, {"{state}", tr("Subscription state")}}, tr("Subscription change") } },
+        { STATUSBAR_SUBSCRIPTIONS_VIDEO, {SETTINGS_STATUSBARMSG_SUBCHANGE, {{"{user}", tr("User concerns by change")}, {"{type}", tr("Subscription type")}, {"{state}", tr("Subscription state")}}, tr("Subscription change") } },
+        { STATUSBAR_SUBSCRIPTIONS_DESKTOP, {SETTINGS_STATUSBARMSG_SUBCHANGE, {{"{user}", tr("User concerns by change")}, {"{type}", tr("Subscription type")}, {"{state}", tr("Subscription state")}}, tr("Subscription change") } },
+        { STATUSBAR_SUBSCRIPTIONS_DESKTOPINPUT, {SETTINGS_STATUSBARMSG_SUBCHANGE, {{"{user}", tr("User concerns by change")}, {"{type}", tr("Subscription type")}, {"{state}", tr("Subscription state")}}, tr("Subscription change") } },
+        { STATUSBAR_SUBSCRIPTIONS_MEDIAFILE, {SETTINGS_STATUSBARMSG_SUBCHANGE, {{"{user}", tr("User concerns by change")}, {"{type}", tr("Subscription type")}, {"{state}", tr("Subscription state")}}, tr("Subscription change") } },
+        { STATUSBAR_SUBSCRIPTIONS_INTERCEPT_TEXTMSG_PRIVATE, {SETTINGS_STATUSBARMSG_SUBCHANGE, {{"{user}", tr("User concerns by change")}, {"{type}", tr("Subscription type")}, {"{state}", tr("Subscription state")}}, tr("Subscription change") } },
+        { STATUSBAR_SUBSCRIPTIONS_INTERCEPT_TEXTMSG_CHANNEL, {SETTINGS_STATUSBARMSG_SUBCHANGE, {{"{user}", tr("User concerns by change")}, {"{type}", tr("Subscription type")}, {"{state}", tr("Subscription state")}}, tr("Subscription change") } },
+        { STATUSBAR_SUBSCRIPTIONS_INTERCEPT_VOICE, {SETTINGS_STATUSBARMSG_SUBCHANGE, {{"{user}", tr("User concerns by change")}, {"{type}", tr("Subscription type")}, {"{state}", tr("Subscription state")}}, tr("Subscription change") } },
+        { STATUSBAR_SUBSCRIPTIONS_INTERCEPT_VIDEO, {SETTINGS_STATUSBARMSG_SUBCHANGE, {{"{user}", tr("User concerns by change")}, {"{type}", tr("Subscription type")}, {"{state}", tr("Subscription state")}}, tr("Subscription change") } },
+        { STATUSBAR_SUBSCRIPTIONS_INTERCEPT_DESKTOP, {SETTINGS_STATUSBARMSG_SUBCHANGE, {{"{user}", tr("User concerns by change")}, {"{type}", tr("Subscription type")}, {"{state}", tr("Subscription state")}}, tr("Subscription change") } },
+        { STATUSBAR_SUBSCRIPTIONS_INTERCEPT_MEDIAFILE, {SETTINGS_STATUSBARMSG_SUBCHANGE, {{"{user}", tr("User concerns by change")}, {"{type}", tr("Subscription type")}, {"{state}", tr("Subscription state")}}, tr("Subscription change") } },
+        { STATUSBAR_CLASSROOM_CHANMSG_TX, {SETTINGS_STATUSBARMSG_CLASSROOM, {{"{type}", tr("Transmission type")}, {"{state}", tr("Transmission state")}, {"{user}", tr("User concerns by change")}}, tr("Classroom transmission authorization change") } },
+        { STATUSBAR_CLASSROOM_VOICE_TX, {SETTINGS_STATUSBARMSG_CLASSROOM, {{"{type}", tr("Transmission type")}, {"{state}", tr("Transmission state")}, {"{user}", tr("User concerns by change")}}, tr("Classroom transmission authorization change") } },
+        { STATUSBAR_CLASSROOM_VIDEO_TX, {SETTINGS_STATUSBARMSG_CLASSROOM, {{"{type}", tr("Transmission type")}, {"{state}", tr("Transmission state")}, {"{user}", tr("User concerns by change")}}, tr("Classroom transmission authorization change") } },
+        { STATUSBAR_CLASSROOM_DESKTOP_TX, {SETTINGS_STATUSBARMSG_CLASSROOM, {{"{type}", tr("Transmission type")}, {"{state}", tr("Transmission state")}, {"{user}", tr("User concerns by change")}}, tr("Classroom transmission authorization change") } },
+        { STATUSBAR_CLASSROOM_MEDIAFILE_TX, {SETTINGS_STATUSBARMSG_CLASSROOM, {{"{type}", tr("Transmission type")}, {"{state}", tr("Transmission state")}, {"{user}", tr("User concerns by change")}}, tr("Classroom transmission authorization change") } },
+        { STATUSBAR_FILE_ADD, {SETTINGS_STATUSBARMSG_FILE_ADDED, {{"{filename}", tr("File name")}, {"{user}", tr("User's nickname who added the file")}, {"{filesize}", tr("File size")}}, "" } },
+        { STATUSBAR_FILE_REMOVE, {SETTINGS_STATUSBARMSG_FILE_REMOVED, {{"{file}", tr("File name")}, {"{user}", tr("User's nickname who removed the file")}}, "" } },
+    };
+    return map;
+}
 
 void setVideoTextBox(const QRect& rect, const QColor& bgcolor,
                      const QColor& fgcolor, const QString& text,
@@ -305,4 +336,85 @@ QStringList extractLanguages()
     for (auto lang : dir.entryList())
         languages.append(lang.left(lang.size()-3));
     return languages;
+}
+
+QString getFormattedDateTime(QString originalDateTimeString, QString inputFormat)
+{
+    QDateTime originalDateTime = QDateTime::fromString(originalDateTimeString, inputFormat);
+
+    if (!originalDateTime.isValid()) {
+        return QString("Invalid DateTime");
+    }
+
+    QLocale userLocale = QLocale::system();
+    QString formattedDateTime = userLocale.toString(originalDateTime, getTimestampFormat());
+
+    return formattedDateTime;
+}
+
+QString getTimestampFormat()
+{
+    QLocale userLocale = QLocale::system();
+    QString format = ttSettings->value(SETTINGS_DISPLAY_TIMESTAMP_FORMAT).toString().isEmpty()?userLocale.dateTimeFormat(QLocale::ShortFormat):ttSettings->value(SETTINGS_DISPLAY_TIMESTAMP_FORMAT).toString();
+    return format;
+}
+
+QString getFormattedFileSize(qint64 filesize)
+{
+    QString formattedFileSize;
+#if QT_VERSION < QT_VERSION_CHECK(5,10,0)
+    if (filesize >= 1024*1024*1024)
+        formattedFileSize = QString("%1 G").arg(Filesize/(1024*1024*1024));
+    else if (filesize >= 1024*1024)
+        formattedFileSize = QString("%1 M").arg(filesize/(1024*1024));
+    else if (filesize >= 1024)
+        formattedFileSize = QString("%1 K").arg(filesize/1024);
+    else
+        formattedFileSize = QString("%1").arg(filesize);
+#else
+    formattedFileSize = QLocale().formattedDataSize(filesize, 1, QLocale::DataSizeSIFormat);
+#endif
+    return formattedFileSize;
+}
+
+QString UtilUI::getDefaultValue(const QString& paramKey)
+{
+    if (paramKey == SETTINGS_STATUSBARMSG_USER_LOGGEDIN)
+        return QCoreApplication::translate("UtilUI", SETTINGS_STATUSBARMSG_USER_LOGGEDIN_DEFAULT);
+    if (paramKey == SETTINGS_STATUSBARMSG_USER_LOGGEDOUT)
+        return QCoreApplication::translate("UtilUI", SETTINGS_STATUSBARMSG_USER_LOGGEDOUT_DEFAULT);
+    if (paramKey == SETTINGS_STATUSBARMSG_USER_JOINED)
+        return QCoreApplication::translate("UtilUI", SETTINGS_STATUSBARMSG_USER_JOINED_DEFAULT);
+    if (paramKey == SETTINGS_STATUSBARMSG_USER_LEFT)
+        return QCoreApplication::translate("UtilUI", SETTINGS_STATUSBARMSG_USER_LEFT_DEFAULT);
+    if (paramKey == SETTINGS_STATUSBARMSG_USER_JOINED_SAME)
+        return QCoreApplication::translate("UtilUI", SETTINGS_STATUSBARMSG_USER_JOINED_SAME_DEFAULT);
+    if (paramKey == SETTINGS_STATUSBARMSG_USER_LEFT_SAME)
+        return QCoreApplication::translate("UtilUI", SETTINGS_STATUSBARMSG_USER_LEFT_SAME_DEFAULT);
+    if (paramKey == SETTINGS_STATUSBARMSG_SUBCHANGE)
+        return QCoreApplication::translate("UtilUI", SETTINGS_STATUSBARMSG_SUBCHANGE_DEFAULT);
+    if (paramKey == SETTINGS_STATUSBARMSG_CLASSROOM)
+        return QCoreApplication::translate("UtilUI", SETTINGS_STATUSBARMSG_CLASSROOM_DEFAULT);
+    if (paramKey == SETTINGS_STATUSBARMSG_FILE_ADDED)
+        return QCoreApplication::translate("UtilUI", SETTINGS_STATUSBARMSG_FILE_ADDED_DEFAULT);
+    if (paramKey == SETTINGS_STATUSBARMSG_FILE_REMOVED)
+        return QCoreApplication::translate("UtilUI", SETTINGS_STATUSBARMSG_FILE_REMOVED_DEFAULT);
+    return QString();
+}
+
+QString UtilUI::getStatusBarMessage(const QString& paramKey, const QHash<QString, QString>& variables)
+{
+    QString messageTemplate = ttSettings->value(paramKey, getDefaultValue(paramKey)).toString();
+
+    for (auto it = variables.constBegin(); it != variables.constEnd(); ++it)
+    {
+        messageTemplate.replace(it.key(), it.value());
+    }
+
+    return messageTemplate;
+}
+
+QString UtilUI::getRawStatusBarMessage(const QString& paramKey)
+{
+    return ttSettings->value(paramKey, getDefaultValue(paramKey)).toString();
 }

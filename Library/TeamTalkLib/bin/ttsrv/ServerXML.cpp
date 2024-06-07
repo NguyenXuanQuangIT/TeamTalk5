@@ -48,6 +48,26 @@ namespace teamtalk{
         return XMLDocument::SaveFile();
     }
 
+    bool ServerXML::UpdateFile()
+    {
+        if (!VersionSameOrLater(Utf8ToUnicode(GetFileVersion().c_str()), ACE_TEXT("5.3")))
+        {
+            int c = 0;
+            UserAccount ua;
+            while (GetNextUser(c, ua)) c++;
+            while (c--)
+            {
+                UserAccount ua;
+                GetNextUser(0, ua);
+                ua.userrights |= USERRIGHT_TEXTMESSAGE_USER;
+                ua.userrights |= USERRIGHT_TEXTMESSAGE_CHANNEL;
+                RemoveUser(UnicodeToUtf8(ua.username).c_str());
+                AddNewUser(ua);
+            }
+            return SetFileVersion(TEAMTALK_XML_VERSION);
+        }
+        return true;
+    }
 
     TiXmlElement* ServerXML::GetRootElement()
     {
@@ -1188,6 +1208,9 @@ namespace teamtalk{
            banElement.Attribute("address"))
             tmp = banElement.Attribute("address"); // pre XML v5.1
         ban.ipaddr = Utf8ToUnicode(tmp.c_str());
+        tmp.clear();
+        GetString(banElement, "owner", tmp);
+        ban.owner = Utf8ToUnicode(tmp.c_str());
         return true;
     }
     
@@ -1200,6 +1223,7 @@ namespace teamtalk{
         PutString(banElement, "nickname", UnicodeToUtf8(ban.nickname).c_str());
         PutString(banElement, "username", UnicodeToUtf8(ban.username).c_str());
         PutString(banElement, "channel-path", UnicodeToUtf8(ban.chanpath).c_str());
+        PutString(banElement, "owner", UnicodeToUtf8(ban.owner).c_str());
     }
 
     int ServerXML::GetUserBanCount()
@@ -1220,13 +1244,16 @@ namespace teamtalk{
 
     bool ServerXML::IsUserBanned(const BannedUser& ban)
     {
-        int c = GetUserBanCount();
-        for(int i=0;i<c;i++)
+        TiXmlElement* item = GetServerBansElement();
+        if (item)
         {
-            BannedUser tmp;
-            if(GetUserBan(i, tmp) && tmp.Match(ban))
+            for(TiXmlElement* child = item->FirstChildElement("serverban");
+                 child;
+                 child = child->NextSiblingElement("serverban"))
             {
-                return true;
+                BannedUser tmp;
+                if (GetUserBan(*child, tmp) && tmp.Match(ban))
+                    return true;
             }
         }
         return false;
@@ -1242,11 +1269,17 @@ namespace teamtalk{
     std::vector<BannedUser> ServerXML::GetUserBans()
     {
         std::vector<BannedUser> result;
-        for(int i=0;i<GetUserBanCount();i++)
+        TiXmlElement* item = GetServerBansElement();
+        if (item)
         {
-            BannedUser ban;
-            GetUserBan(i, ban);
-            result.push_back(ban);
+            for(TiXmlElement* child = item->FirstChildElement("serverban");
+                 child;
+                 child = child->NextSiblingElement("serverban"))
+            {
+                BannedUser tmp;
+                GetUserBan(*child, tmp);
+                result.push_back(tmp);
+            }
         }
         return result;
     }
@@ -1342,7 +1375,7 @@ namespace teamtalk{
     {
         bool b = true;
         string s1,s2, s3, s4, tmp;
-        int user_type = 0, userdata = 0, userrights = 0, bpslimit = 0;
+        int user_type = 0, userdata = 0, userrights = USERRIGHT_NONE, bpslimit = 0;
         b &= GetString(userElement, "username", s1);
         b &= GetString(userElement, "password", s2);
         b &= GetInteger(userElement, "user-type", user_type);

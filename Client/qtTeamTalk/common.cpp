@@ -1,24 +1,18 @@
 /*
- * Copyright (c) 2005-2018, BearWare.dk
- * 
- * Contact Information:
+ * Copyright (C) 2023, Bjørn D. Rasmussen, BearWare.dk
  *
- * Bjoern D. Rasmussen
- * Kirketoften 5
- * DK-8260 Viby J
- * Denmark
- * Email: contact@bearware.dk
- * Phone: +45 20 20 54 59
- * Web: http://www.bearware.dk
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
  *
- * This source code is part of the TeamTalk SDK owned by
- * BearWare.dk. Use of this file, or its compiled unit, requires a
- * TeamTalk SDK License Key issued by BearWare.dk.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
- * The TeamTalk SDK License Agreement along with its Terms and
- * Conditions are outlined in the file License.txt included with the
- * TeamTalk SDK distribution.
- *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 #include "common.h"
@@ -62,6 +56,16 @@ bool HostEntry::sameHost(const HostEntry& host, bool nickcheck) const
 bool HostEntry::sameHostEntry(const HostEntry& host) const
 {
     return sameHost(host, false) && host.name == name;
+}
+
+QString HostEntry::generateEntryName() const
+{
+    QString genname;
+    if (username.size())
+        genname = QString("%1@%2:%3").arg(username).arg(ipaddr).arg(tcpport);
+    else if (ipaddr.size())
+        genname = QString("%1:%2").arg(ipaddr).arg(tcpport);
+    return genname;
 }
 
 bool setupEncryption(const HostEntry& host)
@@ -114,7 +118,7 @@ void addLatestHost(const HostEntry& host)
     QList<HostEntry> hosts;
     HostEntry tmp;
     int index = 0;
-    while(getLatestHost(index, tmp))
+    while(getServerEntry(index, tmp, true))
     {
         hosts.push_back(tmp);
         tmp = HostEntry();
@@ -133,78 +137,10 @@ void addLatestHost(const HostEntry& host)
 
     for(int i=0;i<hosts.size();i++)
     {
-        ttSettings->setValue(QString(SETTINGS_LATESTHOST_HOSTADDR).arg(i), hosts[i].ipaddr);
-        ttSettings->setValue(QString(SETTINGS_LATESTHOST_TCPPORT).arg(i), hosts[i].tcpport);
-        ttSettings->setValue(QString(SETTINGS_LATESTHOST_UDPPORT).arg(i), hosts[i].udpport);
-        ttSettings->setValue(QString(SETTINGS_LATESTHOST_ENCRYPTED).arg(i), hosts[i].encrypted);
-        ttSettings->setValue(QString(SETTINGS_LATESTHOST_ENCRYPTED_CADATA).arg(i), hosts[i].encryption.cacertdata);
-        ttSettings->setValue(QString(SETTINGS_LATESTHOST_ENCRYPTED_CERTDATA).arg(i), hosts[i].encryption.certdata);
-        ttSettings->setValue(QString(SETTINGS_LATESTHOST_ENCRYPTED_KEYDATA).arg(i), hosts[i].encryption.privkeydata);
-        ttSettings->setValue(QString(SETTINGS_LATESTHOST_ENCRYPTED_VERIFYPEER).arg(i), hosts[i].encryption.verifypeer);
-        ttSettings->setValue(QString(SETTINGS_LATESTHOST_USERNAME).arg(i), hosts[i].username); 
-        ttSettings->setValue(QString(SETTINGS_LATESTHOST_PASSWORD).arg(i), hosts[i].password); 
-        ttSettings->setValue(QString(SETTINGS_LATESTHOST_NICKNAME).arg(i), hosts[i].nickname); 
-        ttSettings->setValue(QString(SETTINGS_LATESTHOST_CHANNEL).arg(i), hosts[i].channel); 
-        ttSettings->setValue(QString(SETTINGS_LATESTHOST_CHANNELPASSWD).arg(i), hosts[i].chanpasswd); 
+        tmp = hosts[i];
+        tmp.latesthost = true;
+        setServerEntry(i, tmp);
     }
-}
-
-void deleteLatestHost(int index)
-{
-    QStack<HostEntry> hosts;
-    HostEntry tmp;
-    int i = 0;
-    while(getLatestHost(i, tmp))
-    {
-        hosts.push(tmp);
-        i++;
-        tmp = HostEntry();
-    }
-    
-    for(i=0;i<hosts.size();i++)
-    {
-        ttSettings->remove(QString(SETTINGS_LATESTHOST_HOSTADDR).arg(i));
-        ttSettings->remove(QString(SETTINGS_LATESTHOST_TCPPORT).arg(i));
-        ttSettings->remove(QString(SETTINGS_LATESTHOST_UDPPORT).arg(i));
-        ttSettings->remove(QString(SETTINGS_LATESTHOST_ENCRYPTED).arg(i));
-        ttSettings->remove(QString(SETTINGS_LATESTHOST_ENCRYPTED_CADATA).arg(i));
-        ttSettings->remove(QString(SETTINGS_LATESTHOST_ENCRYPTED_CERTDATA).arg(i));
-        ttSettings->remove(QString(SETTINGS_LATESTHOST_ENCRYPTED_KEYDATA).arg(i));
-        ttSettings->remove(QString(SETTINGS_LATESTHOST_ENCRYPTED_VERIFYPEER).arg(i));
-        ttSettings->remove(QString(SETTINGS_LATESTHOST_USERNAME).arg(i));
-        ttSettings->remove(QString(SETTINGS_LATESTHOST_PASSWORD).arg(i));
-        ttSettings->remove(QString(SETTINGS_LATESTHOST_NICKNAME).arg(i));
-        ttSettings->remove(QString(SETTINGS_LATESTHOST_CHANNEL).arg(i));
-        ttSettings->remove(QString(SETTINGS_LATESTHOST_CHANNELPASSWD).arg(i));
-    }
-
-    i=0;
-    while(!hosts.isEmpty())
-    {
-        if(i != index)
-            addLatestHost(hosts.pop());
-        else
-            hosts.pop();
-        i++;
-    }
-}
-
-bool getLatestHost(int index, HostEntry& host)
-{
-    host.ipaddr = ttSettings->value(QString(SETTINGS_LATESTHOST_HOSTADDR).arg(index)).toString();
-    host.tcpport = ttSettings->value(QString(SETTINGS_LATESTHOST_TCPPORT).arg(index)).toInt();
-    host.udpport = ttSettings->value(QString(SETTINGS_LATESTHOST_UDPPORT).arg(index)).toInt();
-    host.encrypted = ttSettings->value(QString(SETTINGS_LATESTHOST_ENCRYPTED).arg(index), false).toBool();
-    host.encryption.cacertdata = ttSettings->value(QString(SETTINGS_LATESTHOST_ENCRYPTED_CADATA).arg(index)).toString();
-    host.encryption.certdata = ttSettings->value(QString(SETTINGS_LATESTHOST_ENCRYPTED_CERTDATA).arg(index)).toString();
-    host.encryption.privkeydata = ttSettings->value(QString(SETTINGS_LATESTHOST_ENCRYPTED_KEYDATA).arg(index)).toString();
-    host.encryption.verifypeer = ttSettings->value(QString(SETTINGS_LATESTHOST_ENCRYPTED_VERIFYPEER).arg(index), HostEntry().encryption.verifypeer).toBool();
-    host.username = ttSettings->value(QString(SETTINGS_LATESTHOST_USERNAME).arg(index)).toString();
-    host.password = ttSettings->value(QString(SETTINGS_LATESTHOST_PASSWORD).arg(index)).toString();
-    host.nickname = ttSettings->value(QString(SETTINGS_LATESTHOST_NICKNAME).arg(index)).toString();
-    host.channel = ttSettings->value(QString(SETTINGS_LATESTHOST_CHANNEL).arg(index)).toString();
-    host.chanpasswd = ttSettings->value(QString(SETTINGS_LATESTHOST_CHANNELPASSWD).arg(index)).toString();
-    return host.ipaddr.size();
 }
 
 void addServerEntry(const HostEntry& host)
@@ -212,7 +148,7 @@ void addServerEntry(const HostEntry& host)
     QList<HostEntry> hosts;
     HostEntry tmp;
     int index = 0;
-    while(getServerEntry(index, tmp))
+    while(getServerEntry(index, tmp, host.latesthost))
     {
         hosts.push_back(tmp);
         tmp = HostEntry();
@@ -226,64 +162,71 @@ void addServerEntry(const HostEntry& host)
 
 void setServerEntry(int index, const HostEntry& host)
 {
-    ttSettings->setValue(QString(SETTINGS_SERVERENTRIES_NAME).arg(index), host.name);
-    ttSettings->setValue(QString(SETTINGS_SERVERENTRIES_HOSTADDR).arg(index), host.ipaddr);
-    ttSettings->setValue(QString(SETTINGS_SERVERENTRIES_TCPPORT).arg(index), host.tcpport);  
-    ttSettings->setValue(QString(SETTINGS_SERVERENTRIES_UDPPORT).arg(index), host.udpport);  
-    ttSettings->setValue(QString(SETTINGS_SERVERENTRIES_ENCRYPTED).arg(index), host.encrypted);
-    ttSettings->setValue(QString(SETTINGS_SERVERENTRIES_ENCRYPTED_CADATA).arg(index), host.encryption.cacertdata);
-    ttSettings->setValue(QString(SETTINGS_SERVERENTRIES_ENCRYPTED_CERTDATA).arg(index), host.encryption.certdata);
-    ttSettings->setValue(QString(SETTINGS_SERVERENTRIES_ENCRYPTED_KEYDATA).arg(index), host.encryption.privkeydata);
-    ttSettings->setValue(QString(SETTINGS_SERVERENTRIES_ENCRYPTED_VERIFYPEER).arg(index), host.encryption.verifypeer);
-    ttSettings->setValue(QString(SETTINGS_SERVERENTRIES_USERNAME).arg(index), host.username); 
-    ttSettings->setValue(QString(SETTINGS_SERVERENTRIES_PASSWORD).arg(index), host.password); 
-    ttSettings->setValue(QString(SETTINGS_SERVERENTRIES_NICKNAME).arg(index), host.nickname); 
-    ttSettings->setValue(QString(SETTINGS_SERVERENTRIES_CHANNEL).arg(index), host.channel); 
-    ttSettings->setValue(QString(SETTINGS_SERVERENTRIES_CHANNELPASSWD).arg(index), host.chanpasswd); 
+    ttSettings->setValue(QString((host.latesthost ? SETTINGS_LATESTHOST_NAME : SETTINGS_SERVERENTRIES_NAME)).arg(index), (host.latesthost ? host.generateEntryName() : host.name));
+    ttSettings->setValue(QString((host.latesthost ? SETTINGS_LATESTHOST_HOSTADDR : SETTINGS_SERVERENTRIES_HOSTADDR)).arg(index), host.ipaddr);
+    ttSettings->setValue(QString((host.latesthost ? SETTINGS_LATESTHOST_TCPPORT : SETTINGS_SERVERENTRIES_TCPPORT)).arg(index), host.tcpport);
+    ttSettings->setValue(QString((host.latesthost ? SETTINGS_LATESTHOST_UDPPORT : SETTINGS_SERVERENTRIES_UDPPORT)).arg(index), host.udpport);
+    ttSettings->setValue(QString((host.latesthost ? SETTINGS_LATESTHOST_ENCRYPTED : SETTINGS_SERVERENTRIES_ENCRYPTED)).arg(index), host.encrypted);
+    ttSettings->setValue(QString((host.latesthost ? SETTINGS_LATESTHOST_ENCRYPTED_CADATA : SETTINGS_SERVERENTRIES_ENCRYPTED_CADATA)).arg(index), host.encryption.cacertdata);
+    ttSettings->setValue(QString((host.latesthost ? SETTINGS_LATESTHOST_ENCRYPTED_CERTDATA : SETTINGS_SERVERENTRIES_ENCRYPTED_CERTDATA)).arg(index), host.encryption.certdata);
+    ttSettings->setValue(QString((host.latesthost ? SETTINGS_LATESTHOST_ENCRYPTED_KEYDATA : SETTINGS_SERVERENTRIES_ENCRYPTED_KEYDATA)).arg(index), host.encryption.privkeydata);
+    ttSettings->setValue(QString((host.latesthost ? SETTINGS_LATESTHOST_ENCRYPTED_VERIFYPEER : SETTINGS_SERVERENTRIES_ENCRYPTED_VERIFYPEER)).arg(index), host.encryption.verifypeer);
+    ttSettings->setValue(QString((host.latesthost ? SETTINGS_LATESTHOST_USERNAME : SETTINGS_SERVERENTRIES_USERNAME)).arg(index), host.username);
+    ttSettings->setValue(QString((host.latesthost ? SETTINGS_LATESTHOST_PASSWORD : SETTINGS_SERVERENTRIES_PASSWORD)).arg(index), host.password);
+    ttSettings->setValue(QString((host.latesthost ? SETTINGS_LATESTHOST_NICKNAME : SETTINGS_SERVERENTRIES_NICKNAME)).arg(index), host.nickname);
+    if (!host.latesthost)
+        ttSettings->setValue(QString(SETTINGS_SERVERENTRIES_LASTCHANNEL).arg(index), host.lastChan);
+    ttSettings->setValue(QString((host.latesthost ? SETTINGS_LATESTHOST_CHANNEL : SETTINGS_SERVERENTRIES_CHANNEL)).arg(index), host.channel);
+    ttSettings->setValue(QString((host.latesthost ? SETTINGS_LATESTHOST_CHANNELPASSWD : SETTINGS_SERVERENTRIES_CHANNELPASSWD)).arg(index), host.chanpasswd);
 }
 
-bool getServerEntry(int index, HostEntry& host)
+bool getServerEntry(int index, HostEntry& host, bool latesthost)
 {
-    host.name = ttSettings->value(QString(SETTINGS_SERVERENTRIES_NAME).arg(index)).toString();
-    host.ipaddr = ttSettings->value(QString(SETTINGS_SERVERENTRIES_HOSTADDR).arg(index)).toString();
-    host.tcpport = ttSettings->value(QString(SETTINGS_SERVERENTRIES_TCPPORT).arg(index)).toInt();
-    host.udpport = ttSettings->value(QString(SETTINGS_SERVERENTRIES_UDPPORT).arg(index)).toInt();
-    host.encrypted = ttSettings->value(QString(SETTINGS_SERVERENTRIES_ENCRYPTED).arg(index), HostEntry().encrypted).toBool();
-    host.encryption.cacertdata = ttSettings->value(QString(SETTINGS_SERVERENTRIES_ENCRYPTED_CADATA).arg(index)).toString();
-    host.encryption.certdata = ttSettings->value(QString(SETTINGS_SERVERENTRIES_ENCRYPTED_CERTDATA).arg(index)).toString();
-    host.encryption.privkeydata = ttSettings->value(QString(SETTINGS_SERVERENTRIES_ENCRYPTED_KEYDATA).arg(index)).toString();
-    host.encryption.verifypeer = ttSettings->value(QString(SETTINGS_SERVERENTRIES_ENCRYPTED_VERIFYPEER).arg(index), HostEntry().encryption.verifypeer).toBool();
-    host.username = ttSettings->value(QString(SETTINGS_SERVERENTRIES_USERNAME).arg(index)).toString();
-    host.password = ttSettings->value(QString(SETTINGS_SERVERENTRIES_PASSWORD).arg(index)).toString();
-    host.nickname = ttSettings->value(QString(SETTINGS_SERVERENTRIES_NICKNAME).arg(index)).toString();
-    host.channel = ttSettings->value(QString(SETTINGS_SERVERENTRIES_CHANNEL).arg(index)).toString();
-    host.chanpasswd = ttSettings->value(QString(SETTINGS_SERVERENTRIES_CHANNELPASSWD).arg(index)).toString();
-    return host.name.size();
+    host.name = ttSettings->value(QString((latesthost ? SETTINGS_LATESTHOST_NAME:SETTINGS_SERVERENTRIES_NAME)).arg(index)).toString();
+    host.ipaddr = ttSettings->value(QString((latesthost ? SETTINGS_LATESTHOST_HOSTADDR : SETTINGS_SERVERENTRIES_HOSTADDR)).arg(index)).toString();
+    host.tcpport = ttSettings->value(QString((latesthost ? SETTINGS_LATESTHOST_TCPPORT : SETTINGS_SERVERENTRIES_TCPPORT)).arg(index)).toInt();
+    host.udpport = ttSettings->value(QString((latesthost ? SETTINGS_LATESTHOST_UDPPORT : SETTINGS_SERVERENTRIES_UDPPORT)).arg(index)).toInt();
+    host.encrypted = ttSettings->value(QString((latesthost ? SETTINGS_LATESTHOST_ENCRYPTED : SETTINGS_SERVERENTRIES_ENCRYPTED)).arg(index, false)).toBool();
+    host.encryption.cacertdata = ttSettings->value(QString((latesthost ? SETTINGS_LATESTHOST_ENCRYPTED_CADATA : SETTINGS_SERVERENTRIES_ENCRYPTED_CADATA)).arg(index)).toString();
+    host.encryption.certdata = ttSettings->value(QString((latesthost ? SETTINGS_LATESTHOST_ENCRYPTED_CERTDATA : SETTINGS_SERVERENTRIES_ENCRYPTED_CERTDATA)).arg(index)).toString();
+    host.encryption.privkeydata = ttSettings->value(QString((latesthost ? SETTINGS_LATESTHOST_ENCRYPTED_KEYDATA : SETTINGS_SERVERENTRIES_ENCRYPTED_KEYDATA)).arg(index)).toString();
+    host.encryption.verifypeer = ttSettings->value(QString((latesthost ? SETTINGS_LATESTHOST_ENCRYPTED_VERIFYPEER : SETTINGS_SERVERENTRIES_ENCRYPTED_VERIFYPEER)).arg(index), HostEntry().encryption.verifypeer).toBool();
+    host.username = ttSettings->value(QString((latesthost ? SETTINGS_LATESTHOST_USERNAME : SETTINGS_SERVERENTRIES_USERNAME)).arg(index)).toString();
+    host.password = ttSettings->value(QString((latesthost ? SETTINGS_LATESTHOST_PASSWORD : SETTINGS_SERVERENTRIES_PASSWORD)).arg(index)).toString();
+    host.nickname = ttSettings->value(QString((latesthost ? SETTINGS_LATESTHOST_NICKNAME : SETTINGS_SERVERENTRIES_NICKNAME)).arg(index)).toString();
+    host.channel = ttSettings->value(QString((latesthost ? SETTINGS_LATESTHOST_CHANNEL : SETTINGS_SERVERENTRIES_CHANNEL)).arg(index)).toString();
+    host.chanpasswd = ttSettings->value(QString((latesthost ? SETTINGS_LATESTHOST_CHANNELPASSWD : SETTINGS_SERVERENTRIES_CHANNELPASSWD)).arg(index)).toString();
+    if (!host.latesthost)
+        host.lastChan = ttSettings->value(QString(SETTINGS_SERVERENTRIES_LASTCHANNEL).arg(index)).toBool();
+    host.latesthost = latesthost;
+    return host.ipaddr.size();
 }
 
-void deleteServerEntry(const QString& name)
+void deleteServerEntry(const HostEntry& host)
 {
     QList<HostEntry> hosts;
     HostEntry tmp;
     int index = 0;
-    while(getServerEntry(index, tmp))
+    while (getServerEntry(index, tmp, host.latesthost))
     {
-        if(tmp.name != name)
+        if(tmp.name != host.name)
             hosts.push_back(tmp);
-        ttSettings->remove(QString(SETTINGS_SERVERENTRIES_NAME).arg(index));
-        ttSettings->remove(QString(SETTINGS_SERVERENTRIES_HOSTADDR).arg(index));
-        ttSettings->remove(QString(SETTINGS_SERVERENTRIES_TCPPORT).arg(index));
-        ttSettings->remove(QString(SETTINGS_SERVERENTRIES_UDPPORT).arg(index));
-        ttSettings->remove(QString(SETTINGS_SERVERENTRIES_ENCRYPTED).arg(index));
-        ttSettings->remove(QString(SETTINGS_SERVERENTRIES_ENCRYPTED_CADATA).arg(index));
-        ttSettings->remove(QString(SETTINGS_SERVERENTRIES_ENCRYPTED_CERTDATA).arg(index));
-        ttSettings->remove(QString(SETTINGS_SERVERENTRIES_ENCRYPTED_KEYDATA).arg(index));
-        ttSettings->remove(QString(SETTINGS_SERVERENTRIES_ENCRYPTED_VERIFYPEER).arg(index));
-        ttSettings->remove(QString(SETTINGS_SERVERENTRIES_USERNAME).arg(index));
-        ttSettings->remove(QString(SETTINGS_SERVERENTRIES_PASSWORD).arg(index));
-        ttSettings->remove(QString(SETTINGS_SERVERENTRIES_NICKNAME).arg(index));
-        ttSettings->remove(QString(SETTINGS_SERVERENTRIES_CHANNEL).arg(index));
-        ttSettings->remove(QString(SETTINGS_SERVERENTRIES_CHANNELPASSWD).arg(index));
+        ttSettings->remove(QString((host.latesthost ? SETTINGS_LATESTHOST_NAME : SETTINGS_SERVERENTRIES_NAME)).arg(index));
+        ttSettings->remove(QString((host.latesthost ? SETTINGS_LATESTHOST_HOSTADDR : SETTINGS_SERVERENTRIES_HOSTADDR)).arg(index));
+        ttSettings->remove(QString((host.latesthost ? SETTINGS_LATESTHOST_TCPPORT : SETTINGS_SERVERENTRIES_TCPPORT)).arg(index));
+        ttSettings->remove(QString((host.latesthost ? SETTINGS_LATESTHOST_UDPPORT : SETTINGS_SERVERENTRIES_UDPPORT)).arg(index));
+        ttSettings->remove(QString((host.latesthost ? SETTINGS_LATESTHOST_ENCRYPTED : SETTINGS_SERVERENTRIES_ENCRYPTED)).arg(index));
+        ttSettings->remove(QString((host.latesthost ? SETTINGS_LATESTHOST_ENCRYPTED_CADATA : SETTINGS_SERVERENTRIES_ENCRYPTED_CADATA)).arg(index));
+        ttSettings->remove(QString((host.latesthost ? SETTINGS_LATESTHOST_ENCRYPTED_CERTDATA : SETTINGS_SERVERENTRIES_ENCRYPTED_CERTDATA)).arg(index));
+        ttSettings->remove(QString((host.latesthost ? SETTINGS_LATESTHOST_ENCRYPTED_KEYDATA : SETTINGS_SERVERENTRIES_ENCRYPTED_KEYDATA)).arg(index));
+        ttSettings->remove(QString((host.latesthost ? SETTINGS_LATESTHOST_ENCRYPTED_VERIFYPEER : SETTINGS_SERVERENTRIES_ENCRYPTED_VERIFYPEER)).arg(index));
+        ttSettings->remove(QString((host.latesthost ? SETTINGS_LATESTHOST_USERNAME : SETTINGS_SERVERENTRIES_USERNAME)).arg(index));
+        ttSettings->remove(QString((host.latesthost ? SETTINGS_LATESTHOST_PASSWORD : SETTINGS_SERVERENTRIES_PASSWORD)).arg(index));
+        ttSettings->remove(QString((host.latesthost ? SETTINGS_LATESTHOST_NICKNAME : SETTINGS_SERVERENTRIES_NICKNAME)).arg(index));
+        if (!host.latesthost)
+            ttSettings->remove(QString(SETTINGS_SERVERENTRIES_LASTCHANNEL).arg(index));
+        ttSettings->remove(QString((host.latesthost ? SETTINGS_LATESTHOST_CHANNEL : SETTINGS_SERVERENTRIES_CHANNEL)).arg(index));
+        ttSettings->remove(QString((host.latesthost ? SETTINGS_LATESTHOST_CHANNELPASSWD : SETTINGS_SERVERENTRIES_CHANNELPASSWD)).arg(index));
         index++;
         tmp = HostEntry();
     }
@@ -560,7 +503,8 @@ QString generateAudioStorageFilename(AudioFileFormat aff)
     case AFF_MP3_32KBIT_FORMAT :
     case AFF_MP3_64KBIT_FORMAT :
     case AFF_MP3_128KBIT_FORMAT :
-    case AFF_MP3_256KBIT_FORMAT :
+    case AFF_MP3_256KBIT_FORMAT:
+    case AFF_MP3_320KBIT_FORMAT :
         filename += ".mp3";
         break;
     case AFF_NONE :
