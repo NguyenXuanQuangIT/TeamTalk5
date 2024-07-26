@@ -282,6 +282,7 @@
     <string name="desktop_image">Hình ảnh chia sẻ màn hình</string>
     <string name="channel_change_alert">Tất cả các chuyển đang hoạt động sẽ bị dừng khi chuyển kênh</string>
     <string name="disconnect_alert">Tất cả các chuyển đang hoạt động sẽ bị dừng khi rời khỏi máy chủ</string>
+
     <string name="err_invalid_username">Tên người dùng không hợp lệ</string>
     <string name="err_incorrect_server_password">Mật khẩu máy chủ không chính xác</string>
     <string name="err_incorrect_channel_password">Mật khẩu kênh không chính xác</string>
@@ -299,6 +300,7 @@
     <string name="err_openfile_failed">Máy chủ không mở được tệp</string>
     <string name="err_filesharing_disabled">Máy chủ không cho phép chuyển tệp</string>
     <string name="err_channel_has_users">Kênh không trống</string>
+
     <string name="private_message_notification">Tin nhắn mới từ %1$s</string>
     <string name="private_message_notification_hint">Nhấn để đọc và trả lời</string>
     <string name="user_state_now_speaking">%1$s đang nói</string>
@@ -306,6 +308,7 @@
     <string name="text_desktop_session">Chia sẻ màn hình</string>
     <string name="text_webcam_session">Webcam</string>
     <string name="text_mediafile_session">Tệp phương tiện</string>
+
     <string name="permission_audioinput">Ghi và phát lại âm thanh sẽ không khả dụng</string>
     <string name="permission_audiomodify">Ghi và phát lại âm thanh sẽ không khả dụng</string>
     <string name="permission_filerx">Các tệp sẽ không khả dụng để tải xuống</string>
@@ -315,6 +318,8 @@
     <string name="permission_wake_lock">Kết nối máy chủ có thể bị mất khi màn hình tắt</string>
     <string name="permission_read_phone_state">Sẽ không thể phát hiện cuộc gọi đến</string>
     <string name="permission_bluetooth">Sẽ không thể sử dụng micrô tai nghe Bluetooth</string>
+    <string name="permission_post_notifications">TeamTalk sẽ không thể gửi thông báo</string>
+
     <string name="title_activity_web_login">Đăng nhập web hoạt động</string>
     <string name="weblogin_prop_title_bearwareid">tên người dùng</string>
     <string name="weblogin_prop_title_bearwarepasswd">Mật khẩu</string>
@@ -366,7 +371,9 @@
     <string name="pref_title_server_motd">Tin nhắn trong ngày</string>
     <string name="pref_title_server_usercount">Người dùng trực tuyến</string>
     <string name="pref_title_server_country">Quốc gia</string>
-    <string name="pref_title_server_status">Trạng thái máy chủ</string>
+    <string name="action_make_operator">Cấp quyền quản trị</string>
+    <string name="action_revoke_operator">Thu hồi quyền quản trị</string>
+    <string name="text_operator_password">Nhập mật khẩu quản trị kênh</string>
 
 
 </resources>
