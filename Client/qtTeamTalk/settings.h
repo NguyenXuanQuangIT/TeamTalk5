@@ -29,7 +29,7 @@
 #define SOUNDSPATH                                     "/Applications/TeamTalk5.app/Contents/Resources/Sounds"
 #endif
 #define SETTINGS_VERSION                            "5.4"
-#define SETTINGS_GENERAL_VERSION                    "version"
+#define SETTINGS_GENERAL_VERSION                    "general_/version"
 #define SETTINGS_GENERAL_VERSION_DEFAULT            SETTINGS_VERSION
 #if defined(ENABLE_TOLK) || defined(Q_OS_LINUX)
 #define SETTINGS_GENERAL_FIRSTSTART                 "general_/first-start"
@@ -49,7 +49,6 @@
 #define SETTINGS_GENERAL_AWAY_STATUSMSG                   "general_/idle-message"
 #define SETTINGS_GENERAL_INACTIVITY_DISABLE_VOICEACT        "general_/inactivity-disable-voiceact"
 #define SETTINGS_GENERAL_INACTIVITY_DISABLE_VOICEACT_DEFAULT false
-#define SETTINGS_GENERAL_PUSHTOTALK                 "general_/push-to-talk"
 #define SETTINGS_GENERAL_PUSHTOTALK_KEY             "general_/ptt-key"
 #define SETTINGS_GENERAL_PUSHTOTALKLOCK             "general_/ptt-key-lock"
 #define SETTINGS_GENERAL_PUSHTOTALKLOCK_DEFAULT     false
@@ -79,6 +78,8 @@
 #define SETTINGS_DISPLAY_ALWAYSONTOP                "display/alwaysontop"
 #define SETTINGS_DISPLAY_VU_METER_UPDATES           "display/vumeter-updates"
 #define SETTINGS_DISPLAY_VU_METER_UPDATES_DEFAULT   true
+#define SETTINGS_DISPLAY_VOICE_ACT_SLIDER           "display/voice-act-slider"
+#define SETTINGS_DISPLAY_VOICE_ACT_SLIDER_DEFAULT   true
 #define SETTINGS_DISPLAY_USERSCOUNT                 "display/userscount"
 #define SETTINGS_DISPLAY_USERSCOUNT_DEFAULT         true
 #define SETTINGS_DISPLAY_SHOWUSERNAME               "display/showusername"
@@ -112,6 +113,7 @@
 #define SETTINGS_DISPLAY_FILESHEADER                "display/filesheader2"
 #define SETTINGS_DISPLAY_SOUNDEVENTSHEADER                 "display/soundeventsheader"
 #define SETTINGS_DISPLAY_TTSHEADER                  "display/ttsheader"
+#define SETTINGS_DISPLAY_SHORTCUTSHEADER                  "display/shortcutsheader"
 #define SETTINGS_DISPLAY_LOGSTATUSBAR               "display/log-statusbar"
 #define SETTINGS_DISPLAY_LOGSTATUSBAR_DEFAULT       true
 #define SETTINGS_DISPLAY_OFFICIALSERVERS            "display/show-official-servers"
@@ -357,6 +359,8 @@
                                                     SOUNDEVENT_INTERCEPTEND | \
                                                     SOUNDEVENT_TYPING)
 
+#define SETTINGS_SHORTCUTS_ACTIVEHKS          "shortcuts/active-shortcuts"
+#define SETTINGS_SHORTCUTS_ACTIVEHKS_DEFAULT          Hotkeys(HOTKEY_NONE)
 #define SETTINGS_SHORTCUTS_VOICEACTIVATION          "shortcuts/voiceactivation"
 #define SETTINGS_SHORTCUTS_INCVOLUME                "shortcuts/volume-inc"
 #define SETTINGS_SHORTCUTS_DECVOLUME                "shortcuts/volume-dec"
@@ -412,6 +416,10 @@
 #define SETTINGS_TTS_TRY_SAPI_DEFAULT                 true
 #define SETTINGS_TTS_OUTPUT_MODE                         "texttospeech/output-mode"
 #define SETTINGS_TTS_OUTPUT_MODE_DEFAULT                 TTS_OUTPUTMODE_SPEECHBRAILLE
+#endif
+#if QT_VERSION >= QT_VERSION_CHECK(6,8,0)
+#define SETTINGS_TTS_ASSERTIVE                         "texttospeech/assertive"
+#define SETTINGS_TTS_ASSERTIVE_DEFAULT                 false
 #endif
 
 #define SETTINGS_TTSMSG_USER_LOGGEDIN                         "texttospeech/messages/user-logged-in"

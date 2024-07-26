@@ -33,6 +33,8 @@
 
 #include <functional>
 
+void migrateSettings();
+
 enum DoubleClickChannelAction
 {
     ACTION_NOTHING          = 0x0,
@@ -160,6 +162,7 @@ typedef std::function<int (int visualIndex)> get_logical_index_t;
 void saveWindowPosition(const QString& setting, QWidget* widget);
 bool restoreWindowPosition(const QString& setting, QWidget* widget);
 QStringList extractLanguages();
+QString getLanguageDisplayName(const QString &languageCode);
 bool switchLanguage(const QString& language);
 QString getFormattedDateTime(QString originalDateTimeString, QString inputFormat);
 QString getTimestampFormat();
@@ -176,4 +179,31 @@ public:
     static QString getRawStatusBarMessage(const QString& paramKey);
 };
 
+class LoginInfoDialog : public QDialog
+{
+    Q_OBJECT
+
+public:
+    explicit LoginInfoDialog(const QString &title, const QString &desc, const QString &initialUsername, const QString &initialPassword, QWidget *parent = nullptr);
+
+    QString getUsername() const;
+    QString getPassword() const;
+
+private:
+    QLineEdit *userEdit;
+    QLineEdit *passEdit;
+};
+
+class PasswordDialog : public QDialog
+{
+    Q_OBJECT
+
+public:
+    explicit PasswordDialog(const QString &title, const QString &desc, const QString &initialPassword, QWidget *parent = nullptr);
+
+    QString getPassword() const;
+
+private:
+    QLineEdit *passEdit;
+};
 #endif

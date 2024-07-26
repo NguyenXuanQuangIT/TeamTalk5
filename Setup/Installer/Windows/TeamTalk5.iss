@@ -11,24 +11,56 @@ AppUpdatesURL=http://www.bearware.dk
 DefaultDirName={pf}\TeamTalk5
 DefaultGroupName=TeamTalk 5
 AllowNoIcons=yes
-OutputBaseFilename=TeamTalk_v5.17.0.5144_Setup
+OutputBaseFilename=TeamTalk_v5.17.0.5146_Setup
 SetupIconFile=c:\tt5dist\TeamTalk5_x64\TeamTalk5\Client\qtTeamTalk\images\teamtalk.ico
 Compression=lzma/ultra64
 SolidCompression=yes
 LicenseFile=License.txt
 ArchitecturesInstallIn64BitMode=x64
 
-
 [Types]
-Name: "i_client"; Description: "TeamTalk 5 Client"
-Name: "i_full"; Description: "TeamTalk 5 Client & Server"
+Name: "i_client"; Description: "{cm:Client}"
+Name: "i_full"; Description: "{cm:Full}"
 
 [Components]
 Name: "client"; Description: "Client files"; Types: i_client i_full; Flags: fixed
 Name: "server"; Description: "Server files"; Types: i_full
 
 [Languages]
-Name: "english"; MessagesFile: "compiler:Default.isl"
+Name: bg; MessagesFile: "compiler:Languages\Bulgarian.isl"
+Name: cs; MessagesFile: "compiler:Languages\Czech.isl"
+Name: da; MessagesFile: "compiler:Languages\Danish.isl"
+Name: de; MessagesFile: "compiler:Languages\German.isl"
+Name: en; MessagesFile: "compiler:Default.isl"
+Name: es; MessagesFile: "compiler:Languages\Spanish.isl"
+Name: fa; MessagesFile: "Languages\Persian.isl"
+Name: fr; MessagesFile: "compiler:Languages\French.isl"
+Name: he; MessagesFile: "compiler:Languages\Hebrew.isl"
+Name: hu; MessagesFile: "compiler:Languages\Hungarian.isl"
+Name: it; MessagesFile: "compiler:Languages\Italian.isl"
+Name: ko; MessagesFile: "compiler:Languages\Korean.isl"
+Name: nl; MessagesFile: "compiler:Languages\Dutch.isl"
+Name: pl; MessagesFile: "compiler:Languages\Polish.isl"
+Name: pt_BR; MessagesFile: "compiler:Languages\BrazilianPortuguese.isl"
+Name: pt_PT; MessagesFile: "compiler:Languages\Portuguese.isl"
+Name: ru; MessagesFile: "compiler:Languages\Russian.isl"
+Name: sk; MessagesFile: "compiler:Languages\Slovak.isl"
+Name: sl; MessagesFile: "compiler:Languages\Slovenian.isl"
+Name: tr; MessagesFile: "compiler:Languages\Turkish.isl"
+Name: "zh_CN"; MessagesFile: "Languages\ChineseSimplified.isl"
+
+[Messages]
+BeveledLabel={cm:LanguageName}
+
+[CustomMessages]
+en.Client=TeamTalk 5 Client
+en.Full=TeamTalk 5 Client & Server
+fa.Client=برنامۀ تیم‌تاک5
+fa.Full=برنامۀ تیم‌تاک5 همراه با سِروِر
+fr.Client=Client TeamTalk 5
+fr.Full=Client et Serveur TeamTalk 5
+zh_CN.Client=TeamTalk 5 客户端
+zh_CN.Full=TeamTalk 5 客户端 & 服务器
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
@@ -103,4 +135,31 @@ Root: HKCR; Subkey: ".tt"; ValueType: string; ValueData: "TeamTalk"; Flags: unin
 
 Root: HKCR; Subkey: "TeamTalk\DefaultIcon"; ValueType: none; ValueName: "InstallPath"; ValueData: "{app}"
 
-
+[InstallDelete]
+; Delete pre version 5.17 language files
+Type: files; Name: "{app}\Languages\Bulgarian.qm"
+Type: files; Name: "{app}\Languages\Chinese_Simplified.qm"
+Type: files; Name: "{app}\Languages\Chinese_Traditional.qm"
+Type: files; Name: "{app}\Languages\Croatian.qm"
+Type: files; Name: "{app}\Languages\Czech.qm"
+Type: files; Name: "{app}\Languages\Danish.qm"
+Type: files; Name: "{app}\Languages\Dutch.qm"
+Type: files; Name: "{app}\Languages\English.qm"
+Type: files; Name: "{app}\Languages\French.qm"
+Type: files; Name: "{app}\Languages\German.qm"
+Type: files; Name: "{app}\Languages\Hebrew.qm"
+Type: files; Name: "{app}\Languages\Hungarian.qm"
+Type: files; Name: "{app}\Languages\Indonesian.qm"
+Type: files; Name: "{app}\Languages\Italian.qm"
+Type: files; Name: "{app}\Languages\Korean.qm"
+Type: files; Name: "{app}\Languages\Persian.qm"
+Type: files; Name: "{app}\Languages\Polish.qm"
+Type: files; Name: "{app}\Languages\Portuguese_BR.qm"
+Type: files; Name: "{app}\Languages\Portuguese_EU.qm"
+Type: files; Name: "{app}\Languages\Russian.qm"
+Type: files; Name: "{app}\Languages\Slovak.qm"
+Type: files; Name: "{app}\Languages\Slovenian.qm"
+Type: files; Name: "{app}\Languages\Spanish.qm"
+Type: files; Name: "{app}\Languages\Thai.qm"
+Type: files; Name: "{app}\Languages\Turkish.qm"
+Type: files; Name: "{app}\Languages\Vietnamese.qm"

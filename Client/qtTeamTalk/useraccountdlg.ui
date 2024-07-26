@@ -15,7 +15,7 @@
   </property>
   <layout class="QVBoxLayout" name="verticalLayout_1">
    <item>
-    <widget class="QTabWidget" name="tabWidget">
+    <widget class="MyTabWidget" name="tabWidget">
      <property name="currentIndex">
       <number>0</number>
      </property>
@@ -141,8 +141,8 @@
             <property name="text">
              <string/>
             </property>
-            <property name="textInteractionFlags">
-             <set>Qt::LinksAccessibleByKeyboard|Qt::LinksAccessibleByMouse|Qt::TextBrowserInteraction|Qt::TextSelectableByKeyboard|Qt::TextSelectableByMouse</set>
+            <property name="focusPolicy">
+             <set>Qt::StrongFocus</set>
             </property>
            </widget>
           </item>
@@ -432,6 +432,11 @@
    <class>MyTableView</class>
    <extends>QTableView</extends>
    <header>mytableview.h</header>
+  </customwidget>
+  <customwidget>
+   <class>MyTabWidget</class>
+   <extends>QTabWidget</extends>
+   <header>mytabwidget.h</header>
   </customwidget>
  </customwidgets>
  <resources/>

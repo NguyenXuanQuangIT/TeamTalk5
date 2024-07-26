@@ -90,7 +90,7 @@ if (Qt5_FOUND OR Qt6_FOUND)
     serverlogeventsmodel.h textmessagecontainer.h
     useraccountsmodel.h encryptionsetupdlg.h utiltt.h utilxml.h
     utilos.h serverdlg.h moveusersdlg.h useraccountdlg.h soundeventsmodel.h
-    mytableview.h
+    mytableview.h mytabwidget.h shortcutsmodel.h
     main.cpp mainwindow.cpp preferencesdlg.cpp uservideowidget.cpp
     channelstree.cpp channeldlg.cpp userinfodlg.cpp
     bannedusersdlg.cpp useraccountsdlg.cpp videogridwidget.cpp
@@ -110,7 +110,7 @@ if (Qt5_FOUND OR Qt6_FOUND)
     serverlogeventsmodel.cpp textmessagecontainer.cpp
     useraccountsmodel.cpp encryptionsetupdlg.cpp utiltt.cpp utilxml.cpp
     utilos.cpp serverdlg.cpp moveusersdlg.cpp useraccountdlg.cpp soundeventsmodel.cpp
-    mytableview.cpp
+    mytableview.cpp mytabwidget.cpp shortcutsmodel.cpp
     mainwindow.ui channel.ui preferences.ui
     serverlist.ui userinfo.ui bannedusers.ui useraccounts.ui
     serverproperties.ui uservideo.ui keycomp.ui textmessage.ui
@@ -167,25 +167,6 @@ if (Qt5_FOUND OR Qt6_FOUND)
 
   if (BUILD_TEAMTALK_CLIENT_QTTEAMTALK)
 
-    # Build translations
-    file (GLOB TS_FILES ${CMAKE_CURRENT_SOURCE_DIR}/languages/*.ts)
-    set_source_files_properties(${TS_FILES} PROPERTIES OUTPUT_LOCATION ${CMAKE_CURRENT_SOURCE_DIR}/languages)
-    if (Qt6_FOUND)
-      find_package(Qt6LinguistTools)
-      if (Qt6LinguistTools_FOUND)
-        qt6_add_translation (QM_FILES ${TS_FILES})
-        add_custom_target(QtTeamTalk5-Translations DEPENDS ${QM_FILES})
-        install (FILES ${QM_FILES} DESTINATION Client/qtTeamTalk/languages)
-      endif()
-    else()
-      find_package(Qt5LinguistTools)
-      if (Qt5LinguistTools_FOUND)
-        qt5_add_translation (QM_FILES ${TS_FILES})
-        add_custom_target(QtTeamTalk5-Translations DEPENDS ${QM_FILES})
-        install (FILES ${QM_FILES} DESTINATION Client/qtTeamTalk/languages)
-      endif()
-    endif()
-    
     if (MSVC)
       add_executable (${TEAMTALK_TARGET} WIN32 ${QTTEAMTALK_SOURCES})
 
@@ -267,6 +248,27 @@ if (Qt5_FOUND OR Qt6_FOUND)
       target_compile_options(${TEAMTALK_TARGET} PUBLIC -DUNICODE -D_UNICODE -DENABLE_TOLK -D_CRT_SECURE_NO_WARNINGS)
     elseif (MSVC)
       target_compile_options(${TEAMTALK_TARGET} PUBLIC -DUNICODE -D_UNICODE -D_CRT_SECURE_NO_WARNINGS)
+    endif()
+
+    # Build translations
+    file (GLOB TS_FILES ${CMAKE_CURRENT_SOURCE_DIR}/languages/*.ts)
+    set_source_files_properties(${TS_FILES} PROPERTIES OUTPUT_LOCATION ${CMAKE_CURRENT_SOURCE_DIR}/languages)
+    if (Qt6_FOUND)
+      find_package(Qt6LinguistTools)
+      if (Qt6LinguistTools_FOUND)
+        # This generates target "update_translations" and "${TEAMTALK_TARGET}_lupdate"
+        qt_add_lupdate (${TEAMTALK_TARGET} TS_FILES ${TS_FILES} OPTIONS -no-obsolete)
+        qt6_add_translation (QM_FILES ${TS_FILES})
+        add_custom_target(QtTeamTalk5-Translations DEPENDS ${QM_FILES})
+        install (FILES ${QM_FILES} DESTINATION Client/qtTeamTalk/languages)
+      endif()
+    else()
+      find_package(Qt5LinguistTools)
+      if (Qt5LinguistTools_FOUND)
+        qt5_add_translation (QM_FILES ${TS_FILES})
+        add_custom_target(QtTeamTalk5-Translations DEPENDS ${QM_FILES})
+        install (FILES ${QM_FILES} DESTINATION Client/qtTeamTalk/languages)
+      endif()
     endif()
 
     if (Qt5LinguistTools_FOUND OR Qt6LinguistTools_FOUND)

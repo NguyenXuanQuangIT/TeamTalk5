@@ -309,6 +309,7 @@ ServerListDlg::ServerListDlg(QWidget * parent/* = 0*/)
 
     ui.serverTableView->horizontalHeader()->restoreState(ttSettings->value(SETTINGS_DISPLAY_SERVERLIST_HEADERSIZES).toByteArray());
     restoreGeometry(ttSettings->value(SETTINGS_DISPLAY_SERVERLISTDLG_SIZE).toByteArray());
+    ui.serverTableView->horizontalHeader()->setSectionsMovable(false);
 }
 
 ServerListDlg::~ServerListDlg()
@@ -448,7 +449,7 @@ void ServerListDlg::slotImportTTFile()
 
 void ServerListDlg::slotConnect()
 {
-    HostEntry host, latestHost;
+    HostEntryEx host, latestHost;
     if (getServerEntry(0, latestHost, true) || ui.hostListWidget->count() == 0)
     {
         if (!getSelectedHost(host))
@@ -534,10 +535,10 @@ void ServerListDlg::deleteSelectedServer()
 
 void ServerListDlg::editSelectedServer()
 {
-    HostEntry host;
+    HostEntryEx host;
     if (!getSelectedHost(host))
         return;
-    ServerDlg dlg((m_model->getServers()[m_proxyModel->mapToSource(ui.serverTableView->currentIndex()).row()].srvtype == SERVERTYPE_LOCAL?ServerDlg::SERVER_UPDATE:ServerDlg::SERVER_READONLY), host, this);
+    ServerDlg dlg((host.srvtype == SERVERTYPE_LOCAL ? ServerDlg::SERVER_UPDATE : ServerDlg::SERVER_READONLY), host, this);
     if (dlg.exec() == QDialog::Accepted)
     {
         HostEntry updatedHost = dlg.GetHostEntry();
@@ -561,7 +562,7 @@ void ServerListDlg::editSelectedServer()
 
 void ServerListDlg::duplicateSelectedServer()
 {
-    HostEntry host;
+    HostEntryEx host;
     if (!getSelectedHost(host))
         return;
 
@@ -801,7 +802,7 @@ void ServerListDlg::publishServerRequest(QNetworkReply* reply)
     }
 }
 
-bool ServerListDlg::getSelectedHost(HostEntry& host)
+bool ServerListDlg::getSelectedHost(HostEntryEx& host)
 {
     if (ui.hostListWidget->hasFocus())
     {

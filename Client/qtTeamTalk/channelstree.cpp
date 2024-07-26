@@ -68,11 +68,7 @@ ChannelsTree::ChannelsTree(QWidget* parent)
 , m_desktopaccesTimerId(0)
 , m_ignore_item_changes(false)
 {
-#if QT_VERSION >= QT_VERSION_CHECK(5,0,0)
     header()->setSectionResizeMode(QHeaderView::ResizeToContents);
-#else
-    header()->setResizeMode(QHeaderView::ResizeToContents);
-#endif
     setAcceptDrops(true);
 
 //    connect(this, &QTreeWidget::itemDoubleClicked,
@@ -1147,7 +1143,7 @@ void ChannelsTree::updateChannelItem(QTreeWidgetItem* item)
     }
     if (ttSettings->value(SETTINGS_DISPLAY_CHANNEL_TOPIC, SETTINGS_DISPLAY_CHANNEL_TOPIC_DEFAULT).toBool() == true && _Q(chan.szTopic).size())
     {
-        channameDisplay += ": " + _Q(chan.szTopic);
+        item->setData(COLUMN_ITEM, Qt::ToolTipRole, _Q(chan.szTopic));
         channameAccessible += ": " + _Q(chan.szTopic);
     }
     item->setData(COLUMN_ITEM, Qt::DisplayRole, channameDisplay);
@@ -1193,23 +1189,26 @@ void ChannelsTree::updateUserItem(QTreeWidgetItem* item)
     if (emoji)
     {
         if(item->data(COLUMN_ITEM, Qt::UserRole).toInt() & MESSAGED_TYPE)
-            itemtext += " ✉";
+            itemtext += ", ✉";
         switch (user.nStatusMode & STATUSMODE_MODE)
         {
         case STATUSMODE_AWAY :
-            itemtext += ", " + ((user.nStatusMode & STATUSMODE_FEMALE)?tr("Away", "For female"):tr("Away", "For male and neutral"));
+            itemtext += ", 😴";
             break;
         case STATUSMODE_QUESTION :
-            itemtext += ", " + tr("Question");
+            itemtext += ", ❓";
             break;
         }
         if((user.uUserState & USERSTATE_VOICE) || (user.nUserID == TT_GetMyUserID(ttInst) && isMyselfTalking() == TRUE && userCanVoiceTx(TT_GetMyUserID(ttInst), chan) == TRUE))
-            itemtext += " 🎤";
+            itemtext += ", 🎤";
         if (user.nStatusMode & STATUSMODE_STREAM_MEDIAFILE)
-            itemtext += ", " + tr("Streaming media file");
+            itemtext += ", 💿";
+
+        if (user.nStatusMode & STATUSMODE_STREAM_MEDIAFILE_PAUSED)
+            itemtext += ", 💿⏸️";
 
         if (user.nStatusMode & STATUSMODE_VIDEOTX)
-            itemtext += ", " + tr("Webcam");
+            itemtext += ", 🎥";
     }
 
     if(_Q(user.szStatusMsg).size())
@@ -1217,15 +1216,50 @@ void ChannelsTree::updateUserItem(QTreeWidgetItem* item)
 
     if (emoji)
     {
-        if (user.nStatusMode & STATUSMODE_FEMALE)
-            itemtext += (_Q(user.szStatusMsg).size() ? " 👩" : ", 👩");
-        else if ((user.nStatusMode & STATUSMODE_GENDER_MASK) == STATUSMODE_MALE)
-            itemtext += (_Q(user.szStatusMsg).size() ? " 👨" : ", 👨");
-        if(user.uUserType & USERTYPE_ADMIN)
-            itemtext += " (" + ((user.nStatusMode & STATUSMODE_FEMALE)?tr("Administrator", "For female"):tr("Administrator", "For male and neutral")) + ")";
+        switch (user.nStatusMode & STATUSMODE_GENDER_MASK)
+        {
+        case STATUSMODE_FEMALE :
+            itemtext += ", 👩";
+            break;
+        case STATUSMODE_MALE :
+            itemtext += ", 👨";
+            break;
+        case STATUSMODE_NEUTRAL :
+            itemtext += ", 🧑";
+            break;
+        }
+
+        if (user.uUserType & USERTYPE_ADMIN)
+        {
+            switch (user.nStatusMode & STATUSMODE_GENDER_MASK)
+            {
+            case STATUSMODE_FEMALE :
+                itemtext += " (🦸‍♀️)";
+                break;
+            case STATUSMODE_MALE :
+                itemtext += " (🦸‍♂️)";
+                break;
+            case STATUSMODE_NEUTRAL :
+                itemtext += " (🦸)";
+                break;
+            }
+        }
 
         if (TT_IsChannelOperator(ttInst, user.nUserID, user.nChannelID))
-            itemtext += " (" + ((user.nStatusMode & STATUSMODE_FEMALE)?tr("Channel operator", "For female"):tr("Channel operator", "For male and neutral")) + ")";
+        {
+            switch (user.nStatusMode & STATUSMODE_GENDER_MASK)
+            {
+            case STATUSMODE_FEMALE :
+                itemtext += " (👮‍♀️)";
+                break;
+            case STATUSMODE_MALE :
+                itemtext += " (👮‍♂️)";
+                break;
+            case STATUSMODE_NEUTRAL :
+                itemtext += " (👮)";
+                break;
+            }
+        }
     }
     item->setData(COLUMN_ITEM, Qt::AccessibleTextRole, itemtext);
 

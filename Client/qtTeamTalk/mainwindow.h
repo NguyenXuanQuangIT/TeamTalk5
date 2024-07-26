@@ -104,15 +104,17 @@ protected:
     void keyPressEvent(QKeyEvent* e) override;
     void closeEvent(QCloseEvent* event) override;
 
-#if defined(Q_OS_WIN32) && QT_VERSION >= QT_VERSION_CHECK(5,0,0)
+#if defined(Q_OS_WIN32)
+
 #if QT_VERSION < QT_VERSION_CHECK(6,0,0)
     bool nativeEvent(const QByteArray& eventType, void* message,
                      long* result);
 #else
     bool nativeEvent(const QByteArray& eventType, void* message,
                      qintptr* result);
-#endif
-#endif
+#endif /* QT_VERSION */
+
+#endif /* Q_OS_WIN32 */
 private:
     Ui::MainWindow ui;
     class FilesModel* m_filesmodel;
@@ -354,6 +356,7 @@ private:
     void slotChannelsSpeakChannelStatus();
     void slotChannelsListBans(bool checked=false);
     void slotChannelsStreamMediaFile(bool checked=false);
+    void slotPauseResumeStream();
     void slotChannelsUploadFile(bool checked=false);
     void slotChannelsDownloadFile(bool checked=false);
     void slotChannelsDeleteFile(bool checked=false);
@@ -468,6 +471,8 @@ private:
     void clienteventUserAudioBlock(int source, StreamTypes streamtypes);
     void clienteventSoundDeviceAdded(const SoundDevice& snddev);
     void clienteventSoundDeviceRemoved(const SoundDevice& snddev);
+    MediaFilePlayback m_mfp = {};
+    VideoCodec m_mfp_videocodec = {};
 
 signals:
     /* Begin - CLIENTEVENT_* based events */

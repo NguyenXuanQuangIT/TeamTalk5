@@ -40,6 +40,7 @@ StatusBarDlg::StatusBarDlg(QWidget* parent, StatusBarEvents events)
     m_statusbarmodel->setStatusBarEvents(m_events);
 
     ui.statusBarTableView->horizontalHeader()->restoreState(ttSettings->value(SETTINGS_DISPLAY_STATUSBAR_EVENTS_HEADER).toByteArray());
+    ui.statusBarTableView->horizontalHeader()->setSectionsMovable(false);
 
     connect(ui.statusBarTableView, &QAbstractItemView::doubleClicked, this, &StatusBarDlg::slotStatusBarEventToggled);
     connect(ui.statusBarTableView->selectionModel(), &QItemSelectionModel::currentChanged,
@@ -134,9 +135,9 @@ void StatusBarDlg::saveCurrentMessage()
         QString paramKey = eventInfo.settingKey;
         QString text = ui.SBMsgEdit->text();
 
-        if (!text.isEmpty())
+        if (!text.isEmpty() && text != ttSettings->value(paramKey))
         {
-            ttSettings->setValue(paramKey, text == UtilUI::getDefaultValue(paramKey) ? "" : text);
+            ttSettings->setValue(paramKey, text);
         }
     }
 }

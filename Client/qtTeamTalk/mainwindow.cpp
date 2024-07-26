@@ -93,6 +93,9 @@ PlaySoundEvent* playsoundevent = nullptr;
 #if defined(QT_TEXTTOSPEECH_LIB)
 QTextToSpeech* ttSpeech = nullptr;
 #endif
+#if QT_VERSION >= QT_VERSION_CHECK(6,8,0)
+QObject* announcerObject = nullptr;
+#endif
 
 //strip ampersand from menutext
 #define MENUTEXT(text) text.replace("&", "")
@@ -492,6 +495,8 @@ MainWindow::MainWindow(const QString& cfgfile)
 
     connect(ui.actionStreamMediaFileToChannel, &QAction::triggered,
             this, &MainWindow::slotChannelsStreamMediaFile);
+    connect(ui.actionPauseResumeStream, &QAction::triggered,
+            this, &MainWindow::slotPauseResumeStream);
     connect(ui.actionUploadFile, &QAction::triggered,
             this, &MainWindow::slotChannelsUploadFile);
     connect(ui.actionDownloadFile, &QAction::triggered,
@@ -599,7 +604,8 @@ MainWindow::~MainWindow()
     ttSettings->setValue(SETTINGS_SOUND_MICROPHONEGAIN, ui.micSlider->value());
     ttSettings->setValue(SETTINGS_SOUND_VOICEACTIVATIONLEVEL, ui.voiceactSlider->value());
 
-    ttSettings->setValue(SETTINGS_GENERAL_PUSHTOTALK, ui.actionEnablePushToTalk->isChecked());
+    auto activekeys = ttSettings->value(SETTINGS_SHORTCUTS_ACTIVEHKS, SETTINGS_SHORTCUTS_ACTIVEHKS_DEFAULT).toULongLong();
+    ttSettings->setValue(SETTINGS_SHORTCUTS_ACTIVEHKS, (ui.actionEnablePushToTalk->isChecked() ? activekeys | HOTKEY_PUSHTOTALK : activekeys & ~HOTKEY_PUSHTOTALK));
     ttSettings->setValue(SETTINGS_GENERAL_VOICEACTIVATED, ui.actionEnableVoiceActivation->isChecked());
 
     if(windowState() == Qt::WindowNoState)
@@ -619,77 +625,52 @@ MainWindow::~MainWindow()
 
 void MainWindow::loadSettings()
 {
-    QString iniversion = ttSettings->value(SETTINGS_GENERAL_VERSION,
-                                           SETTINGS_GENERAL_VERSION_DEFAULT).toString();
-    if (!versionSameOrLater(iniversion, "5.1"))
-    {
-        // Volume defaults changed in 5.1 format
-        ttSettings->remove(SETTINGS_SOUND_MASTERVOLUME);
-        ttSettings->remove(SETTINGS_SOUND_MICROPHONEGAIN);
-        ttSettings->setValue(SETTINGS_GENERAL_VERSION, SETTINGS_VERSION);
-    }
-    if (!versionSameOrLater(iniversion, "5.2"))
-    {
-        // Gender changed in 5.2 format
-        Gender gender = ttSettings->value(SETTINGS_GENERAL_GENDER).toBool() ? GENDER_MALE : GENDER_FEMALE;
-        ttSettings->setValue(SETTINGS_GENERAL_GENDER, gender);
-        ttSettings->setValue(SETTINGS_GENERAL_VERSION, SETTINGS_VERSION);
-    }
-    if (!versionSameOrLater(iniversion, "5.3"))
-    {
-        if (ttSettings->value(SETTINGS_GENERAL_BEARWARE_USERNAME, "").toString().size())
-        {
-            QFile::setPermissions(ttSettings->fileName(), QFileDevice::ReadOwner | QFileDevice::WriteOwner);
-        }
-        ttSettings->setValue(SETTINGS_GENERAL_VERSION, SETTINGS_VERSION);
-    }
-    if (!versionSameOrLater(iniversion, "5.4"))
-    {
-        // Latest hosts changed in 5.4 format
-        ttSettings->beginGroup("latesthosts");
-        int index = 0;
-        while (ttSettings->contains(QString("%1_hostaddr").arg(index)))
-        {
-            QString hostAddr = ttSettings->value(QString("%1_hostaddr").arg(index)).toString();
-            int tcpPort = ttSettings->value(QString("%1_tcpport").arg(index)).toInt();
-            ttSettings->setValue(QString("%1_name").arg(index), QString("%1_%2").arg(hostAddr).arg(tcpPort));
-            index++;
-        }
-        ttSettings->endGroup();
-
-        // Sound Events changed in 5.4 format
-        SoundEvents activeEvents = SOUNDEVENT_NONE;
-
-        for (int event = SOUNDEVENT_NEWUSER; event < SOUNDEVENT_NEXT_UNUSED; event <<= 1)
-        {
-            if (!getSoundEventFilename(SoundEvent(event)).isEmpty())
-            {
-                activeEvents = static_cast<SoundEvents>(activeEvents | event);
-            }
-        }
-
-        ttSettings->setValue(SETTINGS_SOUNDEVENT_ACTIVEEVENTS, activeEvents);
-        ttSettings->setValue(SETTINGS_GENERAL_VERSION, SETTINGS_VERSION);
-    }
+    migrateSettings();
 
     // Ask to set language at first start
     if (!ttSettings->contains(SETTINGS_DISPLAY_LANGUAGE))
     {
-        QStringList languages = extractLanguages();
-        languages.insert(0, SETTINGS_DISPLAY_LANGUAGE_DEFAULT); //default language is none
-        bool ok = false;
-        QInputDialog inputDialog;
-        inputDialog.setOkButtonText(tr("&OK"));
-        inputDialog.setCancelButtonText(tr("&Cancel"));
-        inputDialog.setComboBoxItems(languages);
-        inputDialog.setComboBoxEditable(false);
-        inputDialog.setWindowTitle(tr("Choose language"));
-        inputDialog.setLabelText(tr("Select the language will be use by %1").arg(APPNAME_SHORT));
-        ok = inputDialog.exec();
-        QString choice = inputDialog.textValue();
-        if (ok)
+        QLocale locale = QLocale::system();
+        QString languageCode = locale.name();
+        if (switchLanguage(languageCode))
+            this->ui.retranslateUi(this);
+        QMessageBox answer;
+        answer.setText(tr("%1 has detected your system language to be %2. Continue in %2?").arg(APPNAME_SHORT).arg(getLanguageDisplayName(languageCode)));
+        QAbstractButton *YesButton = answer.addButton(tr("&Yes"), QMessageBox::YesRole);
+        QAbstractButton *NoButton = answer.addButton(tr("&No"), QMessageBox::NoRole);
+        answer.setIcon(QMessageBox::Question);
+        answer.setWindowTitle(tr("Language configuration"));
+        answer.exec();
+        if(answer.clickedButton() == YesButton)
         {
-            ttSettings->setValue(SETTINGS_DISPLAY_LANGUAGE, choice);
+            ttSettings->setValue(SETTINGS_DISPLAY_LANGUAGE, languageCode);
+        }
+        else if(answer.clickedButton() == NoButton)
+        {
+            QStringList languages = extractLanguages();
+            languages.insert(0, SETTINGS_DISPLAY_LANGUAGE_DEFAULT); //default language is none
+            QMap<QString, QString> languageMap;
+            for (const QString &code : languages)
+            {
+                QString displayName = (code == "none") ? "" : getLanguageDisplayName(code);
+                languageMap[displayName] = code;
+            }
+            QStringList displayNames = languageMap.keys();
+            bool ok = false;
+            QInputDialog inputDialog;
+            inputDialog.setOkButtonText(tr("&OK"));
+            inputDialog.setCancelButtonText(tr("&Cancel"));
+            inputDialog.setComboBoxItems(displayNames);
+            inputDialog.setComboBoxEditable(false);
+            inputDialog.setWindowTitle(tr("Choose language"));
+            inputDialog.setLabelText(tr("Select the language will be use by %1").arg(APPNAME_SHORT));
+            ok = inputDialog.exec();
+            QString choice = inputDialog.textValue();
+            if (ok)
+            {
+                QString lc_code = languageMap.value(choice, "");
+                ttSettings->setValue(SETTINGS_DISPLAY_LANGUAGE, lc_code);
+            }
         }
     }
 
@@ -708,7 +689,7 @@ void MainWindow::loadSettings()
     initSound();
 
     //load settings
-    bool ptt = ttSettings->value(SETTINGS_GENERAL_PUSHTOTALK).toBool();
+    bool ptt = ttSettings->value(SETTINGS_SHORTCUTS_ACTIVEHKS, SETTINGS_SHORTCUTS_ACTIVEHKS_DEFAULT).toULongLong() & HOTKEY_PUSHTOTALK;
     slotMeEnablePushToTalk(ptt);
     bool vox = ttSettings->value(SETTINGS_GENERAL_VOICEACTIVATED,
                                  SETTINGS_GENERAL_VOICEACTIVATED_DEFAULT).toBool();
@@ -769,6 +750,7 @@ void MainWindow::loadSettings()
     }
     //set files header to last position
     ui.filesView->horizontalHeader()->restoreState(ttSettings->value(SETTINGS_DISPLAY_FILESHEADER).toByteArray());
+    ui.filesView->horizontalHeader()->setSectionsMovable(false);
     // Maximize window if necessary
     if (ttSettings->value(SETTINGS_DISPLAY_WINDOW_MAXIMIZE).toBool() == true)
         this->showMaximized();
@@ -787,17 +769,21 @@ void MainWindow::loadSettings()
 
     initialScreenReaderSetup();
 
-    // setup VU-meter updates
+    // Hide/Show widgets
     if (ttSettings->value(SETTINGS_DISPLAY_VU_METER_UPDATES,
         SETTINGS_DISPLAY_VU_METER_UPDATES_DEFAULT).toBool())
     {
         m_timers.insert(startTimer(50), TIMER_VUMETER_UPDATE);
+        ui.vumeterLabel->setVisible(true);
         ui.voiceactBar->setVisible(true);
     }
     else
     {
+        ui.vumeterLabel->setVisible(false);
         ui.voiceactBar->setVisible(false);
     }
+    ui.voiceactLabel->setVisible(ui.actionEnableVoiceActivation->isChecked() && ttSettings->value(SETTINGS_DISPLAY_VOICE_ACT_SLIDER, SETTINGS_DISPLAY_VOICE_ACT_SLIDER_DEFAULT).toBool());
+    ui.voiceactSlider->setVisible(ui.actionEnableVoiceActivation->isChecked() && ttSettings->value(SETTINGS_DISPLAY_VOICE_ACT_SLIDER, SETTINGS_DISPLAY_VOICE_ACT_SLIDER_DEFAULT).toBool());
 
     // Sounds pack checks
     QString packset = ttSettings->value(SETTINGS_SOUNDS_PACK).toString();
@@ -1058,7 +1044,8 @@ void MainWindow::clienteventConLost()
                  .arg(m_host.ipaddr).arg(m_host.tcpport).arg(m_host.udpport));
 
     playSoundEvent(SOUNDEVENT_SERVERLOST);
-    addTextToSpeechMessage(TTS_SERVER_CONNECTIVITY, tr("Connection to server lost"));
+    addTextToSpeechMessage(TTS_SERVER_CONNECTIVITY, tr("Connection lost to %1 TCP port %2 UDP port %3")
+                 .arg(m_host.ipaddr).arg(m_host.tcpport).arg(m_host.udpport));
 }
 
 void MainWindow::clienteventMyselfKicked(const TTMessage& msg)
@@ -1858,6 +1845,9 @@ void MainWindow::cmdCompleteLoggedIn(int myuserid)
 
     //login command completed
 
+    addStatusMsg(STATUSBAR_BYPASS, tr("Connected to %1").arg(limitText(_Q(m_srvprop.szServerName))));
+    addTextToSpeechMessage(TTS_SERVER_CONNECTIVITY, tr("Connected to %1").arg(limitText(_Q(m_srvprop.szServerName))));
+
     QString statusmsg = ttSettings->value(SETTINGS_GENERAL_STATUSMESSAGE).toString();
     m_statusmode &= ~STATUSMODE_GENDER_MASK;
     switch (Gender(ttSettings->value(SETTINGS_GENERAL_GENDER, SETTINGS_GENERAL_GENDER_DEFAULT).toInt()))
@@ -2056,7 +2046,10 @@ void MainWindow::connectToServer()
 void MainWindow::disconnectFromServer()
 {
     if (!timerExists(TIMER_RECONNECT))
+    {
+        addStatusMsg(STATUSBAR_BYPASS, (TT_GetFlags(ttInst) & CLIENT_AUTHORIZED?tr("Disconnected from %1").arg(limitText(_Q(m_srvprop.szServerName))):tr("Disconnected from server")));
         addTextToSpeechMessage(TTS_SERVER_CONNECTIVITY, (TT_GetFlags(ttInst) & CLIENT_AUTHORIZED?tr("Disconnected from %1").arg(limitText(_Q(m_srvprop.szServerName))):tr("Disconnected from server")));
+    }
     
     if (m_host.latesthost == false && m_host.lastChan == true)
     {
@@ -2119,7 +2112,6 @@ void MainWindow::disconnectFromServer()
     if(m_sysicon)
         m_sysicon->setIcon(QIcon(APPTRAYICON));
 
-    addStatusMsg(STATUSBAR_BYPASS, tr("Logged out from %1, TCP port %2, UDP port %3").arg(m_host.ipaddr).arg(m_host.tcpport).arg(m_host.udpport));
     updateWindowTitle();
 }
 
@@ -2133,12 +2125,6 @@ void MainWindow::login()
                              _W(m_host.password), _W(client));
     if (cmdid>0)
         m_commands.insert(cmdid, CMD_COMPLETE_LOGIN);
-
-    addStatusMsg(STATUSBAR_BYPASS, tr("Connected to %1 TCP port %2 UDP port %3")
-        .arg(m_host.ipaddr).arg(m_host.tcpport).arg(m_host.udpport));
-    ServerProperties prop = {};
-    TT_GetServerProperties(ttInst, &prop);
-    addTextToSpeechMessage(TTS_SERVER_CONNECTIVITY, tr("Connected to %1").arg(limitText(_Q(prop.szServerName))));
 
     //query server's max payload
     if(ttSettings->value(SETTINGS_CONNECTION_QUERYMAXPAYLOAD, SETTINGS_CONNECTION_QUERYMAXPAYLOAD_DEFAULT).toBool())
@@ -2179,58 +2165,38 @@ void MainWindow::showTTErrorMessage(const ClientErrorMsg& msg, CommandComplete c
     case CMDERR_INVALID_ACCOUNT :
         {
             bool ok = false;
-            QInputDialog inputDialog;
-            inputDialog.setOkButtonText(tr("&OK"));
-            inputDialog.setCancelButtonText(tr("&Cancel"));
-            inputDialog.setInputMode(QInputDialog::TextInput);
-            inputDialog.setTextValue(m_host.username);
-            inputDialog.setWindowTitle(tr("Login error"));
-            inputDialog.setLabelText(tr("Invalid user account. Type username:"));
-            ok = inputDialog.exec();
-            m_host.username = inputDialog.textValue();
-            if(!ok)
+            LoginInfoDialog loginDialog(tr("Login error"), tr("Incorrect username or password. Try again."), m_host.username, m_host.password, this);
+            ok = (loginDialog.exec() == QDialog::Accepted);
+            if (!ok)
                 return;
-            inputDialog.setTextEchoMode(QLineEdit::Password);
-            inputDialog.setTextValue(m_host.password);
-            inputDialog.setWindowTitle(tr("Login error"));
-            inputDialog.setLabelText(tr("Invalid user account. Type password:"));
-            ok = inputDialog.exec();
-            if(!ok)
-                return;
-            
+            m_host.username = loginDialog.getUsername();
+            m_host.password = loginDialog.getPassword();
             addLatestHost(m_host);
             QString nickname = ttSettings->value(SETTINGS_GENERAL_NICKNAME, SETTINGS_GENERAL_NICKNAME_DEFAULT).toString();
-            if(m_host.nickname.size())
+            if (m_host.nickname.size())
                 nickname = m_host.nickname;
             int cmdid = TT_DoLoginEx(ttInst, _W(nickname), 
                                      _W(m_host.username), _W(m_host.password), 
                                      _W(QString(APPNAME_SHORT)));
-            if(cmdid>0)
-                m_commands.insert(cmdid, CMD_COMPLETE_LOGIN);            
-            return;
+            if (cmdid > 0)
+                m_commands.insert(cmdid, CMD_COMPLETE_LOGIN);
         }
+        break;
     case CMDERR_INCORRECT_CHANNEL_PASSWORD :
         {
             bool ok = false;
-            QInputDialog inputDialog;
-            inputDialog.setOkButtonText(tr("&OK"));
-            inputDialog.setCancelButtonText(tr("&Cancel"));
-            inputDialog.setInputMode(QInputDialog::TextInput);
-            inputDialog.setTextEchoMode(QLineEdit::Password);
-            inputDialog.setTextValue(_Q(m_last_channel.szPassword));
-            inputDialog.setWindowTitle(tr("Join channel error"));
-            inputDialog.setLabelText(tr("Incorrect channel password. Try again:"));
-            ok = inputDialog.exec();
-            QString passwd = inputDialog.textValue();
-            if(!ok)
+            PasswordDialog passDialog(tr("Join channel error"), tr("Incorrect channel password. Try again."), _Q(m_last_channel.szPassword), this);
+            ok = (passDialog.exec() == QDialog::Accepted);
+            if (!ok)
                 return;
+            QString passwd = passDialog.getPassword();
             m_channel_passwd[m_last_channel.nChannelID] = passwd;
             COPY_TTSTR(m_last_channel.szPassword, passwd);
             int cmdid = TT_DoJoinChannel(ttInst, &m_last_channel);
-            if(cmdid>0)
-                m_commands.insert(cmdid, CMD_COMPLETE_JOINCHANNEL);            
-            return;
+            if (cmdid > 0)
+                m_commands.insert(cmdid, CMD_COMPLETE_JOINCHANNEL);
         }
+        break;
     case CMDERR_SERVER_BANNED :
         title = tr("Login error");
         textmsg = tr("Banned from server"); break;
@@ -2665,14 +2631,15 @@ void MainWindow::changeEvent(QEvent* event )
     QMainWindow::changeEvent(event);
 }
 
-#if defined(Q_OS_WIN32) && QT_VERSION >= QT_VERSION_CHECK(5,0,0)
+#if defined(Q_OS_WIN32)
+
 #if QT_VERSION < QT_VERSION_CHECK(6,0,0)
 bool MainWindow::nativeEvent(const QByteArray& eventType, void* message,
                              long* result)
 #else
 bool MainWindow::nativeEvent(const QByteArray& eventType, void* message,
                              qintptr* result)
-#endif
+#endif /* QT_VERSION */
 {
     MSG* msg = reinterpret_cast<MSG*>(message);
     if(msg->message == WM_TEAMALK_CLIENTEVENT)
@@ -2684,7 +2651,7 @@ bool MainWindow::nativeEvent(const QByteArray& eventType, void* message,
     }
     return QMainWindow::nativeEvent(eventType, message, result);
 }
-#endif
+#endif /* Q_OS_WIN32 */
 
 QString MainWindow::getTitle()
 {
@@ -2692,24 +2659,22 @@ QString MainWindow::getTitle()
     if(ttSettings)
         profilename = ttSettings->value(SETTINGS_GENERAL_PROFILENAME).toString();
 
-    ServerProperties prop = {};
     bool Servname = ttSettings->value(SETTINGS_DISPLAY_SERVNAME, SETTINGS_DISPLAY_SERVNAME_DEFAULT).toBool();
     if(m_mychannel.nChannelID > 0 &&
        m_mychannel.nChannelID != TT_GetRootChannelID(ttInst))
     {
         if (Servname)
         {
-            TT_GetServerProperties(ttInst, &prop);
-            title = QString("%1/%2 - %3").arg(limitText(_Q(prop.szServerName))).arg(limitText(_Q(m_mychannel.szName))).arg(APPTITLE);
+            title = QString("%1/%2 - %3").arg(limitText(_Q(m_srvprop.szServerName))).arg(limitText(_Q(m_mychannel.szName))).arg(APPTITLE);
         }
         else
         {
             title = QString("%1 - %2").arg(limitText(_Q(m_mychannel.szName))).arg(APPTITLE);
         }
     }
-    else if ((TT_GetFlags(ttInst) & CLIENT_AUTHORIZED) && TT_GetServerProperties(ttInst, &prop))
+    else if (TT_GetFlags(ttInst) & CLIENT_AUTHORIZED)
     {
-        title = QString("%1 - %2").arg(limitText(_Q(prop.szServerName))).arg(APPTITLE);
+        title = QString("%1 - %2").arg(limitText(_Q(m_srvprop.szServerName))).arg(APPTITLE);
     }
 
     if(profilename.size())
@@ -2917,9 +2882,7 @@ void MainWindow::processTextMessage(const MyTextMessage& textmsg)
                 QString channame;
                 if (m_mychannel.nChannelID == TT_GetRootChannelID(ttInst))
                 {
-                    ServerProperties prop = {};
-                    TT_GetServerProperties(ttInst, &prop);
-                    channame = _Q(prop.szServerName);
+                    channame = _Q(m_srvprop.szServerName);
                 }
                 else
                     channame = _Q(m_mychannel.szName);
@@ -3635,116 +3598,29 @@ void MainWindow::processDesktopInput(int userid, const DesktopInput& input)
     }
 }
 
-void MainWindow::startStreamMediaFile()
-{
-    QString fileName = ttSettings->value(QString(SETTINGS_STREAMMEDIA_FILENAME).arg(0)).toString();
-#if defined(Q_OS_WINDOWS)
-    fileName=fileName.remove('"');
-#endif
-
-    VideoCodec vidcodec;
-    vidcodec.nCodec = (Codec)ttSettings->value(SETTINGS_STREAMMEDIA_CODEC).toInt();
-    switch(vidcodec.nCodec)
-    {
-    case WEBM_VP8_CODEC :
-        vidcodec.webm_vp8.nRcTargetBitrate = ttSettings->value(SETTINGS_STREAMMEDIA_WEBMVP8_BITRATE).toInt();
-        vidcodec.webm_vp8.nEncodeDeadline = DEFAULT_WEBMVP8_DEADLINE;
-        break;
-    default :
-        break;
-    }
-
-    MediaFilePlayback mfp = {};
-    AudioPreprocessorType apt = AudioPreprocessorType(ttSettings->value(SETTINGS_STREAMMEDIA_AUDIOPREPROCESSOR,
-                                                      SETTINGS_STREAMMEDIA_AUDIOPREPROCESSOR_DEFAULT).toInt());
-    mfp.audioPreprocessor = loadAudioPreprocessor(apt);
-    mfp.bPaused = false;
-    mfp.uOffsetMSec = ttSettings->value(SETTINGS_STREAMMEDIA_OFFSET, SETTINGS_STREAMMEDIA_OFFSET_DEFAULT).toUInt();
-    if (!TT_StartStreamingMediaFileToChannelEx(ttInst, _W(fileName), &mfp, &vidcodec))
-    {
-        QMessageBox::information(this,
-                                 MENUTEXT(ui.actionStreamMediaFileToChannel->text()),
-                                 QString(tr("Failed to stream media file %1").arg(fileName)));
-        stopStreamMediaFile();
-    }
-    else
-    {
-        QString statusmsg = ttSettings->value(SETTINGS_GENERAL_STATUSMESSAGE).toString();
-        m_statusmode |= STATUSMODE_STREAM_MEDIAFILE;
-        if(ttSettings->value(SETTINGS_GENERAL_STREAMING_STATUS, SETTINGS_GENERAL_STREAMING_STATUS_DEFAULT).toBool() == true)
-            statusmsg = QFileInfo(fileName).fileName();
-        ////since streaming video takes over webcam stream we show as 
-        ////transmitting video
-        //if(tx_mode & TRANSMIT_VIDEO)
-        //    m_statusmode |= STATUSMODE_VIDEOTX;
-
-        TT_DoChangeStatus(ttInst, m_statusmode, _W(statusmsg));
-        transmitOn(STREAMTYPE_MEDIAFILE);
-    }
-}
-
-void MainWindow::stopStreamMediaFile()
-{
-    TT_StopStreamingMediaFileToChannel(ttInst);
-
-    m_statusmode &= ~STATUSMODE_STREAM_MEDIAFILE;
-    ////clear video if not transmitting
-    //if(TT_IsTransmitting(ttInst, TRANSMIT_VIDEO) == TRANSMIT_NONE)
-    //    m_statusmode &= ~STATUSMODE_VIDEOTX;
-
-    QString statusmsg = ttSettings->value(SETTINGS_GENERAL_STATUSMESSAGE).toString();
-    TT_DoChangeStatus(ttInst, m_statusmode, _W(statusmsg));
-
-    slotUpdateUI();
-}
-
 void MainWindow::loadHotKeys()
 {
-    hotkey_t hotkey;
-    if (loadHotKeySettings(HOTKEY_VOICEACTIVATION, hotkey))
-        enableHotKey(HOTKEY_VOICEACTIVATION, hotkey);
-    else
-        disableHotKey(HOTKEY_VOICEACTIVATION);
-    hotkey.clear();
-    if (loadHotKeySettings(HOTKEY_INCVOLUME, hotkey))
-        enableHotKey(HOTKEY_INCVOLUME, hotkey);
-    else
-        disableHotKey(HOTKEY_INCVOLUME);
-    hotkey.clear();
-    if (loadHotKeySettings(HOTKEY_DECVOLUME, hotkey))
-        enableHotKey(HOTKEY_DECVOLUME, hotkey);
-    else
-        disableHotKey(HOTKEY_DECVOLUME);
-    hotkey.clear();
-    if (loadHotKeySettings(HOTKEY_MUTEALL, hotkey))
-        enableHotKey(HOTKEY_MUTEALL, hotkey);
-    else
-        disableHotKey(HOTKEY_MUTEALL);
-    hotkey.clear();
-    if (loadHotKeySettings(HOTKEY_MICROPHONEGAIN_INC, hotkey))
-        enableHotKey(HOTKEY_MICROPHONEGAIN_INC, hotkey);
-    else
-        disableHotKey(HOTKEY_MICROPHONEGAIN_INC);
-    hotkey.clear();
-    if (loadHotKeySettings(HOTKEY_MICROPHONEGAIN_DEC, hotkey))
-        enableHotKey(HOTKEY_MICROPHONEGAIN_DEC, hotkey);
-    else
-        disableHotKey(HOTKEY_MICROPHONEGAIN_DEC);
-    hotkey.clear();
-    if (loadHotKeySettings(HOTKEY_VIDEOTX, hotkey))
-        enableHotKey(HOTKEY_VIDEOTX, hotkey);
-    else
-        disableHotKey(HOTKEY_VIDEOTX);
-    hotkey.clear();
-    if (loadHotKeySettings(HOTKEY_REINITSOUNDDEVS, hotkey))
-        enableHotKey(HOTKEY_REINITSOUNDDEVS, hotkey);
-    else
-        disableHotKey(HOTKEY_REINITSOUNDDEVS);
-    hotkey.clear();
-    if (loadHotKeySettings(HOTKEY_SHOWHIDE_WINDOW, hotkey))
-        enableHotKey(HOTKEY_SHOWHIDE_WINDOW, hotkey);
-    else
-        disableHotKey(HOTKEY_SHOWHIDE_WINDOW);
+    Hotkeys activeHotkeys = ttSettings->value(SETTINGS_SHORTCUTS_ACTIVEHKS, SETTINGS_SHORTCUTS_ACTIVEHKS_DEFAULT).toULongLong();
+    for (Hotkeys hk = HOTKEY_FIRST; hk < HOTKEY_NEXT_UNUSED; hk <<= 1)
+    {
+        HotKeyID hki = static_cast<HotKeyID>(hk);
+        hotkey_t hotkey;
+        if (activeHotkeys & hk)
+        {
+            if (loadHotKeySettings(hki, hotkey))
+            {
+                enableHotKey(hki, hotkey);
+            }
+            else
+            {
+                disableHotKey(hki);
+            }
+        }
+        else
+        {
+            disableHotKey(hki);
+        }
+    }
 }
 
 void MainWindow::enableHotKey(HotKeyID id, const hotkey_t& hk)
@@ -4264,6 +4140,12 @@ void MainWindow::slotClientPreferences(bool /*checked =false */)
         ttSpeech = nullptr;
     }
 #endif
+#if QT_VERSION >= QT_VERSION_CHECK(6,8,0)
+    if (ttSettings->value(SETTINGS_TTS_ENGINE, SETTINGS_TTS_ENGINE_DEFAULT).toUInt() == TTSENGINE_QTANNOUNCEMENT && announcerObject == nullptr)
+        announcerObject = this;
+    else
+        announcerObject = nullptr;
+#endif
 
     if (sndinputid != getSelectedSndInputDevice() || sndoutputid != getSelectedSndOutputDevice())
         initSound();
@@ -4297,7 +4179,7 @@ void MainWindow::slotClientPreferences(bool /*checked =false */)
     }
     enableVoiceActivation(ttSettings->value(SETTINGS_GENERAL_VOICEACTIVATED,
                                                   SETTINGS_GENERAL_VOICEACTIVATED_DEFAULT).toBool());
-    slotMeEnablePushToTalk(ttSettings->value(SETTINGS_GENERAL_PUSHTOTALK).toBool());
+    slotMeEnablePushToTalk(ttSettings->value(SETTINGS_SHORTCUTS_ACTIVEHKS, SETTINGS_SHORTCUTS_ACTIVEHKS_DEFAULT).toULongLong() & HOTKEY_PUSHTOTALK);
 
     updateAudioConfig();
 
@@ -4320,21 +4202,25 @@ void MainWindow::slotClientPreferences(bool /*checked =false */)
         show(); //for some reason this has to be called, otherwise the window disappears
     }
 
-    // check vu-meter setting
+    // Hide/Show widgets
     if(ttSettings->value(SETTINGS_DISPLAY_VU_METER_UPDATES,
                          SETTINGS_DISPLAY_VU_METER_UPDATES_DEFAULT).toBool())
     {
         if(!timerExists(TIMER_VUMETER_UPDATE))
         {
             m_timers.insert(startTimer(50), TIMER_VUMETER_UPDATE);
+            ui.vumeterLabel->setVisible(true);
             ui.voiceactBar->setVisible(true);
         }
     }
     else if(timerExists(TIMER_VUMETER_UPDATE))
     {
         killLocalTimer(TIMER_VUMETER_UPDATE);
+        ui.vumeterLabel->setVisible(false);
         ui.voiceactBar->setVisible(false);
     }
+    ui.voiceactLabel->setVisible(ui.actionEnableVoiceActivation->isChecked() && ttSettings->value(SETTINGS_DISPLAY_VOICE_ACT_SLIDER, SETTINGS_DISPLAY_VOICE_ACT_SLIDER_DEFAULT).toBool());
+    ui.voiceactSlider->setVisible(ui.actionEnableVoiceActivation->isChecked() && ttSettings->value(SETTINGS_DISPLAY_VOICE_ACT_SLIDER, SETTINGS_DISPLAY_VOICE_ACT_SLIDER_DEFAULT).toBool());
 
     ui.channelsWidget->updateAllItems();
 
@@ -4571,7 +4457,7 @@ void MainWindow::slotMeEnablePushToTalk(bool checked)
         hotkey_t hotkey;
         if(!loadHotKeySettings(HOTKEY_PUSHTOTALK, hotkey))
         {
-            KeyCompDlg dlg(this);
+            KeyCompDlg dlg(HOTKEY_PUSHTOTALK, this);
             if(!dlg.exec())
                 return;
             saveHotKeySettings(HOTKEY_PUSHTOTALK, dlg.m_hotkey);
@@ -4590,7 +4476,8 @@ void MainWindow::slotMeEnablePushToTalk(bool checked)
             addTextToSpeechMessage(TTS_TOGGLE_VOICETRANSMISSION, tr("Push-To-Talk disabled"));
     }
 
-    ttSettings->setValue(SETTINGS_GENERAL_PUSHTOTALK, checked);
+    auto activekeys = ttSettings->value(SETTINGS_SHORTCUTS_ACTIVEHKS, SETTINGS_SHORTCUTS_ACTIVEHKS_DEFAULT).toULongLong();
+    ttSettings->setValue(SETTINGS_SHORTCUTS_ACTIVEHKS, (checked ? activekeys | HOTKEY_PUSHTOTALK : activekeys & ~HOTKEY_PUSHTOTALK));
 
     slotUpdateUI();
 }
@@ -4615,7 +4502,8 @@ void MainWindow::enableVoiceActivation(bool checked, SoundEvent on, SoundEvent o
     }
     else
     {
-        ui.voiceactSlider->setVisible(checked);
+        ui.voiceactLabel->setVisible(checked && ttSettings->value(SETTINGS_DISPLAY_VOICE_ACT_SLIDER, SETTINGS_DISPLAY_VOICE_ACT_SLIDER_DEFAULT).toBool());
+        ui.voiceactSlider->setVisible(checked && ttSettings->value(SETTINGS_DISPLAY_VOICE_ACT_SLIDER, SETTINGS_DISPLAY_VOICE_ACT_SLIDER_DEFAULT).toBool());
         if (TT_GetFlags(ttInst) & CLIENT_CONNECTED)
             emit(updateMyself());
         playSoundEvent(checked == true ? on : off);
@@ -5259,22 +5147,16 @@ void MainWindow::slotChannelsJoinChannel(bool /*checked=false*/)
 
     if (chan.nChannelID != TT_GetMyChannelID(ttInst) && ((dbClickAct & ACTION_JOIN) == ACTION_JOIN || QObject::sender() == ui.actionJoinChannel))
     {
+        m_last_channel = chan;
         QString password = m_channel_passwd[chan.nChannelID];
         if(chan.bPassword)
         {
             bool ok = false;
-            QInputDialog inputDialog;
-            inputDialog.setOkButtonText(tr("&OK"));
-            inputDialog.setCancelButtonText(tr("&Cancel"));
-            inputDialog.setInputMode(QInputDialog::TextInput);
-            inputDialog.setTextEchoMode(QLineEdit::Password);
-            inputDialog.setTextValue(password);
-            inputDialog.setWindowTitle(MENUTEXT(ui.actionJoinChannel->text()));
-            inputDialog.setLabelText(tr("Specify password"));
-            ok = inputDialog.exec();
-            password = inputDialog.textValue();
-            if(!ok)
+            PasswordDialog passDialog(MENUTEXT(ui.actionJoinChannel->text()), tr("Specify password"), password, this);
+            ok = (passDialog.exec() == QDialog::Accepted);
+            if (!ok)
                 return;
+            password = passDialog.getPassword();
         }
         m_channel_passwd[chan.nChannelID] = password;
 
@@ -5422,6 +5304,121 @@ void MainWindow::slotChannelsStreamMediaFile(bool checked/*=false*/)
     startStreamMediaFile();
 }
 
+void MainWindow::startStreamMediaFile()
+{
+    QString fileName = ttSettings->value(QString(SETTINGS_STREAMMEDIA_FILENAME).arg(0)).toString();
+#if defined(Q_OS_WINDOWS)
+    fileName = fileName.remove('"');
+#endif
+
+    m_mfp_videocodec = {};
+    m_mfp_videocodec.nCodec = (Codec)ttSettings->value(SETTINGS_STREAMMEDIA_CODEC).toInt();
+    switch(m_mfp_videocodec.nCodec)
+    {
+    case WEBM_VP8_CODEC :
+        m_mfp_videocodec.webm_vp8.nRcTargetBitrate = ttSettings->value(SETTINGS_STREAMMEDIA_WEBMVP8_BITRATE).toInt();
+        m_mfp_videocodec.webm_vp8.nEncodeDeadline = DEFAULT_WEBMVP8_DEADLINE;
+        break;
+    default :
+        break;
+    }
+
+    m_mfp = {};
+    AudioPreprocessorType apt = AudioPreprocessorType(ttSettings->value(SETTINGS_STREAMMEDIA_AUDIOPREPROCESSOR,
+                                                      SETTINGS_STREAMMEDIA_AUDIOPREPROCESSOR_DEFAULT).toInt());
+    m_mfp.audioPreprocessor = loadAudioPreprocessor(apt);
+    m_mfp.bPaused = false;
+    m_mfp.uOffsetMSec = ttSettings->value(SETTINGS_STREAMMEDIA_OFFSET, SETTINGS_STREAMMEDIA_OFFSET_DEFAULT).toUInt();
+    if (!TT_StartStreamingMediaFileToChannelEx(ttInst, _W(fileName), &m_mfp, &m_mfp_videocodec))
+    {
+        QMessageBox::information(this,
+                                 MENUTEXT(ui.actionStreamMediaFileToChannel->text()),
+                                 QString(tr("Failed to stream media file %1").arg(fileName)));
+        stopStreamMediaFile();
+    }
+    else
+    {
+        QString statusmsg = ttSettings->value(SETTINGS_GENERAL_STATUSMESSAGE).toString();
+        m_statusmode |= STATUSMODE_STREAM_MEDIAFILE;
+        m_statusmode &= ~STATUSMODE_STREAM_MEDIAFILE_PAUSED;
+        if(ttSettings->value(SETTINGS_GENERAL_STREAMING_STATUS, SETTINGS_GENERAL_STREAMING_STATUS_DEFAULT).toBool() == true)
+            statusmsg = QFileInfo(fileName).fileName();
+
+        TT_DoChangeStatus(ttInst, m_statusmode, _W(statusmsg));
+        ////since streaming video takes over webcam stream we show as 
+        ////transmitting video
+        //if(tx_mode & TRANSMIT_VIDEO)
+        //    m_statusmode |= STATUSMODE_VIDEOTX;
+
+        transmitOn(STREAMTYPE_MEDIAFILE);
+
+        ui.actionPauseResumeStream->setEnabled(true);
+        ui.actionPauseResumeStream->setText(tr("&Pause Stream"));
+    }
+}
+
+void MainWindow::stopStreamMediaFile()
+{
+    TT_StopStreamingMediaFileToChannel(ttInst);
+
+    ////clear video if not transmitting
+    //if(TT_IsTransmitting(ttInst, TRANSMIT_VIDEO) == TRANSMIT_NONE)
+    //    m_statusmode &= ~STATUSMODE_VIDEOTX;
+
+    m_statusmode &= ~(STATUSMODE_STREAM_MEDIAFILE | STATUSMODE_STREAM_MEDIAFILE_PAUSED);
+
+    QString statusmsg = ttSettings->value(SETTINGS_GENERAL_STATUSMESSAGE).toString();
+    TT_DoChangeStatus(ttInst, m_statusmode, _W(statusmsg));
+
+    ui.actionPauseResumeStream->setEnabled(false);
+    ui.actionPauseResumeStream->setText(tr("Pause/Resume Stream"));
+    m_mfp = {};
+
+    slotUpdateUI();
+}
+
+void MainWindow::slotPauseResumeStream()
+{
+    QString statusmsg = ttSettings->value(SETTINGS_GENERAL_STATUSMESSAGE).toString();
+    QString fileName = ttSettings->value(QString(SETTINGS_STREAMMEDIA_FILENAME).arg(0)).toString();
+#if defined(Q_OS_WINDOWS)
+    fileName = fileName.remove('"');
+#endif
+    if(ttSettings->value(SETTINGS_GENERAL_STREAMING_STATUS, SETTINGS_GENERAL_STREAMING_STATUS_DEFAULT).toBool() == true)
+        statusmsg = QFileInfo(fileName).fileName();
+
+    if (m_mfp.bPaused)
+    {
+        m_mfp.bPaused = false;
+        if (!TT_UpdateStreamingMediaFileToChannel(ttInst, &m_mfp, &m_mfp_videocodec))
+        {
+            QMessageBox::critical(this, MENUTEXT(ui.actionPauseResumeStream->text()), tr("Failed to resume the stream"));
+        }
+        else
+        {
+            ui.actionPauseResumeStream->setText(tr("&Pause Stream"));
+            m_statusmode |= STATUSMODE_STREAM_MEDIAFILE;
+            m_statusmode &= ~STATUSMODE_STREAM_MEDIAFILE_PAUSED;
+        }
+    }
+    else
+    {
+        m_mfp.bPaused = true;
+        if (!TT_UpdateStreamingMediaFileToChannel(ttInst, &m_mfp, &m_mfp_videocodec))
+        {
+            QMessageBox::critical(this, MENUTEXT(ui.actionPauseResumeStream->text()), tr("Failed to pause the stream"));
+        }
+        else
+        {
+            ui.actionPauseResumeStream->setText(tr("&Resume Stream"));
+            m_mfp.uOffsetMSec = TT_MEDIAPLAYBACK_OFFSET_IGNORE;
+            m_statusmode |= STATUSMODE_STREAM_MEDIAFILE_PAUSED;
+            m_statusmode &= ~STATUSMODE_STREAM_MEDIAFILE;
+        }
+    }
+    TT_DoChangeStatus(ttInst, m_statusmode, _W(statusmsg));
+}
+
 void MainWindow::slotChannelsUploadFile(bool /*checked =false */)
 {
     int channelid = m_filesmodel->getChannelID();
@@ -5512,27 +5509,17 @@ void MainWindow::slotChannelsGenerateTTUrl(bool checked/*=false*/)
 
     QClipboard *cp = QApplication::clipboard();
     QString link = QString("%5//%1?tcpport=%2&udpport=%3&encrypted=%4").arg(m_host.ipaddr).arg(m_host.tcpport).arg(m_host.udpport).arg(m_host.encrypted).arg(TTLINK_PREFIX);
+
     bool ok = false;
-    QInputDialog inputDialog;
-    inputDialog.setOkButtonText(tr("&OK"));
-    inputDialog.setCancelButtonText(tr("&Cancel"));
-    inputDialog.setInputMode(QInputDialog::TextInput);
-    inputDialog.setTextValue(m_host.username);
-    inputDialog.setWindowTitle(tr("Share channel"));
-    inputDialog.setLabelText(tr("Type username of user account:"));
-    ok = inputDialog.exec();
-    if (ok && inputDialog.textValue().size() > 0)
+    LoginInfoDialog loginDialog(tr("Share channel"), tr("Specify User Account"), m_host.username, m_host.password, this);
+    ok = (loginDialog.exec() == QDialog::Accepted);
+    if (ok && loginDialog.getUsername().size() > 0)
     {
-        QString username = QUrl::toPercentEncoding(inputDialog.textValue());
+        QString username = QUrl::toPercentEncoding(loginDialog.getUsername());
         link += QString("&username=%1").arg(username);
-        inputDialog.setTextEchoMode(QLineEdit::Password);
-        inputDialog.setTextValue(m_host.password);
-        inputDialog.setWindowTitle(tr("Share channel"));
-        inputDialog.setLabelText(tr("Type password of user account:"));
-        ok = inputDialog.exec();
-        if (ok && inputDialog.textValue().size() > 0)
+        if (loginDialog.getPassword().size() > 0)
         {
-            QString password = QUrl::toPercentEncoding(inputDialog.textValue());
+            QString password = QUrl::toPercentEncoding(loginDialog.getPassword());
             link += QString("&password=%1").arg(password);
         }
     }
@@ -5547,13 +5534,10 @@ void MainWindow::slotChannelsGenerateTTUrl(bool checked/*=false*/)
         QString chpasswd = m_channel_passwd[chan.nChannelID];
         if (chan.bPassword)
         {
-            inputDialog.setTextEchoMode(QLineEdit::Normal);
-            inputDialog.setTextValue(chpasswd);
-            inputDialog.setWindowTitle(tr("Share channel"));
-            inputDialog.setLabelText(tr("Type password of channel:"));
-            ok = inputDialog.exec();
-            if (ok && inputDialog.textValue().size() > 0)
-                chpasswd = inputDialog.textValue();
+            PasswordDialog channelPassDialog(tr("Share channel"), tr("Type password of channel:"), chpasswd, this);
+            ok = (channelPassDialog.exec() == QDialog::Accepted);
+            if (ok && channelPassDialog.getPassword().size() > 0)
+                chpasswd = channelPassDialog.getPassword();
         }
 
         if (chpasswd.size())
@@ -5900,9 +5884,7 @@ void MainWindow::slotUsersSpeakUserInformation(int id)
         QString channel = tr("Channel"), passwd = tr("Password protected"), classroom = tr("Classroom"), topic, rootChan = tr("root"), hidden = tr("Hidden");
         if(chan.nChannelID == TT_GetRootChannelID(ttInst))
         {
-            ServerProperties prop = {};
-            TT_GetServerProperties(ttInst, &prop);
-            speakList += QString("%1: ").arg(_Q(prop.szServerName));
+            speakList += QString("%1: ").arg(_Q(m_srvprop.szServerName));
         }
         else
             speakList += QString("%1: ").arg(_Q(chan.szName));
@@ -5972,19 +5954,12 @@ void MainWindow::slotUsersOp(int userid, int chanid)
         Channel chan = {};
         ui.channelsWidget->getChannel(chanid, chan);
 
-        bool ok = false;
-        QInputDialog inputDialog;
-        inputDialog.setTextValue(_Q(chan.szOpPassword));
-        inputDialog.setOkButtonText(tr("&OK"));
-        inputDialog.setCancelButtonText(tr("&Cancel"));
-        inputDialog.setInputMode(QInputDialog::TextInput);
-        inputDialog.setTextEchoMode(QLineEdit::Password);
-        inputDialog.setWindowTitle(MENUTEXT(ui.actionOp->text()));
-        inputDialog.setLabelText(tr("Specify password"));
-        ok = inputDialog.exec();
-        QString oppasswd = inputDialog.textValue();
-        if(ok)
+        PasswordDialog passDialog(MENUTEXT(ui.actionOp->text()), tr("Specify password"), _Q(chan.szOpPassword), this);
+        if (passDialog.exec() == QDialog::Accepted)
+        {
+            QString oppasswd = passDialog.getPassword();
             TT_DoChannelOpEx(ttInst, userid, chanid, _W(oppasswd), !op);
+        }
     }
 }
 
@@ -6067,6 +6042,7 @@ void MainWindow::slotUsersKickBan(const User& user)
                                                                QLineEdit::Normal, _Q(user.szIPAddress), &ok);
                         if (ok && !ipaddr.isEmpty())
                             COPY_TTSTR(ban.szIPAddress, ipaddr);
+                        else return;
                     }
                     ban.uBanTypes |= user.nChannelID > 0 ? BANTYPE_CHANNEL | BANTYPE_IPADDR : BANTYPE_IPADDR;
                 }
@@ -7601,6 +7577,11 @@ void MainWindow::startTTS()
     }
     break;
 #endif
+    case TTSENGINE_QTANNOUNCEMENT :
+#if QT_VERSION >= QT_VERSION_CHECK(6,8,0)
+        announcerObject = this;
+#endif
+        break;
     }
 }
 
@@ -7613,13 +7594,6 @@ void MainWindow::slotTextChanged()
 
 void MainWindow::keyPressEvent(QKeyEvent* e)
 {
-    if (ui.tabWidget->hasFocus())
-    {
-        if (e->key() == Qt::Key_Home && ui.tabWidget->currentIndex() != 0)
-            ui.tabWidget->setCurrentIndex(0);
-        else if (e->key() == Qt::Key_End && ui.tabWidget->currentIndex() != ui.tabWidget->count())
-            ui.tabWidget->setCurrentIndex(ui.tabWidget->count()-1);
-    }
     if (e->key() == Qt::Key_Enter || e->key() == Qt::Key_Return)
     {
 #if defined(Q_OS_DARWIN)

@@ -19,11 +19,19 @@
 #include "settings.h"
 #include "bearwarelogindlg.h"
 #include "appinfo.h"
+#include "utilsound.h"
+#include "utilhotkey.h"
 
 #include <QTranslator>
 #include <QDir>
 #include <QDateTime>
 #include <QLocale>
+#include <QLabel>
+#include <QLineEdit>
+#include <QCheckBox>
+#include <QPushButton>
+#include <QVBoxLayout>
+#include <QHBoxLayout>
 #if QT_VERSION < QT_VERSION_CHECK(6,0,0)
 #include <QDesktopWidget>
 #include <QApplication>
@@ -35,6 +43,116 @@
 extern TTInstance* ttInst;
 extern QSettings* ttSettings;
 extern QTranslator* ttTranslator;
+
+void migrateSettings()
+{
+    // Before version "5.4" the version information was not written or updated.
+    // So basically the pre v5.4 migrations were never activated.
+    QString iniversion = ttSettings->value(SETTINGS_GENERAL_VERSION, "5.0").toString();
+
+    if (!versionSameOrLater(iniversion, "5.1"))
+    {
+        // Volume defaults changed in 5.1 format
+        ttSettings->remove(SETTINGS_SOUND_MASTERVOLUME);
+        ttSettings->remove(SETTINGS_SOUND_MICROPHONEGAIN);
+    }
+    if (!versionSameOrLater(iniversion, "5.2"))
+    {
+        // Gender changed in 5.2 format
+        Gender gender = ttSettings->value(SETTINGS_GENERAL_GENDER).toBool() ? GENDER_MALE : GENDER_FEMALE;
+        ttSettings->setValue(SETTINGS_GENERAL_GENDER, gender);
+    }
+    if (!versionSameOrLater(iniversion, "5.3"))
+    {
+        if (ttSettings->value(SETTINGS_GENERAL_BEARWARE_USERNAME, "").toString().size())
+        {
+            QFile::setPermissions(ttSettings->fileName(), QFileDevice::ReadOwner | QFileDevice::WriteOwner);
+        }
+    }
+    if (!versionSameOrLater(iniversion, "5.4"))
+    {
+        // Latest hosts changed in 5.4 format
+        ttSettings->beginGroup("latesthosts");
+        int index = 0;
+        while (ttSettings->contains(QString("%1_hostaddr").arg(index)))
+        {
+            QString hostAddr = ttSettings->value(QString("%1_hostaddr").arg(index)).toString();
+            int tcpPort = ttSettings->value(QString("%1_tcpport").arg(index)).toInt();
+            ttSettings->setValue(QString("%1_name").arg(index), QString("%1_%2").arg(hostAddr).arg(tcpPort));
+            index++;
+        }
+        ttSettings->endGroup();
+
+        // Sound Events changed in 5.4 format
+        SoundEvents activeEvents = SOUNDEVENT_NONE;
+
+        for (int event = SOUNDEVENT_NEWUSER; event < int(SOUNDEVENT_NEXT_UNUSED); event <<= 1)
+        {
+            if (!getSoundEventFilename(SoundEvent(event)).isEmpty())
+            {
+                activeEvents = static_cast<SoundEvents>(activeEvents | event);
+            }
+        }
+
+        ttSettings->setValue(SETTINGS_SOUNDEVENT_ACTIVEEVENTS, activeEvents);
+
+        // TTS options removed in 5.4 format
+        ttSettings->remove("texttospeech/announce-server-name");
+#if defined(Q_OS_DARWIN)
+        ttSettings->remove("texttospeech/speak-lists");
+#endif
+
+        // Language files was renamed in 5.4 format
+        QString lc_code;
+        QString lang = ttSettings->value(SETTINGS_DISPLAY_LANGUAGE, SETTINGS_DISPLAY_LANGUAGE_DEFAULT).toString();
+        if (lang == "Bulgarian") lc_code = "bg";
+        else if (lang == "Chinese_Simplified") lc_code = "zh_CN";
+        else if (lang == "Chinese_Traditional") lc_code = "zh_TW";
+        else if (lang == "Croatian") lc_code = "hr";
+        else if (lang == "Czech") lc_code = "cs";
+        else if (lang == "Danish") lc_code = "da";
+        else if (lang == "Dutch") lc_code = "nl";
+        else if (lang == "English") lc_code = "en";
+        else if (lang == "French") lc_code = "fr";
+        else if (lang == "German") lc_code = "de";
+        else if (lang == "Hebrew") lc_code = "he";
+        else if (lang == "Hungarian") lc_code = "hu";
+        else if (lang == "Indonesian") lc_code = "id";
+        else if (lang == "Italian") lc_code = "it";
+        else if (lang == "Korean") lc_code = "ko";
+        else if (lang == "Persian") lc_code = "fa";
+        else if (lang == "Polish") lc_code = "pl";
+        else if (lang == "Portuguese_BR") lc_code = "pt_BR";
+        else if (lang == "Portuguese_EU") lc_code = "pt_PT";
+        else if (lang == "Russian") lc_code = "ru";
+        else if (lang == "Slovak") lc_code = "sk";
+        else if (lang == "Slovenian") lc_code = "sl";
+        else if (lang == "Spanish") lc_code = "es";
+        else if (lang == "Thai") lc_code = "th";
+        else if (lang == "Turkish") lc_code = "tr";
+        else if (lang == "Vietnamese") lc_code = "vi";
+        ttSettings->setValue(SETTINGS_DISPLAY_LANGUAGE, lc_code);
+
+        // Shortcuts changed in 5.4 format
+        Hotkeys hks = HOTKEY_NONE;
+
+        for (int hk = HOTKEY_FIRST; hk < HOTKEY_NEXT_UNUSED; hk <<= 1)
+        {
+            hotkey_t hotkey;
+            HotKeyID hki = static_cast<HotKeyID>(hk);
+            if (loadHotKeySettings(hki, hotkey))
+            {
+                hks = static_cast<Hotkeys>(hks | hk);
+            }
+        }
+
+        ttSettings->setValue(SETTINGS_SHORTCUTS_ACTIVEHKS, hks);
+        ttSettings->remove("general_/push-to-talk");
+    }
+
+    if (ttSettings->value(SETTINGS_GENERAL_VERSION).toString() != SETTINGS_VERSION)
+        ttSettings->setValue(SETTINGS_GENERAL_VERSION, SETTINGS_VERSION);
+}
 
 QHash<StatusBarEvents, StatusBarEventInfo> UtilUI::eventToSettingMap()
 {
@@ -333,9 +451,19 @@ QStringList extractLanguages()
 {
     QStringList languages;
     QDir dir(TRANSLATE_FOLDER, "*.qm", QDir::Name, QDir::Files);
-    for (auto lang : dir.entryList())
+    for (const auto& lang : dir.entryList())
         languages.append(lang.left(lang.size()-3));
     return languages;
+}
+
+QString getLanguageDisplayName(const QString &languageCode)
+{
+    QLocale locale(languageCode);
+    QString languageName = locale.nativeLanguageName();
+    if (languageName.isEmpty())
+        languageName = languageCode;
+
+    return languageName;
 }
 
 QString getFormattedDateTime(QString originalDateTimeString, QString inputFormat)
@@ -417,4 +545,104 @@ QString UtilUI::getStatusBarMessage(const QString& paramKey, const QHash<QString
 QString UtilUI::getRawStatusBarMessage(const QString& paramKey)
 {
     return ttSettings->value(paramKey, getDefaultValue(paramKey)).toString();
+}
+
+LoginInfoDialog::LoginInfoDialog(const QString &title, const QString &desc, const QString &initialUsername, const QString &initialPassword, QWidget *parent)
+    : QDialog(parent)
+{
+    setWindowTitle(title);
+    setAccessibleDescription(desc);
+
+    QLabel *descLabel = new QLabel(desc);
+    QLabel *userLabel = new QLabel(tr("Username:"));
+    userEdit = new QLineEdit;
+    userEdit->setText(initialUsername);
+    userLabel->setBuddy(userEdit);
+
+    QLabel *passLabel = new QLabel(tr("Password:"));
+    passEdit = new QLineEdit;
+    passEdit->setEchoMode(QLineEdit::Password);
+    passEdit->setText(initialPassword);
+    passLabel->setBuddy(passEdit);
+
+    QCheckBox *showPasswordCheckBox = new QCheckBox(tr("Show password"));
+    connect(showPasswordCheckBox, &QCheckBox::toggled, this, [=](bool checked) {
+        passEdit->setEchoMode(checked ? QLineEdit::Normal : QLineEdit::Password);
+    });
+
+    QPushButton *okButton = new QPushButton(tr("&OK"));
+    QPushButton *cancelButton = new QPushButton(tr("&Cancel"));
+
+    connect(okButton, &QPushButton::clicked, this, &QDialog::accept);
+    connect(cancelButton, &QPushButton::clicked, this, &QDialog::reject);
+
+    QVBoxLayout *mainLayout = new QVBoxLayout;
+    mainLayout->addWidget(descLabel);
+    mainLayout->addWidget(userLabel);
+    mainLayout->addWidget(userEdit);
+    mainLayout->addWidget(passLabel);
+    mainLayout->addWidget(passEdit);
+    mainLayout->addWidget(showPasswordCheckBox);
+
+    QHBoxLayout *buttonLayout = new QHBoxLayout;
+    buttonLayout->addWidget(okButton);
+    buttonLayout->addWidget(cancelButton);
+
+    mainLayout->addLayout(buttonLayout);
+
+    setLayout(mainLayout);
+}
+
+QString LoginInfoDialog::getUsername() const
+{
+    return userEdit->text();
+}
+
+QString LoginInfoDialog::getPassword() const
+{
+    return passEdit->text();
+}
+
+PasswordDialog::PasswordDialog(const QString &title, const QString &desc, const QString &initialPassword, QWidget *parent)
+    : QDialog(parent)
+{
+    setWindowTitle(title);
+    setAccessibleDescription(desc);
+
+    QLabel *descLabel = new QLabel(desc);
+    QLabel *passLabel = new QLabel(tr("Password"));
+    passEdit = new QLineEdit;
+    passEdit->setEchoMode(QLineEdit::Password);
+    passEdit->setText(initialPassword);
+    passLabel->setBuddy(passEdit);
+
+    QCheckBox *showPasswordCheckBox = new QCheckBox(tr("Show password"));
+    connect(showPasswordCheckBox, &QCheckBox::toggled, this, [=](bool checked) {
+        passEdit->setEchoMode(checked ? QLineEdit::Normal : QLineEdit::Password);
+    });
+
+    QPushButton *okButton = new QPushButton(tr("&OK"));
+    QPushButton *cancelButton = new QPushButton(tr("&Cancel"));
+
+    connect(okButton, &QPushButton::clicked, this, &QDialog::accept);
+    connect(cancelButton, &QPushButton::clicked, this, &QDialog::reject);
+
+    QVBoxLayout *mainLayout = new QVBoxLayout;
+    mainLayout->addWidget(descLabel);
+    mainLayout->addWidget(passLabel);
+    mainLayout->addWidget(passEdit);
+    mainLayout->addWidget(showPasswordCheckBox);
+
+    QHBoxLayout *buttonLayout = new QHBoxLayout;
+    buttonLayout->addWidget(okButton);
+    buttonLayout->addWidget(cancelButton);
+
+    mainLayout->addLayout(buttonLayout);
+
+    setLayout(mainLayout);
+}
+
+QString PasswordDialog::getPassword() const
+{
+    return passEdit->text();
 }

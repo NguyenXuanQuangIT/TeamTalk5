@@ -45,9 +45,7 @@ QVariant UserAccountsModel::headerData(int section, Qt::Orientation orientation,
 
 int UserAccountsModel::columnCount(const QModelIndex & parent /*= QModelIndex() */) const
 {
-    if(!parent.isValid())
-        return COLUMN_COUNT_USERACCOUNTS;
-    return 0;
+    return COLUMN_COUNT_USERACCOUNTS;
 }
 
 QVariant UserAccountsModel::data(const QModelIndex & index, int role /*= Qt::DisplayRole */) const
@@ -284,7 +282,7 @@ QVariant UserRightsModel::data(const QModelIndex & index, int role /*= Qt::Displ
         }
 
         break;
-#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
+#if QT_VERSION < QT_VERSION_CHECK(6,0,0) || defined(Q_OS_MAC)
     case Qt::AccessibleTextRole :
         switch (m_userrights[index.row()])
         {

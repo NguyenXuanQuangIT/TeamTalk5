@@ -37,6 +37,11 @@ enum
     LIMITCMD_CUSTOM         = 4
 };
 
+enum
+{
+    TAB_INDEX_USERRIGHT = 1
+};
+
 UserAccountDlg::UserAccountDlg(UserAccountDlgType type, const UserAccount& useraccount, QWidget *parent)
     : QDialog(parent)
     , ui(new Ui::UserAccountDlg)
@@ -143,6 +148,7 @@ UserAccountDlg::UserAccountDlg(UserAccountDlgType type, const UserAccount& usera
     showUserAccount(m_useraccount);
 
     ui->userrightsTableView->horizontalHeader()->restoreState(ttSettings->value(SETTINGS_DISPLAY_USERACCOUNTDLG_USERRIGHTS_HEADERSIZES).toByteArray());
+    ui->userrightsTableView->horizontalHeader()->setSectionsMovable(false);
     restoreGeometry(ttSettings->value(SETTINGS_DISPLAY_USERACCOUNTSDLG_SIZE).toByteArray());
 }
 
@@ -177,8 +183,6 @@ UserAccount UserAccountDlg::getUserAccount() const
     }
 
     newUser.nAudioCodecBpsLimit = ui->audmaxbpsSpinBox->value() * 1000;
-
-    newUser.abusePrevent = m_abuse;
 
     return newUser;
 }
@@ -224,10 +228,11 @@ UserTypes UserAccountDlg::getUserType() const
 
 void UserAccountDlg::slotUserTypeChanged()
 {
-    m_newuseraccount.uUserType = getUserType();
-    if (m_newuseraccount.uUserType == USERTYPE_ADMIN)
+    UserAccount useraccount = {};
+    useraccount.uUserType = getUserType();
+    if (useraccount.uUserType == USERTYPE_ADMIN)
     {
-        m_newuseraccount.uUserRights = USERRIGHT_NONE;
+        useraccount.uUserRights = USERRIGHT_NONE;
         int index = ui->tabWidget->indexOf(m_userRightsTab);
         if (index != -1)
         {
@@ -236,13 +241,13 @@ void UserAccountDlg::slotUserTypeChanged()
     }
     else
     {
-        m_newuseraccount.uUserRights = USERRIGHT_DEFAULT;
+        useraccount.uUserRights = USERRIGHT_DEFAULT;
         if (ui->tabWidget->indexOf(m_userRightsTab) == -1)
         {
-            ui->tabWidget->addTab(m_userRightsTab, tr("User Rights"));
+            ui->tabWidget->insertTab(TAB_INDEX_USERRIGHT, m_userRightsTab, tr("User Rights"));
         }
     }
-    updateUserRights(m_newuseraccount);
+    updateUserRights(useraccount);
 }
 
 void UserAccountDlg::slotAddOpChannel()
@@ -280,35 +285,35 @@ void UserAccountDlg::slotCustomCmdLimit(int index)
     switch(ui->limitcmdComboBox->itemData(index).toInt())
     {
     case LIMITCMD_DISABLED:
-        m_abuse.nCommandsIntervalMSec = m_abuse.nCommandsLimit = 0;
+        m_useraccount.abusePrevent.nCommandsIntervalMSec = m_useraccount.abusePrevent.nCommandsLimit = 0;
         break;
     case LIMITCMD_10_PER_10SEC:
-        m_abuse.nCommandsLimit = 10;
-        m_abuse.nCommandsIntervalMSec = 10000;
+        m_useraccount.abusePrevent.nCommandsLimit = 10;
+        m_useraccount.abusePrevent.nCommandsIntervalMSec = 10000;
         break;
     case LIMITCMD_10_PER_MINUTE:
-        m_abuse.nCommandsLimit = 10;
-        m_abuse.nCommandsIntervalMSec = 60000;
+        m_useraccount.abusePrevent.nCommandsLimit = 10;
+        m_useraccount.abusePrevent.nCommandsIntervalMSec = 60000;
         break;
     case LIMITCMD_60_PER_MINUTE:
-        m_abuse.nCommandsLimit = 60;
-        m_abuse.nCommandsIntervalMSec = 60000;
+        m_useraccount.abusePrevent.nCommandsLimit = 60;
+        m_useraccount.abusePrevent.nCommandsIntervalMSec = 60000;
         break;
     case LIMITCMD_CUSTOM:
     {
-        CustomCmdLimitDialog dlg(m_abuse.nCommandsLimit, m_abuse.nCommandsIntervalMSec / 1000, this);
+        CustomCmdLimitDialog dlg(m_useraccount.abusePrevent.nCommandsLimit, m_useraccount.abusePrevent.nCommandsIntervalMSec / 1000, this);
         if (dlg.exec() == QDialog::Accepted)
         {
-            m_abuse.nCommandsLimit = dlg.getCommandLimit();
-            if (m_abuse.nCommandsLimit)
+            m_useraccount.abusePrevent.nCommandsLimit = dlg.getCommandLimit();
+            if (m_useraccount.abusePrevent.nCommandsLimit)
             {
-                m_abuse.nCommandsIntervalMSec = dlg.getIntervalSec() * 1000;
+                m_useraccount.abusePrevent.nCommandsIntervalMSec = dlg.getIntervalSec() * 1000;
             }
             else
             {
-                m_abuse.nCommandsIntervalMSec = 0;
+                m_useraccount.abusePrevent.nCommandsIntervalMSec = 0;
             }
-            updateCustomLimitText(m_abuse.nCommandsLimit, m_abuse.nCommandsIntervalMSec);
+            updateCustomLimitText(m_useraccount.abusePrevent.nCommandsLimit, m_useraccount.abusePrevent.nCommandsIntervalMSec);
         }
         break;
     }
@@ -319,7 +324,7 @@ void UserAccountDlg::slotCustomCmdLimit(int index)
 
 void UserAccountDlg::slotUsernameChanged()
 {
-    if (ui->usernameEdit->text() == WEBLOGIN_BEARWARE_USERNAME || ui->usernameEdit->text().contains(QString("@%1.dk").arg(WEBLOGIN_BEARWARE_USERNAME)))
+    if (ui->usernameEdit->text() == WEBLOGIN_BEARWARE_USERNAME || ui->usernameEdit->text().contains(WEBLOGIN_BEARWARE_USERNAMEPOSTFIX))
     {
         ui->label_2->setVisible(false);
         ui->passwordEdit->setVisible(false);
@@ -329,18 +334,6 @@ void UserAccountDlg::slotUsernameChanged()
         ui->label_2->setVisible(true);
         ui->passwordEdit->setVisible(true);
     }
-}
-
-void UserAccountDlg::keyPressEvent(QKeyEvent* e)
-{
-    if (ui->tabWidget->hasFocus())
-    {
-        if (e->key() == Qt::Key_Home && ui->tabWidget->currentIndex() != 0)
-            ui->tabWidget->setCurrentIndex(0);
-        else if (e->key() == Qt::Key_End && ui->tabWidget->currentIndex() != ui->tabWidget->count())
-            ui->tabWidget->setCurrentIndex(ui->tabWidget->count()-1);
-    }
-    QDialog::keyPressEvent(e);
 }
 
 void UserAccountDlg::showUserAccount(const UserAccount& useraccount)
@@ -369,7 +362,7 @@ void UserAccountDlg::showUserAccount(const UserAccount& useraccount)
     {
         if (ui->tabWidget->indexOf(m_userRightsTab) == -1)
         {
-            ui->tabWidget->addTab(m_userRightsTab, tr("User Rights"));
+            ui->tabWidget->insertTab(TAB_INDEX_USERRIGHT, m_userRightsTab, tr("User Rights"));
         }
     }
 
@@ -392,7 +385,7 @@ void UserAccountDlg::showUserAccount(const UserAccount& useraccount)
 
     ui->audmaxbpsSpinBox->setValue(useraccount.nAudioCodecBpsLimit / 1000);
 
-    m_abuse = useraccount.abusePrevent;
+    m_useraccount.abusePrevent = useraccount.abusePrevent;
     int i = -1;  // Default value for index
     switch(useraccount.abusePrevent.nCommandsLimit)
     {
@@ -464,9 +457,9 @@ CustomCmdLimitDialog::CustomCmdLimitDialog(int currentLimit, int currentInterval
     m_intervalSpinBox = new QSpinBox(this);
     m_intervalSpinBox->setMinimum(1);
     m_intervalSpinBox->setValue(currentIntervalSec);
-    m_intervalSpinBox->setPrefix(("Interval: "));
+    m_intervalSpinBox->setPrefix((tr("Interval: ")));
     m_intervalSpinBox->setSuffix(tr("sec"));
-    m_intervalSpinBox->setAccessibleName(("Interval"));
+    m_intervalSpinBox->setAccessibleName((tr("Interval")));
     layout->addWidget(m_intervalSpinBox);
 
     QDialogButtonBox *buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);

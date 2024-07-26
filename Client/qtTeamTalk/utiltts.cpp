@@ -25,9 +25,16 @@
 #if defined(QT_TEXTTOSPEECH_LIB)
 #include <QTextToSpeech>
 #endif
+#if QT_VERSION >= QT_VERSION_CHECK(6,8,0)
+#include <QAccessible>
+#include <QAccessibleAnnouncementEvent>
+#endif
 
 #if defined(QT_TEXTTOSPEECH_LIB)
 extern QTextToSpeech* ttSpeech;
+#endif
+#if QT_VERSION >= QT_VERSION_CHECK(6,8,0)
+extern QObject* announcerObject;
 #endif
 
 extern QSettings* ttSettings;
@@ -37,8 +44,8 @@ QHash<TTSEvents, TTSEventInfo> UtilTTS::eventToSettingMap()
     static QHash<TTSEvents, TTSEventInfo> map = {
         { TTS_USER_LOGGEDIN, {SETTINGS_TTSMSG_USER_LOGGEDIN, {{"{user}", tr("User's nickname who logged in")}, {"{server}", tr("Server's name from which event was emited")}}, "" } },
         { TTS_USER_LOGGEDOUT, {SETTINGS_TTSMSG_USER_LOGGEDOUT, {{"{user}", tr("User's nickname who logged out")}, {"{server}", tr("Server's name from which event was emited")}}, "" } },
-        { TTS_USER_JOINED, {SETTINGS_TTSMSG_USER_JOINED, {{"{user}", tr("User's nickname who joined channel")}, {"{channel}", tr("Channel's name joined by user")}, {"{server}", tr("Server's name from which event was emited")}}, "" } },
-        { TTS_USER_LEFT, {SETTINGS_TTSMSG_USER_LEFT, {{"{user}", tr("User's nickname who left channel")}, {"{channel}", tr("Channel's name left by user")}, {"{server}", tr("Server's name from which event was emited")}}, "" } },
+        { TTS_USER_JOINED, {SETTINGS_TTSMSG_USER_JOINED, {{"{user}", tr("User's nickname who joined channel")}, {"{channel}", tr("Channel's name joined by user")}}, "" } },
+        { TTS_USER_LEFT, {SETTINGS_TTSMSG_USER_LEFT, {{"{user}", tr("User's nickname who left channel")}, {"{channel}", tr("Channel's name left by user")}}, "" } },
         { TTS_USER_JOINED_SAME, {SETTINGS_TTSMSG_USER_JOINED_SAME, {{"{user}", tr("User's nickname who joined channel")}}, "" } },
         { TTS_USER_LEFT_SAME, {SETTINGS_TTSMSG_USER_LEFT_SAME, {{"{user}", tr("User's nickname who left channel")}}, "" } },
         { TTS_USER_TEXTMSG_PRIVATE, {SETTINGS_TTSMSG_PRIVATEMSG, {{"{user}", tr("User's nickname who sent message")}, {"{message}", tr("Message content")}, {"{server}", tr("Server's name from which event was emited")}}, "" } },
@@ -119,6 +126,30 @@ void addTextToSpeechMessage(const QString& msg)
 #endif
         break;
     }
+    case TTSENGINE_QTANNOUNCEMENT:
+    {
+#if QT_VERSION >= QT_VERSION_CHECK(6,8,0)
+        QAccessibleAnnouncementEvent announcementEvent(announcerObject, msg);
+        if (ttSettings->value(SETTINGS_TTS_ASSERTIVE, SETTINGS_TTS_ASSERTIVE_DEFAULT).toBool() == true)
+            announcementEvent.setPoliteness(QAccessible::AnnouncementPoliteness::Assertive);
+        QAccessible::updateAccessibility(&announcementEvent);
+#endif
+        break;
+    }
+    case TTSENGINE_APPLESCRIPT:
+#if defined(Q_OS_MAC)
+        QString escapedMsg = msg;
+        escapedMsg.replace("\"", "\\\"");
+        QString appleScript = QString(R"(
+            tell application "VoiceOver"
+                output "%1"
+            end tell
+        )").arg(escapedMsg);
+        QStringList arguments;
+        arguments << "-e" << appleScript;
+        QProcess::startDetached("osascript", arguments);
+#endif
+        break;
     }
 }
 

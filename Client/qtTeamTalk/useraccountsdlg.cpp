@@ -104,6 +104,7 @@ void UserAccountsDlg::slotCmdError(int /*error*/, int cmdid)
 void UserAccountsDlg::slotAddUser()
 {
     m_user = {};
+    m_user.uUserRights = USERRIGHT_DEFAULT;
     UserAccountDlg dlg(UserAccountDlg::USER_CREATE, m_user, this);
     if (dlg.exec() == QDialog::Accepted)
     {
@@ -142,6 +143,8 @@ void UserAccountsDlg::slotEditUser()
     UserAccountDlg dlg(UserAccountDlg::USER_UPDATE, m_user, this);
     if (dlg.exec() == QDialog::Accepted)
     {
+        m_del_cmdid = TT_DoDeleteUserAccount(ttInst, m_user.szUsername);
+        m_del_username = _Q(m_user.szUsername);
         m_user = dlg.getUserAccount();
         m_add_cmdid = TT_DoNewUserAccount(ttInst, &m_user);
     }
@@ -191,8 +194,9 @@ void UserAccountsDlg::slotTreeContextMenu(const QPoint& /*point*/)
     const QString modified = "modified";
     sortModified->setChecked((ttSettings->value(SETTINGS_DISPLAY_USERACCOUNT_SORT, SETTINGS_DISPLAY_USERACCOUNT_SORT_DEFAULT).toString() == modified)?true:false);
     sortMenu->addAction(sortModified);
-    QAction* delUser = menu.addAction(tr("&Delete Selected User"));
-    QAction* editUser = menu.addAction(tr("&Edit Selected User"));
+    QAction* addUser = menu.addAction(tr("&Create New User Account"));
+    QAction* delUser = menu.addAction(tr("&Delete Selected User Account"));
+    QAction* editUser = menu.addAction(tr("&Edit Selected User Account"));
     auto srcIndex = m_proxyModel->mapToSource(ui.usersTableView->currentIndex());
     delUser->setEnabled(srcIndex.isValid());
     editUser->setEnabled(srcIndex.isValid());
@@ -219,9 +223,11 @@ void UserAccountsDlg::slotTreeContextMenu(const QPoint& /*point*/)
             ui.usersTableView->horizontalHeader()->setSortIndicator(COLUMN_INDEX_MODIFIED, m_proxyModel->sortColumn() == COLUMN_INDEX_MODIFIED ? sortToggle : Qt::AscendingOrder);
             ttSettings->setValue(SETTINGS_DISPLAY_USERACCOUNT_SORT, modified);
         }
+        else if (action == addUser)
+            slotAddUser();
         else if (action == delUser)
-            emit(slotDelUser());
+            slotDelUser();
         else if (action == editUser)
-            emit(slotEditUser());
+            slotEditUser();
     }
 }
