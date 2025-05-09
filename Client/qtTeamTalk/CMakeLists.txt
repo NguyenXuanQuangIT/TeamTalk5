@@ -34,6 +34,13 @@ endif()
 # TextToSpeech was introduced in Qt 6.4
 find_package (Qt6 COMPONENTS Widgets Xml Network Multimedia TextToSpeech)
 
+if (WIN32)
+  include_directories(${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/WinToast)
+  set(WINTOAST_SOURCES
+    3rdparty/WinToast/wintoastlib.cpp 3rdparty/WinToast/wintoastlib.h
+  )
+endif()
+
 if (Qt5_FOUND OR Qt6_FOUND)
 
   if (MSVC)
@@ -61,7 +68,7 @@ if (Qt5_FOUND OR Qt6_FOUND)
     set (CMAKE_CXX_STANDARD 17)
     set (CMAKE_OSX_DEPLOYMENT_TARGET 11.0) # Qt 6.5.0 requires
   else()
-    set (CMAKE_CXX_STANDARD 11)
+    set (CMAKE_CXX_STANDARD 17)
   endif()
 
   set (CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -90,7 +97,9 @@ if (Qt5_FOUND OR Qt6_FOUND)
     serverlogeventsmodel.h textmessagecontainer.h
     useraccountsmodel.h encryptionsetupdlg.h utiltt.h utilxml.h
     utilos.h serverdlg.h moveusersdlg.h useraccountdlg.h soundeventsmodel.h
-    mytableview.h mytabwidget.h shortcutsmodel.h
+    mytableview.h mytabwidget.h shortcutsmodel.h utilmedia.h
+    chattextlist.h chattemplatesdlg.h
+
     main.cpp mainwindow.cpp preferencesdlg.cpp uservideowidget.cpp
     channelstree.cpp channeldlg.cpp userinfodlg.cpp
     bannedusersdlg.cpp useraccountsdlg.cpp videogridwidget.cpp
@@ -110,7 +119,8 @@ if (Qt5_FOUND OR Qt6_FOUND)
     serverlogeventsmodel.cpp textmessagecontainer.cpp
     useraccountsmodel.cpp encryptionsetupdlg.cpp utiltt.cpp utilxml.cpp
     utilos.cpp serverdlg.cpp moveusersdlg.cpp useraccountdlg.cpp soundeventsmodel.cpp
-    mytableview.cpp mytabwidget.cpp shortcutsmodel.cpp
+    mytableview.cpp mytabwidget.cpp shortcutsmodel.cpp utilmedia.cpp
+    chattextlist.cpp chattemplatesdlg.cpp
     mainwindow.ui channel.ui preferences.ui
     serverlist.ui userinfo.ui bannedusers.ui useraccounts.ui
     serverproperties.ui uservideo.ui keycomp.ui textmessage.ui
@@ -119,12 +129,19 @@ if (Qt5_FOUND OR Qt6_FOUND)
     desktopshare.ui streammediafile.ui videotext.ui desktopaccess.ui
     generatettfile.ui customvideofmt.ui bearwarelogindlg.ui
     audiopreprocessor.ui statusbardlg.ui encryptionsetupdlg.ui
-    serverdlg.ui useraccountdlg.ui
+    serverdlg.ui useraccountdlg.ui chattemplatesdlg.ui
     resources.qrc mainwindow.rc
     )
 
+if (WIN32)
+  list(APPEND QTTEAMTALK_SOURCES ${WINTOAST_SOURCES})
+endif()
+
   if (Qt6_FOUND)
     set (TEAMTALK_LINK_FLAGS Qt6::Widgets Qt6::Xml Qt6::Network Qt6::Multimedia Qt6::TextToSpeech)
+    if (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+      list (APPEND TEAMTALK_LINK_FLAGS Qt6::DBus -lX11 -lXss)
+    endif()
   else()
     if (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
       set (TEAMTALK_LINK_FLAGS Qt5::Widgets Qt5::Xml Qt5::Network Qt5::Multimedia Qt5::TextToSpeech Qt5::DBus Qt5::X11Extras -lX11 -lXss)
@@ -327,6 +344,8 @@ if (Qt5_FOUND OR Qt6_FOUND)
 
             # Build TeamTalk 5 installer for Apple AppStore, i.e. without server application
             add_custom_target(QtTeamTalk5Product ALL
+              # Copy Provisioning Profile
+              COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/Entitlements.plist ${CMAKE_CURRENT_SOURCE_DIR}/${TEAMTALK_TARGET}.app/Contents/embedded.provisionprofile
               # Run code sign
               COMMAND codesign --deep -f --sign "Apple Distribution: Bjoern Rasmussen" --entitlements ${CMAKE_CURRENT_SOURCE_DIR}/Entitlements.plist ${CMAKE_CURRENT_SOURCE_DIR}/${TEAMTALK_TARGET}.app
               # Run productbuild

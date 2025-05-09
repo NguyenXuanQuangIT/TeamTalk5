@@ -45,8 +45,10 @@
 #include "utilvideo.h"
 #include "utiltts.h"
 #include "utilxml.h"
+#include "utilmedia.h"
 #include "moveusersdlg.h"
 #include "useraccountdlg.h"
+#include "chattextlist.h"
 
 #include <QMessageBox>
 #include <QInputDialog>
@@ -74,11 +76,13 @@
 #include <QTextToSpeech>
 #endif
 
-#ifdef Q_OS_LINUX //For hotkeys and DBus on X11
-#include <QtDBus/QtDBus>
+#if defined(Q_OS_LINUX) //For hotkeys on X11
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
+#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
+#include <QX11Info>
 #endif
+#endif /*Q_OS_LINUX */
 
 #include <functional>
 #include <algorithm>
@@ -178,6 +182,7 @@ MainWindow::MainWindow(const QString& cfgfile)
     }
 
     ui.setupUi(this);
+    setupChatHistory();
 
     setWindowIcon(QIcon(APPICON));
     updateWindowTitle();
@@ -215,6 +220,7 @@ MainWindow::MainWindow(const QString& cfgfile)
     ui.statusbar->addPermanentWidget(m_dtxprogress);
     ui.statusbar->addPermanentWidget(m_pinglabel);
     ui.statusbar->addPermanentWidget(m_pttlabel);
+    ui.playbackOffsetSlider->setMaximum(MEDIAFILE_SLIDER_MAXIMUM);
 
 
 #if defined(Q_OS_WIN32)
@@ -223,21 +229,7 @@ MainWindow::MainWindow(const QString& cfgfile)
     ui.actionExit->setShortcut(QKeySequence::Quit);
 #endif
 
-    connect(ui.msgEdit, &QLineEdit::textChanged, this, &MainWindow::slotTextChanged);
-    connect(ui.sendButton, &QAbstractButton::clicked,
-            this, &MainWindow::slotSendChannelMessage);
-    connect(ui.msgEdit, &ChatLineEdit::sendTextMessage,
-            this, &MainWindow::slotSendChannelMessage);
-    connect(ui.videosendButton, &QAbstractButton::clicked,
-            this, &MainWindow::slotSendChannelMessage);
-    connect(ui.desktopsendButton, &QAbstractButton::clicked,
-            this, &MainWindow::slotSendChannelMessage);
-    connect(ui.videomsgEdit, &ChatLineEdit::sendTextMessage,
-            this, &MainWindow::slotSendChannelMessage);
-    connect(ui.videomsgEdit, &QLineEdit::textChanged, this, &MainWindow::slotTextChanged);
-    connect(ui.desktopmsgEdit, &QLineEdit::textChanged, this, &MainWindow::slotTextChanged);
-    connect(ui.desktopmsgEdit, &ChatLineEdit::sendTextMessage,
-            this, &MainWindow::slotSendChannelMessage);
+    /* Volume controls */
     connect(ui.micSlider, &QAbstractSlider::valueChanged,
             this, &MainWindow::slotMicrophoneGainChanged);
     connect(ui.volumeSlider, &QAbstractSlider::valueChanged,
@@ -245,7 +237,7 @@ MainWindow::MainWindow(const QString& cfgfile)
     connect(ui.voiceactSlider, &QAbstractSlider::valueChanged,
             this, &MainWindow::slotVoiceActivationLevelChanged);
 
-    /* ui.channelsWidget */
+    /* Channels tree */
     connect(ui.channelsWidget, &QTreeWidget::itemSelectionChanged,
             this, &MainWindow::slotTreeSelectionChanged);
     connect(ui.channelsWidget, &QWidget::customContextMenuRequested,
@@ -259,6 +251,7 @@ MainWindow::MainWindow(const QString& cfgfile)
     connect(ui.channelsWidget,
             &ChannelsTree::transmitusersChanged,
             this, &MainWindow::slotTransmitUsersChanged);
+
     /* Video-tab (video-grid) */
     connect(this, &MainWindow::newVideoCaptureFrame, ui.videogridWidget,
             &VideoGridWidget::slotNewVideoFrame);
@@ -272,6 +265,7 @@ MainWindow::MainWindow(const QString& cfgfile)
             this, &MainWindow::slotUpdateVideoTabUI);
     connect(ui.videogridWidget, &VideoGridWidget::userVideoSelected,
             this, &MainWindow::slotUpdateVideoTabUI);
+
     /* Desktop-tab (desktop-grid) */
     connect(this, &MainWindow::newDesktopWindow, ui.desktopgridWidget,
             &DesktopGridWidget::userDesktopWindowUpdate);
@@ -289,6 +283,34 @@ MainWindow::MainWindow(const QString& cfgfile)
             this, &MainWindow::slotUpdateDesktopTabUI);
     connect(ui.desktopgridWidget, &DesktopGridWidget::userDesktopSelected,
             this, &MainWindow::slotUpdateDesktopTabUI);
+
+    /* Chat-tab */
+    connect(ui.msgEdit, &QLineEdit::textChanged, this, &MainWindow::slotTextChanged);
+    connect(ui.sendButton, &QAbstractButton::clicked,
+            this, &MainWindow::slotSendChannelMessage);
+    connect(ui.msgEdit, &ChatLineEdit::sendTextMessage,
+            this, &MainWindow::slotSendChannelMessage);
+
+    /* Media-tab */
+    connect(ui.playbackOffsetSlider, &QSlider::sliderMoved,
+            this, &MainWindow::changeMediaFileOffset);
+    connect(ui.playMediaFileButton, &QAbstractButton::clicked, this, [&] {
+        switch (m_mfi.value_or(MediaFileInfo()).nStatus)
+        {
+        case MFS_PAUSED :
+        case MFS_PLAYING :
+            slotPauseResumeStream();
+            break;
+        default :
+            startStreamMediaFile();
+            break;
+        }
+    });
+    connect(ui.stopMediaFileButton, &QAbstractButton::clicked, this,
+            &MainWindow::stopStreamMediaFile);
+    connect(ui.openMediaFileButton, &QAbstractButton::clicked, this, &MainWindow::openStreamMediaFileDlg);
+    connect(ui.mediaVolumeSlider, &QSlider::sliderMoved, this, &MainWindow::changeMediaFileVolume);
+
     /* Files-tab */
     connect(ui.uploadButton, &QAbstractButton::clicked, this, &MainWindow::slotChannelsUploadFile);
     connect(ui.downloadButton, &QAbstractButton::clicked, this, &MainWindow::slotChannelsDownloadFile);
@@ -303,7 +325,13 @@ MainWindow::MainWindow(const QString& cfgfile)
             this, &MainWindow::slotUploadFiles);
     connect(ui.filesView, &QWidget::customContextMenuRequested,
             this, &MainWindow::slotFilesContextMenu);
+
     /* Video-tab buttons */
+    connect(ui.videosendButton, &QAbstractButton::clicked,
+            this, &MainWindow::slotSendChannelMessage);
+    connect(ui.videomsgEdit, &QLineEdit::textChanged, this, &MainWindow::slotTextChanged);
+    connect(ui.videomsgEdit, &ChatLineEdit::sendTextMessage,
+            this, &MainWindow::slotSendChannelMessage);
     connect(ui.initVideoButton, &QAbstractButton::clicked,
             ui.actionEnableVideoTransmission, &QAction::triggered);
     connect(ui.addVideoButton, &QAbstractButton::clicked, this, &MainWindow::slotAddUserVideo);
@@ -314,6 +342,11 @@ MainWindow::MainWindow(const QString& cfgfile)
     connect(this, &MainWindow::preferencesModified,
             ui.videogridWidget, &VideoGridWidget::preferencesModified);
     /* Desktop-tab buttons */
+    connect(ui.desktopsendButton, &QAbstractButton::clicked,
+            this, &MainWindow::slotSendChannelMessage);
+    connect(ui.desktopmsgEdit, &QLineEdit::textChanged, this, &MainWindow::slotTextChanged);
+    connect(ui.desktopmsgEdit, &ChatLineEdit::sendTextMessage,
+            this, &MainWindow::slotSendChannelMessage);
     connect(ui.detachDesktopButton, &QAbstractButton::clicked,
             this, &MainWindow::slotDetachUserDesktopGrid);
     connect(ui.addDesktopButton, &QAbstractButton::clicked,
@@ -592,11 +625,13 @@ MainWindow::MainWindow(const QString& cfgfile)
     //pull using a timer
     m_timers.insert(startTimer(20), TIMER_PROCESS_TTEVENT);
 #endif
+
+    updateTabPages();
 }
 
 MainWindow::~MainWindow()
 {
-#ifdef Q_OS_LINUX
+#if defined(Q_OS_LINUX)
     if(m_display)
         XCloseDisplay(m_display);
 #endif
@@ -628,7 +663,7 @@ void MainWindow::loadSettings()
     migrateSettings();
 
     // Ask to set language at first start
-    if (!ttSettings->contains(SETTINGS_DISPLAY_LANGUAGE))
+    if (ttSettings->value(SETTINGS_GENERAL_FIRSTSTART, SETTINGS_GENERAL_FIRSTSTART_DEFAULT).toBool())
     {
         QLocale locale = QLocale::system();
         QString languageCode = locale.name();
@@ -681,10 +716,22 @@ void MainWindow::loadSettings()
             this->ui.retranslateUi(this);
         else
         {
-            QMessageBox::information(this, tr("Translate"),
-                QString("Failed to load language file %1").arg(lang));
+            QString langPrefix = lang.section('_', 0, 0);
+            if (switchLanguage(langPrefix))
+            {
+                this->ui.retranslateUi(this);
+                ttSettings->setValue(SETTINGS_DISPLAY_LANGUAGE, langPrefix);
+            }
+            else
+            {
+                QMessageBox::information(this, tr("Translate"),
+                    QString("Failed to load language file %1").arg(lang));
+            }
         }
     }
+
+    for (auto c : m_chathistory)
+        c->updateTranslation();
 
     initSound();
 
@@ -789,7 +836,7 @@ void MainWindow::loadSettings()
     QString packset = ttSettings->value(SETTINGS_SOUNDS_PACK).toString();
     QString packname = QString("%1/%2").arg(SOUNDSPATH).arg(packset);
     QDir packdir(packname);
-    if((!packdir.exists()) && packset != tr("Default"))
+    if((!packdir.exists()) && packset != SETTINGS_SOUNDS_PACK_DEFAULT)
     {
         QMessageBox answer;
         answer.setText(tr("The sound pack %1 does not exist. Would you like to use the default sound pack?").arg(packset));
@@ -813,6 +860,8 @@ void MainWindow::loadSettings()
 
     if ((ttSettings->value(SETTINGS_DISPLAY_START_SERVERLIST, SETTINGS_DISPLAY_START_SERVERLIST_DEFAULT).toBool() == true && ttSettings->value(SETTINGS_CONNECTION_AUTOCONNECT, SETTINGS_CONNECTION_AUTOCONNECT_DEFAULT).toBool() == false) && ((TT_GetFlags(ttInst) & CLIENT_CONNECTION) == CLIENT_CLOSED))
         slotClientConnect();
+
+    ttSettings->setValue(SETTINGS_GENERAL_FIRSTSTART, false);
     slotUpdateUI();
 }
 
@@ -821,23 +870,7 @@ void MainWindow::initialScreenReaderSetup()
 #if defined(ENABLE_TOLK) || defined(Q_OS_LINUX)
     if (ttSettings->value(SETTINGS_GENERAL_FIRSTSTART, SETTINGS_GENERAL_FIRSTSTART_DEFAULT).toBool())
     {
-        bool SRActive = false;
-#if defined(ENABLE_TOLK)
-        bool tolkLoaded = Tolk_IsLoaded();
-        if (!tolkLoaded)
-            Tolk_Load();
-
-        SRActive = Tolk_DetectScreenReader() != nullptr;
-
-        if (!tolkLoaded)
-            Tolk_Unload();
-#elif defined(Q_OS_LINUX)
-        QDBusInterface interface("org.a11y.Bus", "/org/a11y/bus", "org.a11y.Status", QDBusConnection::sessionBus());
-        if (interface.isValid())
-        {
-            SRActive = interface.property("ScreenReaderEnabled").toBool();
-        }
-#endif
+        bool SRActive = isScreenReaderActive();
         if (SRActive)
         {
             QMessageBox answer;
@@ -854,12 +887,14 @@ void MainWindow::initialScreenReaderSetup()
 #if defined(ENABLE_TOLK)
                 ttSettings->setValue(SETTINGS_TTS_ENGINE, TTSENGINE_TOLK);
 #elif defined(Q_OS_LINUX)
-                ttSettings->setValue(SETTINGS_TTS_ENGINE, QFile::exists(TTSENGINE_NOTIFY_PATH) ? TTSENGINE_NOTIFY : TTSENGINE_QT);
+                if (QFile::exists(NOTIFY_PATH))
+                    ttSettings->setValue(SETTINGS_TTS_TOAST, true);
+                else
+                    ttSettings->setValue(SETTINGS_TTS_ENGINE, TTSENGINE_QT);
 #endif
                 ttSettings->setValue(SETTINGS_DISPLAY_VU_METER_UPDATES, false);
             }
         }
-        ttSettings->setValue(SETTINGS_GENERAL_FIRSTSTART, false);
     }
 #endif
 }
@@ -1094,6 +1129,17 @@ void MainWindow::clienteventMyselfKicked(const TTMessage& msg)
     }
 }
 
+void MainWindow::clienteventCmdServerUpdate(const ServerProperties& srvprop)
+{
+    for (auto c : m_chathistory)
+        c->updateServer(srvprop);
+
+    if (ttSettings->value(SETTINGS_DISPLAY_MOTD_DLG, SETTINGS_DISPLAY_MOTD_DLG_DEFAULT).toBool() == true)
+        QMessageBox::information(this, tr("Welcome"), QString(tr("Welcome to %1.\r\nMessage of the day: %2")).arg(_Q(srvprop.szServerName)).arg(_Q(srvprop.szMOTD)));
+
+    updateWindowTitle();
+}
+
 void MainWindow::clienteventCmdProcessing(int cmdid, bool complete)
 {
     //command reply starting -> store command reply ID
@@ -1141,12 +1187,12 @@ void MainWindow::clienteventCmdChannelUpdate(const Channel& channel)
         updateAudioConfig();
         updateWindowTitle();
     }
-    emit(updateChannel(channel));
+    emit updateChannel(channel);
 }
 
 void MainWindow::clienteventCmdUserLoggedIn(const User& user)
 {
-    emit(userLogin(user));
+    emit userLogin(user);
     QString audiofolder = ttSettings->value(SETTINGS_MEDIASTORAGE_AUDIOFOLDER).toString();
     AudioFileFormat aff = (AudioFileFormat)ttSettings->value(SETTINGS_MEDIASTORAGE_FILEFORMAT, AFF_WAVE_FORMAT).toInt();
     if(m_audiostorage_mode & AUDIOSTORAGE_SEPARATEFILES)
@@ -1155,9 +1201,9 @@ void MainWindow::clienteventCmdUserLoggedIn(const User& user)
     updateUserSubscription(user.nUserID);
     if(m_commands[m_current_cmdid] != CMD_COMPLETE_LOGIN)
     {
-        addStatusMsg(STATUSBAR_USER_LOGGEDIN, UtilUI::getStatusBarMessage(SETTINGS_STATUSBARMSG_USER_LOGGEDIN, {{"{user}", getDisplayName(user)}, {"{server}", limitText(_Q(m_srvprop.szServerName))}}));
+        addStatusMsg(STATUSBAR_USER_LOGGEDIN, UtilUI::getStatusBarMessage(SETTINGS_STATUSBARMSG_USER_LOGGEDIN, {{"{user}", getDisplayName(user)}, {"{username}", _Q(user.szUsername)}, {"{server}", limitText(_Q(m_srvprop.szServerName))}}));
         playSoundEvent(SOUNDEVENT_USERLOGGEDIN);
-        addTextToSpeechMessage(TTS_USER_LOGGEDIN, UtilTTS::getTTSMessage(SETTINGS_TTSMSG_USER_LOGGEDIN, {{"{user}", getDisplayName(user)}, {"{server}", limitText(_Q(m_srvprop.szServerName))}}));
+        addTextToSpeechMessage(TTS_USER_LOGGEDIN, UtilTTS::getTTSMessage(SETTINGS_TTSMSG_USER_LOGGEDIN, {{"{user}", getDisplayName(user)}, {"{username}", _Q(user.szUsername)}, {"{server}", limitText(_Q(m_srvprop.szServerName))}}));
     }
 
     // sync user settings from cache
@@ -1168,14 +1214,14 @@ void MainWindow::clienteventCmdUserLoggedIn(const User& user)
 
 void MainWindow::clienteventCmdUserLoggedOut(const User& user)
 {
-    emit(userLogout(user));
+    emit userLogout(user);
     //remove text-message history from this user
     m_textmessages.clearUserTextMessages(user.nUserID);
     if (user.nUserID != TT_GetMyUserID(ttInst))
     {
-        addStatusMsg(STATUSBAR_USER_LOGGEDOUT, UtilUI::getStatusBarMessage(SETTINGS_STATUSBARMSG_USER_LOGGEDOUT, {{"{user}", getDisplayName(user)}, {"{server}", limitText(_Q(m_srvprop.szServerName))}}));
+        addStatusMsg(STATUSBAR_USER_LOGGEDOUT, UtilUI::getStatusBarMessage(SETTINGS_STATUSBARMSG_USER_LOGGEDOUT, {{"{user}", getDisplayName(user)}, {"{username}", _Q(user.szUsername)}, {"{server}", limitText(_Q(m_srvprop.szServerName))}}));
         playSoundEvent(SOUNDEVENT_USERLOGGEDOUT);
-        addTextToSpeechMessage(TTS_USER_LOGGEDOUT, UtilTTS::getTTSMessage(SETTINGS_TTSMSG_USER_LOGGEDOUT, {{"{user}", getDisplayName(user)}, {"{server}", limitText(_Q(m_srvprop.szServerName))}}));
+        addTextToSpeechMessage(TTS_USER_LOGGEDOUT, UtilTTS::getTTSMessage(SETTINGS_TTSMSG_USER_LOGGEDOUT, {{"{user}", getDisplayName(user)}, {"{username}", _Q(user.szUsername)}, {"{server}", limitText(_Q(m_srvprop.szServerName))}}));
     }
 
     // sync user settings to cache
@@ -1189,21 +1235,21 @@ void MainWindow::clienteventCmdUserJoined(const User& user)
     if (user.nUserID == TT_GetMyUserID(ttInst))
         processMyselfJoined(user.nChannelID);
 
-    emit (userJoined(user.nChannelID, user));
+    emit userJoined(user.nChannelID, user);
 
     if (m_commands[m_current_cmdid] != CMD_COMPLETE_LOGIN &&
         user.nUserID != TT_GetMyUserID(ttInst))
     {
         Channel chan = {};
         ui.channelsWidget->getChannel(user.nChannelID, chan);
-        QString userjoinchanStatus = UtilUI::getStatusBarMessage(SETTINGS_STATUSBARMSG_USER_JOINED_SAME, {{"{user}", getDisplayName(user)}});
-        QString userjoinchanTTS = UtilTTS::getTTSMessage(SETTINGS_TTSMSG_USER_JOINED_SAME, {{"{user}", getDisplayName(user)}});
+        QString userjoinchanStatus = UtilUI::getStatusBarMessage(SETTINGS_STATUSBARMSG_USER_JOINED_SAME, {{"{user}", getDisplayName(user)}, {"{username}", _Q(user.szUsername)}});
+        QString userjoinchanTTS = UtilTTS::getTTSMessage(SETTINGS_TTSMSG_USER_JOINED_SAME, {{"{user}", getDisplayName(user)}, {"{username}", _Q(user.szUsername)}});
         TextToSpeechEvent ttsType = TTS_USER_JOINED_SAME;
         StatusBarEvent statusType = STATUSBAR_USER_JOINED_SAME;
         if ((chan.nParentID == 0 && user.nChannelID != m_mychannel.nChannelID) || (user.nChannelID != m_mychannel.nChannelID))
         {
-            userjoinchanStatus = UtilUI::getStatusBarMessage(SETTINGS_STATUSBARMSG_USER_JOINED, {{"{user}", getDisplayName(user)}, {"{channel}", (chan.nParentID == 0 && user.nChannelID != m_mychannel.nChannelID)?tr("root"):_Q(chan.szName)}});
-            userjoinchanTTS = UtilTTS::getTTSMessage(SETTINGS_TTSMSG_USER_JOINED, {{"{user}", getDisplayName(user)}, {"{channel}", (chan.nParentID == 0 && user.nChannelID != m_mychannel.nChannelID)?tr("root"):_Q(chan.szName)}});
+            userjoinchanStatus = UtilUI::getStatusBarMessage(SETTINGS_STATUSBARMSG_USER_JOINED, {{"{user}", getDisplayName(user)}, {"{username}", _Q(user.szUsername)}, {"{channel}", (chan.nParentID == 0 && user.nChannelID != m_mychannel.nChannelID)?tr("root"):_Q(chan.szName)}});
+            userjoinchanTTS = UtilTTS::getTTSMessage(SETTINGS_TTSMSG_USER_JOINED, {{"{user}", getDisplayName(user)}, {"{username}", _Q(user.szUsername)}, {"{channel}", (chan.nParentID == 0 && user.nChannelID != m_mychannel.nChannelID)?tr("root"):_Q(chan.szName)}});
             ttsType = TTS_USER_JOINED;
             statusType = STATUSBAR_USER_JOINED;
         }
@@ -1225,7 +1271,7 @@ void MainWindow::clienteventCmdUserLeft(int prevchannelid, const User& user)
     if (user.nUserID == TT_GetMyUserID(ttInst))
         processMyselfLeft(prevchannelid);
 
-    emit (userLeft(prevchannelid, user));
+    emit userLeft(prevchannelid, user);
 
     if (user.nUserID == m_relayvoice_userid || user.nUserID == m_relayvoice_userid)
         relayAudioStream(user.nUserID, STREAMTYPE_NONE, false);
@@ -1235,14 +1281,14 @@ void MainWindow::clienteventCmdUserLeft(int prevchannelid, const User& user)
     {
         Channel chan = {};
         ui.channelsWidget->getChannel(prevchannelid, chan);
-        QString userleftchanStatus = UtilUI::getStatusBarMessage(SETTINGS_STATUSBARMSG_USER_LEFT_SAME, {{"{user}", getDisplayName(user)}});
-        QString userleftchanTTS = UtilTTS::getTTSMessage(SETTINGS_TTSMSG_USER_LEFT_SAME, {{"{user}", getDisplayName(user)}});
+        QString userleftchanStatus = UtilUI::getStatusBarMessage(SETTINGS_STATUSBARMSG_USER_LEFT_SAME, {{"{user}", getDisplayName(user)}, {"{username}", _Q(user.szUsername)}});
+        QString userleftchanTTS = UtilTTS::getTTSMessage(SETTINGS_TTSMSG_USER_LEFT_SAME, {{"{user}", getDisplayName(user)}, {"{username}", _Q(user.szUsername)}});
         TextToSpeechEvent ttsType = TTS_USER_LEFT_SAME;
         StatusBarEvent statusType = STATUSBAR_USER_LEFT_SAME;
         if ((chan.nParentID == 0 && prevchannelid != m_mychannel.nChannelID) || (prevchannelid != m_mychannel.nChannelID))
         {
-            userleftchanStatus = UtilUI::getStatusBarMessage(SETTINGS_STATUSBARMSG_USER_LEFT, {{"{user}", getDisplayName(user)}, {"{channel}", (chan.nParentID == 0 && prevchannelid != m_mychannel.nChannelID)?tr("root"):_Q(chan.szName)}});
-            userleftchanTTS = UtilTTS::getTTSMessage(SETTINGS_TTSMSG_USER_LEFT, {{"{user}", getDisplayName(user)}, {"{channel}", (chan.nParentID == 0 && prevchannelid != m_mychannel.nChannelID)?tr("root"):_Q(chan.szName)}});
+            userleftchanStatus = UtilUI::getStatusBarMessage(SETTINGS_STATUSBARMSG_USER_LEFT, {{"{user}", getDisplayName(user)}, {"{username}", _Q(user.szUsername)}, {"{channel}", (chan.nParentID == 0 && prevchannelid != m_mychannel.nChannelID)?tr("root"):_Q(chan.szName)}});
+            userleftchanTTS = UtilTTS::getTTSMessage(SETTINGS_TTSMSG_USER_LEFT, {{"{user}", getDisplayName(user)}, {"{username}", _Q(user.szUsername)}, {"{channel}", (chan.nParentID == 0 && prevchannelid != m_mychannel.nChannelID)?tr("root"):_Q(chan.szName)}});
             ttsType = TTS_USER_LEFT;
             statusType = STATUSBAR_USER_LEFT;
         }
@@ -1265,14 +1311,14 @@ void MainWindow::clienteventCmdUserUpdate(const User& user)
     ui.channelsWidget->getUser(user.nUserID, prev_user);
     Q_ASSERT(prev_user.nUserID);
 
-    emit(userUpdate(user));
+    emit userUpdate(user);
 
     if (user.nUserID != TT_GetMyUserID(ttInst) && user.nChannelID == m_mychannel.nChannelID)
     {
         if ((prev_user.nStatusMode & STATUSMODE_QUESTION) == 0 && (user.nStatusMode & STATUSMODE_QUESTION))
         {
            playSoundEvent(SOUNDEVENT_QUESTIONMODE);
-           addTextToSpeechMessage(TTS_USER_QUESTIONMODE, UtilTTS::getTTSMessage(SETTINGS_TTSMSG_QUESTIONMODE, {{"{user}", getDisplayName(user)}, {"{server}", limitText(_Q(m_srvprop.szServerName))}}));
+           addTextToSpeechMessage(TTS_USER_QUESTIONMODE, UtilTTS::getTTSMessage(SETTINGS_TTSMSG_QUESTIONMODE, {{"{user}", getDisplayName(user)}, {"{username}", _Q(user.szUsername)}, {"{server}", limitText(_Q(m_srvprop.szServerName))}}));
         }
     }
 
@@ -1295,8 +1341,8 @@ void MainWindow::clienteventCmdFileNew(const RemoteFile& file)
         User user;
         TT_GetUserByUsername(ttInst, file.szUsername, &user);
         QString name = m_host.username != _Q(file.szUsername)?getDisplayName(user):tr("You");
-        addStatusMsg(STATUSBAR_FILE_ADD, UtilUI::getStatusBarMessage(SETTINGS_STATUSBARMSG_FILE_ADDED, {{"{filename}", _Q(file.szFileName)}, {"{user}", name}, {"{filesize}", getFormattedFileSize(file.nFileSize)}}));
-        addTextToSpeechMessage(TTS_FILE_ADD, UtilTTS::getTTSMessage(SETTINGS_TTSMSG_FILE_ADDED, {{"{filename}", _Q(file.szFileName)}, {"{user}", name}, {"{filesize}", getFormattedFileSize(file.nFileSize)}}));
+        addStatusMsg(STATUSBAR_FILE_ADD, UtilUI::getStatusBarMessage(SETTINGS_STATUSBARMSG_FILE_ADDED, {{"{filename}", _Q(file.szFileName)}, {"{user}", name}, {"{username}", _Q(user.szUsername)}, {"{filesize}", getFormattedSize(file.nFileSize)}}));
+        addTextToSpeechMessage(TTS_FILE_ADD, UtilTTS::getTTSMessage(SETTINGS_TTSMSG_FILE_ADDED, {{"{filename}", _Q(file.szFileName)}, {"{user}", name}, {"{username}", _Q(user.szUsername)}, {"{filesize}", getFormattedSize(file.nFileSize)}}));
     }
 }
 
@@ -1314,14 +1360,14 @@ void MainWindow::clienteventCmdFileRemove(const RemoteFile& file)
         playSoundEvent(SOUNDEVENT_FILESUPD);
         TT_GetUserByUsername(ttInst, file.szUsername, &user);
         QString name = m_host.username != _Q(file.szUsername)?getDisplayName(user):tr("You");
-        addStatusMsg(STATUSBAR_FILE_REMOVE, UtilUI::getStatusBarMessage(SETTINGS_STATUSBARMSG_FILE_REMOVED, {{"{file}", _Q(file.szFileName)}, {"{user}", name}}));
-        addTextToSpeechMessage(TTS_FILE_REMOVE, UtilTTS::getTTSMessage(SETTINGS_TTSMSG_FILE_REMOVED, {{"{file}", _Q(file.szFileName)}, {"{user}", name}}));
+        addStatusMsg(STATUSBAR_FILE_REMOVE, UtilUI::getStatusBarMessage(SETTINGS_STATUSBARMSG_FILE_REMOVED, {{"{file}", _Q(file.szFileName)}, {"{user}", name}, {"{username}", _Q(user.szUsername)}}));
+        addTextToSpeechMessage(TTS_FILE_REMOVE, UtilTTS::getTTSMessage(SETTINGS_TTSMSG_FILE_REMOVED, {{"{file}", _Q(file.szFileName)}, {"{user}", name}, {"{username}", _Q(user.szUsername)}}));
     }
 }
 
 void MainWindow::clienteventFileTransfer(const FileTransfer& filetransfer)
 {
-    emit(filetransferUpdate(filetransfer));
+    emit filetransferUpdate(filetransfer);
 
     if (filetransfer.nStatus == FILETRANSFER_ACTIVE && filetransfer.nTransferred == 0)
     {
@@ -1374,21 +1420,19 @@ void MainWindow::clienteventInternalError(const ClientErrorMsg& clienterrormsg)
 
 void MainWindow::clienteventUserStateChange(const User& user)
 {
-    emit(userStateChange(user));
+    emit userStateChange(user);
     if(user.uUserState & USERSTATE_VOICE)
     {
         m_talking.insert(user.nUserID);
 
-        if(m_sysicon && m_sysicon->isVisible() &&
-           m_talking.size() == 1)
+        if (m_sysicon && m_talking.size() == 1)
             m_sysicon->setIcon(QIcon(APPTRAYICON_ACTIVE));
     }
     else
     {
         m_talking.remove(user.nUserID);
 
-        if(m_sysicon && m_sysicon->isVisible() &&
-           m_talking.size() == 0)
+        if (m_sysicon && m_talking.size() == 0)
             m_sysicon->setIcon(QIcon(APPTRAYICON_CON));
     }
 
@@ -1406,7 +1450,7 @@ void MainWindow::clienteventUserStateChange(const User& user)
 void MainWindow::clienteventVoiceActivation(bool active)
 {
     playSoundEvent(active? SOUNDEVENT_VOICEACTTRIG :  SOUNDEVENT_VOICEACTSTOP);
-    emit(updateMyself());
+    emit updateMyself();
     if (active)
     {
         transmitOn(STREAMTYPE_VOICE);
@@ -1427,6 +1471,9 @@ void MainWindow::clienteventStreamMediaFile(const MediaFileInfo& mediafileinfo)
     case MFS_FINISHED :
         addStatusMsg(STATUSBAR_BYPASS, tr("Finished streaming media file to channel"));
         stopStreamMediaFile();
+
+        if (ttSettings->value(SETTINGS_STREAMMEDIA_LOOP, SETTINGS_STREAMMEDIA_LOOP_DEFAULT).toBool())
+            startStreamMediaFile();
         break;
     case MFS_ABORTED :
         addStatusMsg(STATUSBAR_BYPASS, tr("Aborted streaming media file to channel"));
@@ -1438,16 +1485,16 @@ void MainWindow::clienteventStreamMediaFile(const MediaFileInfo& mediafileinfo)
         break;
     }
 
-    if (mediafileinfo.nStatus == MFS_FINISHED &&
-       ttSettings->value(SETTINGS_STREAMMEDIA_LOOP, false).toBool())
-    {
-        startStreamMediaFile();
-    }
-
-    emit(mediaStreamUpdate(mediafileinfo));
+    emit mediaStreamUpdate(mediafileinfo);
 
     //update if still talking
-    emit(updateMyself());
+    emit updateMyself();
+
+    // only allow updates to 'm_mfi' if a user has actively started playback
+    if (m_mfi)
+        m_mfi = mediafileinfo;
+
+    slotUpdateMediaTabUI();
 }
 
 void MainWindow::clienteventUserVideoCapture(int source, int streamid)
@@ -1480,7 +1527,7 @@ void MainWindow::clienteventUserVideoCapture(int source, int streamid)
             addStatusMsg(STATUSBAR_BYPASS, tr("New video session from %1")
                          .arg(getDisplayName(user)));
     }
-    emit(newVideoCaptureFrame(userid, streamid));
+    emit newVideoCaptureFrame(userid, streamid);
 }
 
 void MainWindow::clienteventUserMediaFileVideo(int source, int streamid)
@@ -1508,7 +1555,7 @@ void MainWindow::clienteventUserMediaFileVideo(int source, int streamid)
             addStatusMsg(STATUSBAR_BYPASS, tr("New video session from %1")
             .arg(getDisplayName(user)));
     }
-    emit(newMediaVideoFrame(userid, streamid));
+    emit newMediaVideoFrame(userid, streamid);
 }
 
 void MainWindow::clienteventUserDesktopWindow(int source, int streamid)
@@ -1534,7 +1581,7 @@ void MainWindow::clienteventUserDesktopWindow(int source, int streamid)
                 .arg(getDisplayName(user)));
         }
     }
-    emit(newDesktopWindow(source, streamid));
+    emit newDesktopWindow(source, streamid);
 }
 
 void MainWindow::clienteventDesktopWindowTransfer(int source, int bytesremain)
@@ -1657,18 +1704,18 @@ void MainWindow::processTTMessage(const TTMessage& msg)
         //and error message since the login will otherwise complete).
         m_commands.remove(m_current_cmdid);
 
-        emit(cmdError(msg.clienterrormsg.nErrorNo, msg.nSource));
+        emit cmdError(msg.clienterrormsg.nErrorNo, msg.nSource);
 
         showTTErrorMessage(msg.clienterrormsg, cmd_type);
     }
     break;
     case CLIENTEVENT_CMD_SUCCESS :
-        emit(cmdSuccess(msg.nSource));
+        emit cmdSuccess(msg.nSource);
     break;
     case CLIENTEVENT_CMD_MYSELF_LOGGEDIN :
-        //ui.chatEdit->updateServer();
         //store user account settings
         m_myuseraccount = msg.useraccount;
+        updateTabPages();
         break;
     case CLIENTEVENT_CMD_MYSELF_LOGGEDOUT :
         disconnectFromServer();
@@ -1678,18 +1725,17 @@ void MainWindow::processTTMessage(const TTMessage& msg)
     break;
     case CLIENTEVENT_CMD_SERVER_UPDATE :
         Q_ASSERT(msg.ttType == __SERVERPROPERTIES);
-        ui.chatEdit->updateServer(msg.serverproperties);
-        emit(serverUpdate(msg.serverproperties));
+        emit serverUpdate(msg.serverproperties);
         m_srvprop = msg.serverproperties;
-        updateWindowTitle();
+        clienteventCmdServerUpdate(msg.serverproperties);
     break;
     case CLIENTEVENT_CMD_SERVERSTATISTICS :
         Q_ASSERT(msg.ttType == __SERVERSTATISTICS);
-        emit(serverStatistics(msg.serverstatistics));
+        emit serverStatistics(msg.serverstatistics);
     break;
     case CLIENTEVENT_CMD_CHANNEL_NEW :
         Q_ASSERT(msg.ttType == __CHANNEL);
-        emit(newChannel(msg.channel));
+        emit newChannel(msg.channel);
         break;
     case CLIENTEVENT_CMD_CHANNEL_UPDATE :
         Q_ASSERT(msg.ttType == __CHANNEL);
@@ -1697,7 +1743,7 @@ void MainWindow::processTTMessage(const TTMessage& msg)
     break;
     case CLIENTEVENT_CMD_CHANNEL_REMOVE :
         Q_ASSERT(msg.ttType == __CHANNEL);
-        emit(removeChannel(msg.channel));
+        emit removeChannel(msg.channel);
         break;
     case CLIENTEVENT_CMD_USER_LOGGEDIN :
         Q_ASSERT(msg.ttType == __USER);
@@ -1764,7 +1810,7 @@ void MainWindow::processTTMessage(const TTMessage& msg)
         clienteventStreamMediaFile(msg.mediafileinfo);
     break;
     case CLIENTEVENT_LOCAL_MEDIAFILE:
-        emit(mediaPlaybackUpdate(msg.nSource, msg.mediafileinfo));
+        emit mediaPlaybackUpdate(msg.nSource, msg.mediafileinfo);
         break;
     case CLIENTEVENT_USER_VIDEOCAPTURE :
         Q_ASSERT(msg.ttType == __INT32);
@@ -1785,7 +1831,7 @@ void MainWindow::processTTMessage(const TTMessage& msg)
         break;
     case CLIENTEVENT_USER_DESKTOPCURSOR :
         Q_ASSERT(msg.ttType == __DESKTOPINPUT);
-        emit(userDesktopCursor(msg.nSource, msg.desktopinput));
+        emit userDesktopCursor(msg.nSource, msg.desktopinput);
         break;
     case CLIENTEVENT_USER_DESKTOPINPUT :
         Q_ASSERT(msg.ttType == __DESKTOPINPUT);
@@ -1987,9 +2033,8 @@ void MainWindow::addStatusMsg(StatusBarEvent event, const QString& msg)
     if (ttSettings->value(SETTINGS_DISPLAY_LOGSTATUSBAR, SETTINGS_DISPLAY_LOGSTATUSBAR_DEFAULT).toBool() &&
         ((ttSettings->value(SETTINGS_STATUSBAR_ACTIVEEVENTS, SETTINGS_STATUSBAR_ACTIVEEVENTS_DEFAULT).toULongLong() & event) || event == STATUSBAR_BYPASS))
     {
-        ui.chatEdit->addLogMessage(msg);
-        ui.videochatEdit->addLogMessage(msg);
-        ui.desktopchatEdit->addLogMessage(msg);
+        for (auto c : m_chathistory)
+            c->addLogMessage(msg);
     }
     m_statusmsg.enqueue(msg);
 
@@ -2102,6 +2147,7 @@ void MainWindow::disconnectFromServer()
     m_mychannel = {};
     m_myuseraccount = {};
     relayAudioStream(0, STREAMTYPE_NONE, false);
+    stopStreamMediaFile();
 
     m_useraccounts.clear();
     m_bannedusers.clear();
@@ -2112,6 +2158,7 @@ void MainWindow::disconnectFromServer()
     if(m_sysicon)
         m_sysicon->setIcon(QIcon(APPTRAYICON));
 
+    updateTabPages();
     updateWindowTitle();
 }
 
@@ -2120,7 +2167,7 @@ void MainWindow::login()
     QString nick = ttSettings->value(SETTINGS_GENERAL_NICKNAME, SETTINGS_GENERAL_NICKNAME_DEFAULT).toString();
     if(m_host.nickname.size())
         nick = m_host.nickname;
-    QString client = QString("%1 (%2)").arg(APPNAME_SHORT).arg(QSysInfo::productType());
+    QString client = QString("%1 (%2)").arg(APPNAME_SHORT).arg(QSysInfo::prettyProductName());
     int cmdid = TT_DoLoginEx(ttInst, _W(nick), _W(m_host.username),
                              _W(m_host.password), _W(client));
     if (cmdid>0)
@@ -2281,7 +2328,7 @@ void MainWindow::showTTErrorMessage(const ClientErrorMsg& msg, CommandComplete c
     }
 }
 
-#ifdef Q_OS_LINUX
+#if defined(Q_OS_LINUX)
 void MainWindow::keysActive(quint32 keycode, quint32 mods, bool active)
 {
     keycomp_t comp;
@@ -2309,6 +2356,10 @@ void MainWindow::hotkeyToggle(HotKeyID id, bool active)
 {
     switch(id)
     {
+    case HOTKEY_NONE :
+    case HOTKEY_NEXT_UNUSED :
+        Q_ASSERT(false /* these hotkey are not implemented*/);
+        break;
     case HOTKEY_PUSHTOTALK :
         pttHotKey(active);
         break;
@@ -2370,7 +2421,7 @@ void MainWindow::pttHotKey(bool active)
         {
             bool tx = (TT_GetFlags(ttInst) & CLIENT_TX_VOICE) != CLIENT_CLOSED;
             pttfail = !TT_EnableVoiceTransmission(ttInst, !tx);
-            emit(updateMyself());
+            emit updateMyself();
             playSoundEvent(SOUNDEVENT_HOTKEY);
             if (!tx)
                 transmitOn(STREAMTYPE_VOICE);
@@ -2379,7 +2430,7 @@ void MainWindow::pttHotKey(bool active)
     else
     {
         pttfail = !TT_EnableVoiceTransmission(ttInst, active) && active;
-        emit(updateMyself());
+        emit updateMyself();
         playSoundEvent(SOUNDEVENT_HOTKEY);
         if (active)
             transmitOn(STREAMTYPE_VOICE);
@@ -2419,7 +2470,7 @@ void MainWindow::timerEvent(QTimerEvent *event)
             int ping = stats.nUdpPingTimeMs;
             m_clientstats = stats;
 
-            QString status = QString("RX: %1KB TX: %2KB").arg(rx / 1024.0, 2, 'f', 2, '0').arg(tx / 1024.0, 2, 'f', 2, '0');
+            QString status = QString("RX: %1, TX: %2").arg(getFormattedSize(rx)).arg(getFormattedSize(tx));
 
             if(ping != -1)
                 m_pinglabel->setText(QString("PING: %1").arg(ping));
@@ -2534,6 +2585,10 @@ void MainWindow::timerEvent(QTimerEvent *event)
         break;
     case TIMER_APP_UPDATE :
         checkAppUpdate();
+        break;
+    case TIMER_CHANGE_MEDIAFILE_POSITION :
+        setMediaFilePosition();
+        killLocalTimer(TIMER_CHANGE_MEDIAFILE_POSITION);
         break;
     default :
         Q_ASSERT(0);
@@ -2716,6 +2771,64 @@ void MainWindow::firewallInstall()
 }
 #endif
 
+void MainWindow::setupChatHistory()
+{
+    m_chathistory.clear();
+
+    bool listview = ttSettings->value(SETTINGS_DISPLAY_CHAT_HISTORY_LISTVIEW, SETTINGS_DISPLAY_CHAT_HISTORY_LISTVIEW_DEFAULT).toBool();
+    if (listview)
+    {
+        auto chat = new ChatTextList(ui.chatTab);
+        auto layout = ui.verticalLayout_3;
+        auto index = layout->indexOf(ui.chatEdit);
+        layout->removeWidget(ui.chatEdit);
+        layout->insertWidget(index, chat);
+// hm, for some reason it's not possible to tab from ui.msgEdit to 'chat'
+//        for (int i = 0; i < layout->count() - 1; ++i)
+//            ui.chatTab->setTabOrder(layout->itemAt(i)->widget(), layout->itemAt(i+1)->widget());
+        ui.chatTab->setTabOrder(chat, ui.msgEdit);
+        ui.chatTab->setTabOrder(ui.msgEdit, ui.sendButton);
+        m_chathistory[TAB_CHAT] = chat;
+        delete ui.chatEdit;
+        ui.chatEdit = nullptr;
+
+        auto video = new ChatTextList(ui.videoTab);
+        layout = ui.verticalLayout_9;
+        index = layout->indexOf(ui.videochatEdit);
+        layout->removeWidget(ui.videochatEdit);
+        layout->insertWidget(index, video);
+        ui.videoTab->setTabOrder(video, ui.videomsgEdit);
+        ui.videoTab->setTabOrder(ui.videomsgEdit, ui.videosendButton);
+        m_chathistory[TAB_VIDEO] = video;
+        delete ui.videochatEdit;
+        ui.videochatEdit = nullptr;
+
+        auto desktop = new ChatTextList(ui.desktopTab);
+        layout = ui.verticalLayout_8;
+        index = layout->indexOf(ui.desktopchatEdit);
+        layout->removeWidget(ui.desktopchatEdit);
+        layout->insertWidget(index, desktop);
+        ui.desktopTab->setTabOrder(desktop, ui.desktopmsgEdit);
+        ui.desktopTab->setTabOrder(ui.desktopmsgEdit, ui.desktopsendButton);
+        m_chathistory[TAB_DESKTOP] = desktop;
+        delete ui.desktopchatEdit;
+        ui.desktopchatEdit = nullptr;
+    }
+    else
+    {
+        m_chathistory[TAB_CHAT] = ui.chatEdit;
+        m_chathistory[TAB_VIDEO] = ui.videochatEdit;
+        m_chathistory[TAB_DESKTOP] = ui.desktopchatEdit;
+    }
+}
+
+void MainWindow::updateTabPages()
+{
+    slotUpdateMediaTabUI();
+    slotUpdateVideoTabUI();
+    slotUpdateDesktopTabUI();
+}
+
 void MainWindow::subscribeCommon(bool checked, Subscriptions subs, int userid/* = 0*/)
 {
     QString subType;
@@ -2826,8 +2939,8 @@ void MainWindow::subscribeCommon(bool checked, Subscriptions subs, int userid/* 
                 state = tr("Disabled");
             }
         }
-        addStatusMsg(subTypeSB, UtilUI::getStatusBarMessage(SETTINGS_STATUSBARMSG_SUBCHANGE, {{"{user}", getDisplayName(user)}, {"{type}", subType}, {"{state}", state}}));
-        addTextToSpeechMessage(subTypeTTS, UtilTTS::getTTSMessage(SETTINGS_TTSMSG_SUBCHANGE, {{"{user}", getDisplayName(user)}, {"{type}", subType}, {"{state}", state}}));
+        addStatusMsg(subTypeSB, UtilUI::getStatusBarMessage(SETTINGS_STATUSBARMSG_SUBCHANGE, {{"{user}", getDisplayName(user)}, {"{username}", _Q(user.szUsername)}, {"{type}", subType}, {"{state}", state}}));
+        addTextToSpeechMessage(subTypeTTS, UtilTTS::getTTSMessage(SETTINGS_TTSMSG_SUBCHANGE, {{"{user}", getDisplayName(user)}, {"{username}", _Q(user.szUsername)}, {"{type}", subType}, {"{state}", state}}));
     }
 }
 
@@ -2869,9 +2982,9 @@ void MainWindow::processTextMessage(const MyTextMessage& textmsg)
     {
     case MSGTYPE_CHANNEL :
     {
-        QString line = ui.chatEdit->addTextMessage(textmsg);
-        ui.videochatEdit->addTextMessage(textmsg);
-        ui.desktopchatEdit->addTextMessage(textmsg);
+        QString line;
+        for (auto c : m_chathistory)
+            line = c->addTextMessage(textmsg);
 
         //setup channel text logging
         QString chanlog = ttSettings->value(SETTINGS_MEDIASTORAGE_CHANLOGFOLDER).toString();
@@ -2895,7 +3008,7 @@ void MainWindow::processTextMessage(const MyTextMessage& textmsg)
         {
             User user;
             if (ui.channelsWidget->getUser(textmsg.nFromUserID, user))
-                addTextToSpeechMessage(TTS_USER_TEXTMSG_CHANNEL, UtilTTS::getTTSMessage(SETTINGS_TTSMSG_CHANNELMSG, {{"{user}", getDisplayName(user)}, {"{message}", textmsg.moreMessage}, {"{server}", limitText(_Q(m_srvprop.szServerName))}}));
+                addTextToSpeechMessage(TTS_USER_TEXTMSG_CHANNEL, UtilTTS::getTTSMessage(SETTINGS_TTSMSG_CHANNELMSG, {{"{user}", getDisplayName(user)}, {"{username}", _Q(user.szUsername)}, {"{message}", textmsg.moreMessage}, {"{server}", limitText(_Q(m_srvprop.szServerName))}}));
             playSoundEvent(SOUNDEVENT_CHANNELMSG);
         }
         else
@@ -2908,23 +3021,22 @@ void MainWindow::processTextMessage(const MyTextMessage& textmsg)
     }
     case MSGTYPE_BROADCAST :
     {
-        ui.chatEdit->addTextMessage(textmsg);
-        ui.videochatEdit->addTextMessage(textmsg);
-        ui.desktopchatEdit->addTextMessage(textmsg);
+        for (auto c : m_chathistory)
+            c->addTextMessage(textmsg);
 
         User user;
         if (ui.channelsWidget->getUser(textmsg.nFromUserID, user) && user.nUserID != TT_GetMyUserID(ttInst))
-            addTextToSpeechMessage(TTS_USER_TEXTMSG_BROADCAST, UtilTTS::getTTSMessage(SETTINGS_TTSMSG_BROADCASTMSG, {{"{user}", getDisplayName(user)}, {"{message}", textmsg.moreMessage}, {"{server}", limitText(_Q(m_srvprop.szServerName))}}));
+            addTextToSpeechMessage(TTS_USER_TEXTMSG_BROADCAST, UtilTTS::getTTSMessage(SETTINGS_TTSMSG_BROADCASTMSG, {{"{user}", getDisplayName(user)}, {"{username}", _Q(user.szUsername)}, {"{message}", textmsg.moreMessage}, {"{server}", limitText(_Q(m_srvprop.szServerName))}}));
         playSoundEvent(SOUNDEVENT_BROADCASTMSG);
         break;
     }
     case MSGTYPE_USER :
     {
         ui.channelsWidget->setUserMessaged(textmsg.nFromUserID, true);
-        emit(newTextMessage(textmsg));
+        emit newTextMessage(textmsg);
         User user;
         if (ui.channelsWidget->getUser(textmsg.nFromUserID, user))
-            addTextToSpeechMessage(TTS_USER_TEXTMSG_PRIVATE, UtilTTS::getTTSMessage(SETTINGS_TTSMSG_PRIVATEMSG, {{"{user}", getDisplayName(user)}, {"{message}", textmsg.moreMessage}, {"{server}", limitText(_Q(m_srvprop.szServerName))}}));
+            addTextToSpeechMessage(TTS_USER_TEXTMSG_PRIVATE, UtilTTS::getTTSMessage(SETTINGS_TTSMSG_PRIVATEMSG, {{"{user}", getDisplayName(user)}, {"{username}", _Q(user.szUsername)}, {"{message}", textmsg.moreMessage}, {"{server}", limitText(_Q(m_srvprop.szServerName))}}));
 
         if(ttSettings->value(SETTINGS_DISPLAY_MESSAGEPOPUP, SETTINGS_DISPLAY_MESSAGEPOPUP_DEFAULT).toBool())
         {
@@ -2940,7 +3052,7 @@ void MainWindow::processTextMessage(const MyTextMessage& textmsg)
     }
     case MSGTYPE_CUSTOM :
     {
-        emit(newTextMessage(textmsg));
+        emit newTextMessage(textmsg);
 
         QStringList cmd = getCustomCommand(textmsg);
         if(cmd.size() < 2)
@@ -3027,7 +3139,8 @@ void MainWindow::processMyselfJoined(int channelid)
     addTextToSpeechMessage(TTS_USER_JOINED, statusjoin);
 
     //show channel information in chat window
-    ui.chatEdit->joinedChannel(channelid);
+    for (auto c : m_chathistory)
+        c->joinedChannel(channelid);
 
     ui.msgEdit->setVisible(true);
     ui.videomsgEdit->setVisible(true);
@@ -3292,7 +3405,7 @@ bool MainWindow::sendDesktopWindow()
 #elif defined(Q_OS_LINUX)
     {
         if(!m_display)
-            m_display = XOpenDisplay(0);
+            m_display = XOpenDisplay(nullptr);
 
         if(!m_display)
             return false;
@@ -3630,10 +3743,10 @@ void MainWindow::enableHotKey(HotKeyID id, const hotkey_t& hk)
     //disable first so we don't double register
     disableHotKey(id);
 
-#ifdef Q_OS_WIN32
+#if defined(Q_OS_WIN32)
     TT_HotKey_Register(ttInst, id, &hk[0], INT32(hk.size()));
 
-#elif defined(Q_OS_LINUX)
+#elif defined(Q_OS_LINUX) && QT_VERSION < QT_VERSION_CHECK(6,0,0)
 
     Display* display = QX11Info::display();
     Window x11window = QX11Info::appRootWindow();
@@ -3713,11 +3826,11 @@ void MainWindow::enableHotKey(HotKeyID id, const hotkey_t& hk)
 
 void MainWindow::disableHotKey(HotKeyID id)
 {
-#ifdef Q_OS_WIN32
+#if defined(Q_OS_WIN32)
 
     TT_HotKey_Unregister(ttInst, id);
 
-#elif defined(Q_OS_LINUX)
+#elif defined(Q_OS_LINUX) && QT_VERSION < QT_VERSION_CHECK(6,0,0)
 
     Display* display = QX11Info::display();
     Window window = QX11Info::appRootWindow();
@@ -4247,7 +4360,7 @@ void MainWindow::slotClientPreferences(bool /*checked =false */)
     loadHotKeys();
 #endif
 
-    emit(preferencesModified());
+    emit preferencesModified();
 
     m_desktopaccess_entries.clear();
 
@@ -4505,7 +4618,7 @@ void MainWindow::enableVoiceActivation(bool checked, SoundEvent on, SoundEvent o
         ui.voiceactLabel->setVisible(checked && ttSettings->value(SETTINGS_DISPLAY_VOICE_ACT_SLIDER, SETTINGS_DISPLAY_VOICE_ACT_SLIDER_DEFAULT).toBool());
         ui.voiceactSlider->setVisible(checked && ttSettings->value(SETTINGS_DISPLAY_VOICE_ACT_SLIDER, SETTINGS_DISPLAY_VOICE_ACT_SLIDER_DEFAULT).toBool());
         if (TT_GetFlags(ttInst) & CLIENT_CONNECTED)
-            emit(updateMyself());
+            emit updateMyself();
         playSoundEvent(checked == true ? on : off);
         ttSettings->setValue(SETTINGS_GENERAL_VOICEACTIVATED, checked);
     }
@@ -4579,7 +4692,7 @@ void MainWindow::slotMeEnableDesktopSharing(bool checked/*=false*/)
     {
 #if defined(Q_OS_LINUX)
         if(!m_display)
-            m_display = XOpenDisplay(0);
+            m_display = XOpenDisplay(nullptr);
 
         if(!m_display)
             QMessageBox::critical(this, MENUTEXT(ui.actionEnableDesktopSharing->text()),
@@ -5291,6 +5404,11 @@ void MainWindow::slotChannelsStreamMediaFile(bool checked/*=false*/)
         return;
     }
 
+    openStreamMediaFileDlg();
+}
+
+void MainWindow::openStreamMediaFileDlg()
+{
     StreamMediaFileDlg dlg(this);
     connect(this, &MainWindow::mediaStreamUpdate, &dlg, &StreamMediaFileDlg::slotMediaStreamProgress);
     connect(this, &MainWindow::mediaPlaybackUpdate, &dlg, &StreamMediaFileDlg::slotMediaPlaybackProgress);
@@ -5301,6 +5419,7 @@ void MainWindow::slotChannelsStreamMediaFile(bool checked/*=false*/)
         return;
     }
 
+    stopStreamMediaFile();
     startStreamMediaFile();
 }
 
@@ -5352,8 +5471,7 @@ void MainWindow::startStreamMediaFile()
 
         transmitOn(STREAMTYPE_MEDIAFILE);
 
-        ui.actionPauseResumeStream->setEnabled(true);
-        ui.actionPauseResumeStream->setText(tr("&Pause Stream"));
+        m_mfi = MediaFileInfo();
     }
 }
 
@@ -5367,14 +5485,18 @@ void MainWindow::stopStreamMediaFile()
 
     m_statusmode &= ~(STATUSMODE_STREAM_MEDIAFILE | STATUSMODE_STREAM_MEDIAFILE_PAUSED);
 
-    QString statusmsg = ttSettings->value(SETTINGS_GENERAL_STATUSMESSAGE).toString();
-    TT_DoChangeStatus(ttInst, m_statusmode, _W(statusmsg));
+    if (TT_GetFlags(ttInst) & CLIENT_AUTHORIZED)
+    {
+        QString statusmsg = ttSettings->value(SETTINGS_GENERAL_STATUSMESSAGE).toString();
+        TT_DoChangeStatus(ttInst, m_statusmode, _W(statusmsg));
+    }
 
-    ui.actionPauseResumeStream->setEnabled(false);
-    ui.actionPauseResumeStream->setText(tr("Pause/Resume Stream"));
+    m_mfi.reset();
     m_mfp = {};
+    ttSettings->remove(SETTINGS_STREAMMEDIA_OFFSET);
 
     slotUpdateUI();
+    slotUpdateMediaTabUI();
 }
 
 void MainWindow::slotPauseResumeStream()
@@ -5384,8 +5506,6 @@ void MainWindow::slotPauseResumeStream()
 #if defined(Q_OS_WINDOWS)
     fileName = fileName.remove('"');
 #endif
-    if(ttSettings->value(SETTINGS_GENERAL_STREAMING_STATUS, SETTINGS_GENERAL_STREAMING_STATUS_DEFAULT).toBool() == true)
-        statusmsg = QFileInfo(fileName).fileName();
 
     if (m_mfp.bPaused)
     {
@@ -5393,10 +5513,10 @@ void MainWindow::slotPauseResumeStream()
         if (!TT_UpdateStreamingMediaFileToChannel(ttInst, &m_mfp, &m_mfp_videocodec))
         {
             QMessageBox::critical(this, MENUTEXT(ui.actionPauseResumeStream->text()), tr("Failed to resume the stream"));
+            stopStreamMediaFile();
         }
         else
         {
-            ui.actionPauseResumeStream->setText(tr("&Pause Stream"));
             m_statusmode |= STATUSMODE_STREAM_MEDIAFILE;
             m_statusmode &= ~STATUSMODE_STREAM_MEDIAFILE_PAUSED;
         }
@@ -5407,16 +5527,79 @@ void MainWindow::slotPauseResumeStream()
         if (!TT_UpdateStreamingMediaFileToChannel(ttInst, &m_mfp, &m_mfp_videocodec))
         {
             QMessageBox::critical(this, MENUTEXT(ui.actionPauseResumeStream->text()), tr("Failed to pause the stream"));
+            stopStreamMediaFile();
         }
         else
         {
-            ui.actionPauseResumeStream->setText(tr("&Resume Stream"));
             m_mfp.uOffsetMSec = TT_MEDIAPLAYBACK_OFFSET_IGNORE;
             m_statusmode |= STATUSMODE_STREAM_MEDIAFILE_PAUSED;
             m_statusmode &= ~STATUSMODE_STREAM_MEDIAFILE;
         }
     }
+
+    if (ttSettings->value(SETTINGS_GENERAL_STREAMING_STATUS, SETTINGS_GENERAL_STREAMING_STATUS_DEFAULT).toBool())
+        statusmsg = QFileInfo(fileName).fileName();
     TT_DoChangeStatus(ttInst, m_statusmode, _W(statusmsg));
+}
+
+void MainWindow::changeMediaFileOffset(int pos)
+{
+    if (!m_mfi)
+        return;
+
+    double percent = pos / double(ui.playbackOffsetSlider->maximum());
+    ui.playbackTimeLabel->setText(durationToString(UINT32(m_mfi->uDurationMSec * percent)));
+
+    if (timerExists(TIMER_CHANGE_MEDIAFILE_POSITION))
+        killLocalTimer(TIMER_CHANGE_MEDIAFILE_POSITION);
+
+    m_timers.insert(startTimer(500), TIMER_CHANGE_MEDIAFILE_POSITION);
+}
+
+void MainWindow::changeMediaFileVolume(int pos)
+{
+    switch (m_mfp.audioPreprocessor.nPreprocessor)
+    {
+    case TEAMTALK_AUDIOPREPROCESSOR :
+        if (m_mfp.audioPreprocessor.ttpreprocessor.nGainLevel == pos)
+            return;
+        m_mfp.audioPreprocessor.ttpreprocessor.nGainLevel = pos;
+        break;
+    case SPEEXDSP_AUDIOPREPROCESSOR :
+        if (m_mfp.audioPreprocessor.speexdsp.nGainLevel == pos)
+            return;
+        m_mfp.audioPreprocessor.speexdsp.nGainLevel = pos;
+        break;
+    case WEBRTC_AUDIOPREPROCESSOR :
+    case WEBRTC_AUDIOPREPROCESSOR_OBSOLETE_R4332 :
+    case NO_AUDIOPREPROCESSOR :
+        return;
+    }
+
+    saveAudioPreprocessor(m_mfp.audioPreprocessor);
+
+    m_mfp.uOffsetMSec = TT_MEDIAPLAYBACK_OFFSET_IGNORE;
+    if (!TT_UpdateStreamingMediaFileToChannel(ttInst, &m_mfp, &m_mfp_videocodec))
+    {
+        QMessageBox::critical(this, MENUTEXT(ui.actionPauseResumeStream->text()), tr("Failed to change volume of the stream"));
+        stopStreamMediaFile();
+    }
+}
+
+void MainWindow::setMediaFilePosition()
+{
+    if (!m_mfi)
+        return;
+
+    double percent = ui.playbackOffsetSlider->value() / double(ui.playbackOffsetSlider->maximum());
+
+    m_mfp.uOffsetMSec = UINT32(m_mfi->uDurationMSec * percent);
+
+    if (!TT_UpdateStreamingMediaFileToChannel(ttInst, &m_mfp, &m_mfp_videocodec))
+    {
+        QMessageBox::critical(this, MENUTEXT(ui.actionPauseResumeStream->text()), tr("Failed to change playback position"));
+    }
+    ttSettings->setValue(SETTINGS_STREAMMEDIA_OFFSET, m_mfp.uOffsetMSec);
 }
 
 void MainWindow::slotChannelsUploadFile(bool /*checked =false */)
@@ -6212,6 +6395,8 @@ void MainWindow::slotUpdateUI()
     ui.actionDeleteChannel->setEnabled(chanid>0);
     ui.actionStreamMediaFileToChannel->setChecked(statemask & 
                                                   (CLIENT_STREAM_AUDIO | CLIENT_STREAM_VIDEO));
+    ui.actionPauseResumeStream->setEnabled(m_mfi && (m_mfi->nStatus == MFS_PLAYING || m_mfi->nStatus == MFS_PAUSED));
+    ui.actionPauseResumeStream->setText((m_mfi && m_mfi->nStatus == MFS_PAUSED) ? tr("Resume Stream") : tr("&Pause Stream"));
     ui.actionUploadFile->setEnabled(m_myuseraccount.uUserRights & USERRIGHT_UPLOAD_FILES);
     ui.actionDownloadFile->setEnabled(m_myuseraccount.uUserRights & USERRIGHT_DOWNLOAD_FILES);
     ui.actionDeleteFile->setEnabled(filescount>0);
@@ -6252,6 +6437,82 @@ void MainWindow::slotUpdateUI()
 
     ui.uploadButton->setEnabled(m_myuseraccount.uUserRights & USERRIGHT_UPLOAD_FILES);
     ui.downloadButton->setEnabled(m_myuseraccount.uUserRights & USERRIGHT_DOWNLOAD_FILES);
+
+    if (m_sysicon)
+        m_sysicon->setToolTip(getTitle());
+}
+
+void MainWindow::slotUpdateMediaTabUI()
+{
+    auto mfi = m_mfi.value_or(MediaFileInfo());
+
+    switch (mfi.nStatus)
+    {
+    case MFS_PAUSED :
+    case MFS_PLAYING :
+    case MFS_STARTED :
+        if (mfi.nStatus == MFS_PAUSED)
+        {
+            ui.playMediaFileButton->setText(tr("&Play"));
+            ui.playMediaFileButton->setIcon(QIcon(QString::fromUtf8(":/images/images/play.png")));
+        }
+        else
+        {
+            ui.playMediaFileButton->setText(tr("&Pause"));
+            ui.playMediaFileButton->setIcon(QIcon(QString::fromUtf8(":/images/images/pause.png")));
+        }
+
+        ui.mediaDurationLabel->setText(tr("Duration: %1").arg(durationToString(mfi.uDurationMSec)));
+        if (!timerExists(TIMER_CHANGE_MEDIAFILE_POSITION))
+        {
+            ui.playbackTimeLabel->setText(durationToString(mfi.uElapsedMSec));
+            setMediaFileProgress(ui.playbackOffsetSlider, mfi);
+        }
+        ui.mediaAudioFmtLabel->setText(tr("Audio format: %1").arg(getMediaAudioDescription(mfi.audioFmt)));
+        ui.mediaVideoFmtLabel->setText(tr("Video format: %1").arg(getMediaVideoDescription(mfi.videoFmt)));
+        break;
+    case MFS_CLOSED :
+    case MFS_ERROR :
+    case MFS_ABORTED :
+        ui.playbackOffsetSlider->setValue(0);
+    case MFS_FINISHED :
+        ui.playMediaFileButton->setText(tr("&Play"));
+        ui.playMediaFileButton->setIcon(QIcon(QString::fromUtf8(":/images/images/play.png")));
+        ui.mediaDurationLabel->setText(tr("Duration: %1").arg(durationToString(0)));
+        ui.playbackTimeLabel->setText(durationToString(0));
+        setMediaFileProgress(ui.playbackOffsetSlider, mfi);
+        ui.mediaAudioFmtLabel->setText(tr("Audio format: %1").arg(""));
+        ui.mediaVideoFmtLabel->setText(tr("Video format: %1").arg(""));
+        break;
+    }
+    ui.playbackOffsetSlider->setEnabled(mfi.nStatus != MFS_CLOSED);
+    ui.mediaFileNameLabel->setText(tr("File name: %1").arg(_Q(mfi.szFileName)));
+
+    // init volume slider for media streaming
+    switch (m_mfp.audioPreprocessor.nPreprocessor)
+    {
+    case SPEEXDSP_AUDIOPREPROCESSOR :
+        ui.mediaVolumeSlider->setEnabled(m_mfp.audioPreprocessor.speexdsp.bEnableAGC);
+        ui.mediaVolumeSlider->setRange(SPEEXDSP_AGC_GAINLEVEL_MIN, SPEEXDSP_AGC_GAINLEVEL_MAX);
+        ui.mediaVolumeSlider->setValue(m_mfp.audioPreprocessor.speexdsp.nGainLevel);
+        ui.mediaVolumeLabel->setText(tr("%1 %").arg(100 * m_mfp.audioPreprocessor.speexdsp.nGainLevel / DEFAULT_SPEEXDSP_AGC_GAINLEVEL));
+        break;
+    case TEAMTALK_AUDIOPREPROCESSOR :
+        ui.mediaVolumeSlider->setEnabled(true);
+        ui.mediaVolumeSlider->setRange(SOUND_GAIN_MIN, /*SOUND_GAIN_MAX*/8000);
+        ui.mediaVolumeSlider->setValue(m_mfp.audioPreprocessor.ttpreprocessor.nGainLevel);
+        ui.mediaVolumeLabel->setText(tr("%1 %").arg(100 * m_mfp.audioPreprocessor.ttpreprocessor.nGainLevel / SOUND_GAIN_DEFAULT));
+        break;
+    case NO_AUDIOPREPROCESSOR :
+    case WEBRTC_AUDIOPREPROCESSOR :
+    case WEBRTC_AUDIOPREPROCESSOR_OBSOLETE_R4332 :
+        ui.mediaVolumeSlider->setEnabled(false);
+        ui.mediaVolumeSlider->setValue(0);
+        ui.mediaVolumeLabel->setText(tr("%1 %").arg(100));
+        break;
+    }
+
+    ui.openMediaFileButton->setEnabled(TT_GetFlags(ttInst) & CLIENT_AUTHORIZED);
 }
 
 void MainWindow::slotUpdateVideoTabUI()
@@ -7250,6 +7511,7 @@ void MainWindow::slotMicrophoneGainChanged(int value)
     switch (preprocessor.nPreprocessor)
     {
     case NO_AUDIOPREPROCESSOR :
+    case WEBRTC_AUDIOPREPROCESSOR_OBSOLETE_R4332 :
         preprocessor = initDefaultAudioPreprocessor(NO_AUDIOPREPROCESSOR);
         TT_SetSoundInputPreprocessEx(ttInst, &preprocessor);
         TT_SetSoundInputGainLevel(ttInst, refGain(value));
@@ -7611,7 +7873,10 @@ void MainWindow::keyPressEvent(QKeyEvent* e)
             slotChannelsDownloadFile();
         }
     }
-    if (ui.chatEdit->hasFocus() || ui.videochatEdit->hasFocus() || ui.desktopchatEdit->hasFocus())
+
+    if (m_chathistory[TAB_CHAT]->hasFocus() ||
+        m_chathistory[TAB_VIDEO]->hasFocus() ||
+        m_chathistory[TAB_DESKTOP]->hasFocus())
     {
         QString key = e->text();
         if (!key.isEmpty() && key.size() == 1)
@@ -7619,17 +7884,17 @@ void MainWindow::keyPressEvent(QKeyEvent* e)
             QChar keyText = key.at(0);    
             if (keyText.isPrint())
             {
-                if (ui.chatEdit->hasFocus())
+                if (m_chathistory[TAB_CHAT]->hasFocus())
                 {
                     ui.msgEdit->setFocus();
                     ui.msgEdit->kPress(e);
                 }
-                else if (ui.videochatEdit->hasFocus())
+                else if (m_chathistory[TAB_VIDEO]->hasFocus())
                 {
                     ui.videomsgEdit->setFocus();
                     ui.videomsgEdit->kPress(e);
                 }
-                else if (ui.desktopchatEdit->hasFocus())
+                else if (m_chathistory[TAB_DESKTOP]->hasFocus())
                 {
                     ui.desktopmsgEdit->setFocus();
                     ui.desktopmsgEdit->kPress(e);
@@ -7656,8 +7921,8 @@ void MainWindow::slotSpeakClientStats(bool /*checked = false*/)
     float rx = float(stats.nUdpBytesRecv - m_clientstats.nUdpBytesRecv);
     float tx = float(stats.nUdpBytesSent - m_clientstats.nUdpBytesSent);
     int ping = stats.nUdpPingTimeMs;
-    QString strstats = QString("RX: %1KB TX: %2KB").arg(rx / 1024.0, 2, 'f', 2, '0').arg(tx / 1024.0, 2, 'f', 2, '0');
+    QString strstats = QString("RX: %1, TX: %2").arg(getFormattedSize(rx)).arg(getFormattedSize(tx));
     if (ping >= 0)
-        strstats += QString(" PING: %3").arg(ping);
+        strstats += QString(", PING: %3").arg(ping);
     addTextToSpeechMessage(strstats);
 }

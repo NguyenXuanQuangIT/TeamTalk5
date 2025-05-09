@@ -31,9 +31,9 @@
 #include "WinMedia.h"
 #endif /* ENABLE_DSHOW */
 
-#if defined(ENABLE_FFMPEG3)
-#include "FFMpeg3Streamer.h"
-#endif /* ENABLE_FFMPEG3*/
+#if defined(ENABLE_FFMPEG)
+#include "FFmpegStreamer.h"
+#endif /* ENABLE_FFMPEG*/
 
 #if defined(ENABLE_OPUSTOOLS) && defined(ENABLE_OPUS)
 #include "OpusFileStreamer.h"
@@ -56,7 +56,7 @@ bool GetMediaFileProp(const ACE_TString& filename, MediaFileProp& fileprop)
     return GetMFMediaFileProp(filename, fileprop);
 #elif defined(ENABLE_DSHOW)
     return GetDSMediaFileProp(filename, fileprop);
-#elif defined(ENABLE_FFMPEG3)
+#elif defined(ENABLE_FFMPEG)
     return GetAVMediaFileProp(filename, fileprop);
 #endif
     return false;
@@ -76,8 +76,8 @@ mediafile_streamer_t MakeMediaFileStreamer(const ACE_TString& filename, const Me
     streamer.reset(new MFStreamer(filename, out_prop));
 #elif defined(ENABLE_DSHOW)
     streamer.reset(new DSWrapperThread());
-#elif defined(ENABLE_FFMPEG3)
-    streamer.reset(new FFMpegStreamer(filename, out_prop));
+#elif defined(ENABLE_FFMPEG)
+    streamer.reset(new FFmpegStreamer(filename, out_prop));
 #endif
 
     return streamer;

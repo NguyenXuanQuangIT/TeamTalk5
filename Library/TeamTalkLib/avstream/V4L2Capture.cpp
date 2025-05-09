@@ -43,15 +43,15 @@ using namespace std;
 using namespace vidcap;
 using namespace media;
 
-class V4L2Input : public FFMpegVideoInput
+class V4L2Input : public FFmpegVideoInput
 {
 public:
     V4L2Input(const VidCapDevice& viddevice,
               const media::VideoFormat& fmt)
-    : FFMpegVideoInput(viddevice, fmt) { }
+    : FFmpegVideoInput(viddevice, fmt) { }
 
-    // FFMpegStreamer override
-    bool SetupInput(AVInputFormat *iformat,
+    // FFmpegStreamer override
+    bool SetupInput(const AVInputFormat *iformat,
                     AVDictionary *options,
                     AVFormatContext*& fmt_ctx,
                     AVCodecContext*& aud_dec_ctx,
@@ -79,7 +79,7 @@ public:
 
         av_dict_set(&options, "pixel_format", "0rgb", 0);
 
-        return FFMpegVideoInput::SetupInput(iformat, options, fmt_ctx,
+        return FFmpegVideoInput::SetupInput(iformat, options, fmt_ctx,
                                             aud_dec_ctx, vid_dec_ctx,
                                             audio_stream_index,
                                             video_stream_index);
@@ -113,7 +113,7 @@ vidcap_devices_t V4L2Capture::GetDevices()
 {
     vidcap_devices_t devs;
 
-    AVInputFormat* in_fmt = av_input_video_device_next(NULL), *indev_fmt = NULL;
+    const AVInputFormat* in_fmt = av_input_video_device_next(NULL), *indev_fmt = NULL;
     while(in_fmt) {
         if (av_match_name("v4l2", in_fmt->name)) {
             indev_fmt = in_fmt;

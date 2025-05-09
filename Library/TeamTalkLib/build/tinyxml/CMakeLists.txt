@@ -12,7 +12,7 @@ if (MSVC)
   if (TOOLCHAIN_BUILD_EXTERNALPROJECTS)
     ExternalProject_Add(tinyxml-src
       GIT_REPOSITORY    https://github.com/bear101/tinyxml
-      GIT_TAG           bdr/cmake
+      GIT_TAG           bdr_v2
       UPDATE_COMMAND    ""
       PREFIX            ${TOOLCHAIN_BUILD_PREFIX}/tinyxml
       CMAKE_ARGS        -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR> -DTINYXML_MULTITHREADED=ON
@@ -46,7 +46,7 @@ elseif (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
       string (REPLACE ";" "\$<SEMICOLON>" ARCHS "${CMAKE_OSX_ARCHITECTURES}")
       ExternalProject_Add(tinyxml-src
         GIT_REPOSITORY    https://github.com/bear101/tinyxml
-        GIT_TAG           bdr/cmake
+        GIT_TAG           bdr_v2
         UPDATE_COMMAND    ""
         PREFIX            ${TOOLCHAIN_BUILD_PREFIX}/tinyxml
         CMAKE_ARGS        -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
@@ -76,7 +76,7 @@ elseif (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     if (TOOLCHAIN_BUILD_EXTERNALPROJECTS)
       ExternalProject_Add(tinyxml-src
         GIT_REPOSITORY    https://github.com/bear101/tinyxml
-        GIT_TAG           bdr/cmake
+        GIT_TAG           bdr_v2
         UPDATE_COMMAND    ""
         PREFIX            ${TOOLCHAIN_BUILD_PREFIX}/tinyxml
         CMAKE_ARGS        -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
@@ -96,22 +96,16 @@ elseif (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
       add_dependencies(tinyxml tinyxml-src)
     endif()
 
-    if (${CMAKE_VERSION} VERSION_LESS "3.11.0")
-      set_target_properties(tinyxml PROPERTIES
-        INTERFACE_INCLUDE_DIRECTORIES ${INSTALL_DIR}/include
-        IMPORTED_LOCATION ${INSTALL_DIR}/lib/libtinyxml.a)
-    else()
-      target_include_directories (tinyxml INTERFACE ${INSTALL_DIR}/include)
-      set_target_properties(tinyxml PROPERTIES
-        IMPORTED_LOCATION ${INSTALL_DIR}/lib/libtinyxml.a)
-    endif()
+    target_include_directories (tinyxml INTERFACE ${INSTALL_DIR}/include)
+    set_target_properties(tinyxml PROPERTIES
+      IMPORTED_LOCATION ${INSTALL_DIR}/lib/libtinyxml.a)
 
 elseif (${CMAKE_SYSTEM_NAME} MATCHES "Android")
 
     if (TOOLCHAIN_BUILD_EXTERNALPROJECTS)
       ExternalProject_Add(tinyxml-src
         GIT_REPOSITORY    https://github.com/bear101/tinyxml
-        GIT_TAG           bdr/cmake
+        GIT_TAG           bdr_v2
         UPDATE_COMMAND    ""
         PREFIX            ${TOOLCHAIN_BUILD_PREFIX}/tinyxml
         CMAKE_ARGS        -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>

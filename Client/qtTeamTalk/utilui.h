@@ -43,6 +43,13 @@ enum DoubleClickChannelAction
     ACTION_JOINLEAVE        = (ACTION_JOIN | ACTION_LEAVE),
 };
 
+enum UserInfoStyle
+{
+    STYLE_NONE          = 0x0,
+    STYLE_EMOJI             = 0x1,
+    STYLE_TEXT            = 0x2,
+};
+
 enum StatusBarEvent : qulonglong
 {
     STATUSBAR_NONE                                        = 0x0,
@@ -98,6 +105,31 @@ struct StatusBarEventInfo
     QString eventName;
 };
 
+enum ChatTemplate : qulonglong
+{
+    CHATTEMPLATES_NONE                                        = 0x0,
+    CHATTEMPLATES_CHANNEL_MESSAGE                               = qulonglong(1) << 0,
+    CHATTEMPLATES_BROADCAST_MESSAGE                              = qulonglong(1) << 1,
+    CHATTEMPLATES_PRIVATE_MESSAGE                                 = qulonglong(1) << 2,
+    CHATTEMPLATES_LOG_MESSAGE                                 = qulonglong(1) << 3,
+    CHATTEMPLATES_SERVER_NAME                                 = qulonglong(1) << 4,
+    CHATTEMPLATES_SERVER_MOTD                                 = qulonglong(1) << 5,
+    CHATTEMPLATES_JOINED_CHAN                                 = qulonglong(1) << 6,
+    CHATTEMPLATES_CHANNEL_TOPIC                                 = qulonglong(1) << 7,
+    CHATTEMPLATES_CHANNEL_QUOTA                                 = qulonglong(1) << 8,
+
+    CHATTEMPLATES_NEXT_UNUSED                                 = qulonglong(1) << 9,
+};
+
+typedef qulonglong ChatTemplates;
+
+struct ChatTemplateInfo
+{
+    QString settingKey;
+    QHash<QString, QString> variables;
+    QString templateName;
+};
+
 enum ChannelSort
 {
     CHANNELSORT_ASCENDING  = 0x1,
@@ -119,6 +151,8 @@ enum VideoText
     VIDTEXT_SHOW_STATUSTEXT          = 0x0040,
 };
 
+#define NOTIFY_PATH "/usr/bin/notify-send"
+
 void setVideoTextBox(const QRect& rect, const QColor& bgcolor,
                      const QColor& fgcolor, const QString& text,
                      quint32 text_pos, int w_percent, int h_percent,
@@ -132,6 +166,8 @@ void setCurrentItemData(QComboBox* cbox, const QVariant& itemdata);
 QVariant getCurrentItemData(QComboBox* cbox, const QVariant& not_found = QVariant());
 
 QString getBearWareWebLogin(QWidget* parent);
+QString limitText(const QString& text);
+QString getDisplayName(const User& user);
 
 textmessages_t sendTextMessage(const TextMessage& msg, const QString& content);
 
@@ -166,7 +202,8 @@ QString getLanguageDisplayName(const QString &languageCode);
 bool switchLanguage(const QString& language);
 QString getFormattedDateTime(QString originalDateTimeString, QString inputFormat);
 QString getTimestampFormat();
-QString getFormattedFileSize(qint64 filesize);
+QString getFormattedSize(qint64 size);
+bool hasEditedTextMessages();
 
 class UtilUI : public QObject
 {
@@ -177,6 +214,10 @@ public:
     static QString getDefaultValue(const QString& paramKey);
     static QString getStatusBarMessage(const QString& paramKey, const QHash<QString, QString>& variables);
     static QString getRawStatusBarMessage(const QString& paramKey);
+    static QHash<ChatTemplates, ChatTemplateInfo> templatesToSettingMap();
+    static QString getDefaultTemplate(const QString& paramKey);
+    static QString getChatTemplate(const QString& paramKey, const QHash<QString, QString>& variables);
+    static QString getRawChatTemplate(const QString& paramKey);
 };
 
 class LoginInfoDialog : public QDialog
@@ -206,4 +247,6 @@ public:
 private:
     QLineEdit *passEdit;
 };
+
+    void showNotification(const QString &title, const QString &message);
 #endif

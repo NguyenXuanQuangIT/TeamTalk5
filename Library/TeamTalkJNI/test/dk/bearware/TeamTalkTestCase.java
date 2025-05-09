@@ -33,13 +33,19 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.Socket;
+import java.text.ParsePosition;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.TimeZone;
 import java.util.Vector;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertTrue;
 
 @FixMethodOrder(MethodSorters.NAME_ASCENDING)
@@ -2379,18 +2385,17 @@ public abstract class TeamTalkTestCase extends TeamTalkTestCaseBase {
         preprocess.nPreprocessor = AudioPreprocessorType.WEBRTC_AUDIOPREPROCESSOR;
         preprocess.webrtc.preamplifier.bEnable = true;
         preprocess.webrtc.preamplifier.fFixedGainFactor = 5;
-        preprocess.webrtc.voicedetection.bEnable = true;
         preprocess.webrtc.echocanceller.bEnable = false;
         preprocess.webrtc.gaincontroller2.bEnable = true;
         preprocess.webrtc.gaincontroller2.fixeddigital.fGainDB = 4;
         preprocess.webrtc.gaincontroller2.adaptivedigital.bEnable = true;
-        preprocess.webrtc.gaincontroller2.adaptivedigital.fInitialSaturationMarginDB = 5;
-        preprocess.webrtc.gaincontroller2.adaptivedigital.fExtraSaturationMarginDB = 6;
-        preprocess.webrtc.gaincontroller2.adaptivedigital.fMaxGainChangeDBPerSecond = 7;
-        preprocess.webrtc.gaincontroller2.adaptivedigital.fMaxOutputNoiseLevelDBFS = 8;
+        preprocess.webrtc.gaincontroller2.adaptivedigital.fHeadRoomDB = 5;
+        preprocess.webrtc.gaincontroller2.adaptivedigital.fMaxGainDB = 6;
+        preprocess.webrtc.gaincontroller2.adaptivedigital.fInitialGainDB = 7;
+        preprocess.webrtc.gaincontroller2.adaptivedigital.fMaxGainChangeDBPerSecond = 8;
+        preprocess.webrtc.gaincontroller2.adaptivedigital.fMaxOutputNoiseLevelDBFS = 9;
         preprocess.webrtc.noisesuppression.bEnable = true;
         preprocess.webrtc.noisesuppression.nLevel = 2;
-        preprocess.webrtc.levelestimation.bEnable = true;
 
         if (WEBRTC_AVAILABLE) {
             assertTrue("Enable WebRTC", ttclient.setSoundInputPreprocess(preprocess));
@@ -2403,17 +2408,16 @@ public abstract class TeamTalkTestCase extends TeamTalkTestCaseBase {
             assertEquals("webrtc2", (int)preprocess.webrtc.gaincontroller2.fixeddigital.fGainDB, (int)preprocess2.webrtc.gaincontroller2.fixeddigital.fGainDB);
 
             assertEquals("webrtc3", preprocess.webrtc.gaincontroller2.adaptivedigital.bEnable, preprocess2.webrtc.gaincontroller2.adaptivedigital.bEnable);
-            assertEquals("webrtc4", (int)preprocess.webrtc.gaincontroller2.adaptivedigital.fInitialSaturationMarginDB, (int)preprocess2.webrtc.gaincontroller2.adaptivedigital.fInitialSaturationMarginDB);
-            assertEquals("webrtc5", (int)preprocess.webrtc.gaincontroller2.adaptivedigital.fExtraSaturationMarginDB, (int)preprocess2.webrtc.gaincontroller2.adaptivedigital.fExtraSaturationMarginDB);
-            assertEquals("webrtc6", (int)preprocess.webrtc.gaincontroller2.adaptivedigital.fMaxGainChangeDBPerSecond, (int)preprocess2.webrtc.gaincontroller2.adaptivedigital.fMaxGainChangeDBPerSecond);
-            assertEquals("webrtc7", (int)preprocess.webrtc.gaincontroller2.adaptivedigital.fMaxOutputNoiseLevelDBFS, (int)preprocess2.webrtc.gaincontroller2.adaptivedigital.fMaxOutputNoiseLevelDBFS);
+            assertEquals("webrtc4", (int)preprocess.webrtc.gaincontroller2.adaptivedigital.fHeadRoomDB, (int)preprocess2.webrtc.gaincontroller2.adaptivedigital.fHeadRoomDB);
+            assertEquals("webrtc5", (int)preprocess.webrtc.gaincontroller2.adaptivedigital.fMaxGainDB, (int)preprocess2.webrtc.gaincontroller2.adaptivedigital.fMaxGainDB);
+            assertEquals("webrtc6", (int)preprocess.webrtc.gaincontroller2.adaptivedigital.fInitialGainDB, (int)preprocess2.webrtc.gaincontroller2.adaptivedigital.fInitialGainDB);
+            assertEquals("webrtc7", (int)preprocess.webrtc.gaincontroller2.adaptivedigital.fMaxGainChangeDBPerSecond, (int)preprocess2.webrtc.gaincontroller2.adaptivedigital.fMaxGainChangeDBPerSecond);
+            assertEquals("webrtc8", (int)preprocess.webrtc.gaincontroller2.adaptivedigital.fMaxOutputNoiseLevelDBFS, (int)preprocess2.webrtc.gaincontroller2.adaptivedigital.fMaxOutputNoiseLevelDBFS);
 
-            assertEquals("webrtc8", preprocess.webrtc.noisesuppression.bEnable, preprocess2.webrtc.noisesuppression.bEnable);
-            assertEquals("webrtc9", preprocess.webrtc.noisesuppression.nLevel, preprocess2.webrtc.noisesuppression.nLevel);
-            assertEquals("webrtc10", preprocess.webrtc.preamplifier.bEnable, preprocess2.webrtc.preamplifier.bEnable);
-            assertEquals("webrtc11", (int)preprocess.webrtc.preamplifier.fFixedGainFactor, (int)preprocess2.webrtc.preamplifier.fFixedGainFactor);
-            assertEquals("webrtc12", preprocess.webrtc.voicedetection.bEnable, preprocess2.webrtc.voicedetection.bEnable);
-            assertEquals("webrtc13", preprocess.webrtc.levelestimation.bEnable, preprocess2.webrtc.levelestimation.bEnable);
+            assertEquals("webrtc9", preprocess.webrtc.noisesuppression.bEnable, preprocess2.webrtc.noisesuppression.bEnable);
+            assertEquals("webrtc10", preprocess.webrtc.noisesuppression.nLevel, preprocess2.webrtc.noisesuppression.nLevel);
+            assertEquals("webrtc11", preprocess.webrtc.preamplifier.bEnable, preprocess2.webrtc.preamplifier.bEnable);
+            assertEquals("webrtc12", (int)preprocess.webrtc.preamplifier.fFixedGainFactor, (int)preprocess2.webrtc.preamplifier.fFixedGainFactor);
         }
     }
 
@@ -4492,6 +4496,61 @@ public abstract class TeamTalkTestCase extends TeamTalkTestCaseBase {
 
         assertTrue("User state changed to not streaming", waitForEvent(client, ClientEvent.CLIENTEVENT_USER_STATECHANGE, DEF_WAIT, msg));
         assertEquals("User is not streaming", UserState.USERSTATE_NONE, (msg.user.uUserState & UserState.USERSTATE_MEDIAFILE_AUDIO));
+    }
+
+    @Test
+    public void testUserAcountLastLogin() {
+        final String USERNAME = "tt_test", PASSWORD = "tt_test", NICKNAME = "jUnit - " + getTestMethodName();
+        int USERRIGHTS = UserRight.USERRIGHT_TRANSMIT_MEDIAFILE | UserRight.USERRIGHT_CREATE_TEMPORARY_CHANNEL;
+        makeUserAccount(NICKNAME, USERNAME, PASSWORD, USERRIGHTS);
+
+        TeamTalkBase client = newClientInstance();
+        connect(client);
+        login(client, NICKNAME, USERNAME, PASSWORD);
+
+        UserAccount first_login_account = new UserAccount();
+        assertTrue("get account", client.getMyUserAccount(first_login_account));
+        //assertEquals("1970/01/01 00:00", first_login_account.szLastLoginTime);
+
+        assertTrue("disconnect", client.disconnect());
+        connect(client);
+        login(client, NICKNAME, USERNAME, PASSWORD);
+
+        UserAccount second_login_account = new UserAccount();
+        assertTrue("get account again", client.getMyUserAccount(second_login_account));
+        //assertNotEquals("1970/01/01 00:00", second_login_account.szLastLoginTime);
+        assertNotEquals(first_login_account.szLastLoginTime, second_login_account.szLastLoginTime);
+    }
+
+    @Test
+    public void testTimeZone() {
+        final String USERNAME = "tt_test", PASSWORD = "tt_test", NICKNAME = "jUnit - " + getTestMethodName();
+        int USERRIGHTS = UserRight.USERRIGHT_TRANSMIT_MEDIAFILE | UserRight.USERRIGHT_CREATE_TEMPORARY_CHANNEL;
+        makeUserAccount(NICKNAME, USERNAME, PASSWORD, USERRIGHTS);
+
+        SimpleDateFormat fmt = new SimpleDateFormat("yyyy/MM/dd HH:mm");
+        Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
+        calendar.set(1970, Calendar.JANUARY, 1, 0, 0, 0);
+        
+        TeamTalkBase client = newClientInstance();
+        connect(client);
+        login(client, NICKNAME, USERNAME, PASSWORD);
+
+        UserAccount first_login_account = new UserAccount();
+        assertTrue("get account", client.getMyUserAccount(first_login_account));
+        assertEquals("must be 1970/01/01 in local time", fmt.format(calendar.getTime()), first_login_account.szLastLoginTime);
+
+        assertTrue("disconnect", client.disconnect());
+        connect(client);
+        login(client, NICKNAME, USERNAME, PASSWORD);
+
+        UserAccount second_login_account = new UserAccount();
+        assertTrue("get account again", client.getMyUserAccount(second_login_account));
+        Date logintime = fmt.parse(second_login_account.szLastLoginTime, new ParsePosition(0));
+        Date now = new Date();
+        long diff = now.getTime() - logintime.getTime();
+        diff /= 1000;
+        assertEquals("time stamp match within 2 minutes", diff, 0, 120);
     }
 
     /* cannot test output levels since a user is muted by sound system after decoding and callback.

@@ -30,7 +30,9 @@
     <string name="text_cmd_joinroot">Подключен корневой канал</string>
     <string name="text_cmd_leftroot">Отключен корневой канал</string>
     <string name="text_cmd_userjoinchan">подключился к каналу</string>
-    <string name="text_cmd_userleftchan">Покинул канал</string>
+    <string name="text_cmd_userleftchan">покинул канал</string>
+    <string name="text_cmd_userloggedout">Ушел с сервера</string>
+    <string name="text_cmd_userloggedin">Зарегистрировался на сервере</string>
     <string name="text_cmd_servername">Имя сервера: </string>
     <string name="text_cmd_servermotd">Сообщение дня: </string>
     <string name="pref_cat_subscriptions">Подписки</string>
@@ -138,11 +140,18 @@
     <string name="action_bansrv">Запретить вход на сервер</string>
     <string name="action_edit">Редактировать Свойства</string>
     <string name="action_join">Войти</string>
+    <string name="action_edituser">Настройки пользователя</string>
+    <string name="action_message">Сообщения</string>
     <string name="action_kickchan">Выгнать с текущего канала</string>
     <string name="action_kicksrv">Выгнать с сервера</string>
     <string name="action_move">Переместить Сюда</string>
     <string name="action_select">Выбрать Для Перемещения</string>
-    <string name="action_upload">Выложить Файл</string>
+    <string name="action_deselect">Отменить Выбор</string>
+    <string name="action_exportsrv">Экспортировать сервер</string>
+    <string name="action_editsrv">Редактировать сервер</string>
+    <string name="action_removesrv">Удалить сервер</string>
+    <string name="action_upload">Выложить файл</string>
+    <string name="action_broadcast">Широковещательное сообщение</string>
     <string name="action_stream">Трансляция медиафайла</string>
     <string name="button_select_media_file">Просмотр</string>
     <string name="button_stream_media_file">Трансляция</string>
@@ -163,9 +172,13 @@
     <string name="channel_prop_title_novoiceact">Запрет Активации Голосом</string>
     <string name="channel_prop_title_noaudiorecord">Запрет Аудиозаписи</string>
 
-    <string name="user_prop_title_username">Имя Пользователя</string>
-    <string name="user_prop_title_clientname">Имя клиента</string>
+    <string name="user_prop_title_nickname">Псевдоним:</string>
+    <string name="user_prop_title_username">Имя Пользователя:</string>
+    <string name="user_prop_title_userid">Идентификатор пользователя:</string>
+    <string name="user_prop_title_statusmsg">Сообщение о Состоянии:</string>
+    <string name="user_prop_title_clientname">Имя клиента:</string>
     <string name="user_prop_clientversion">версия</string>
+    <string name="user_prop_title_ipaddress">IP Адрес:</string>
     <string name="user_prop_title_voice_volume">Громкость Голоса</string>
     <string name="user_prop_title_mute_voice">Выключить Голос</string>
     <string name="user_prop_title_media_volume">Громкость Проигрывания Медиафайлов</string>
@@ -188,6 +201,7 @@
     <string name="stat_online">Активно</string>
     <string name="stat_offline">Отсутствует</string>
     <string name="stat_connecting">Устанавливается</string>
+    <string name="stat_unauthorized">Не авторизован</string>
     <string name="label_voice">Голос:</string>
     <string name="label_desktop">Рабстол:</string>
     <string name="label_ping">Пинг:</string>
@@ -216,6 +230,7 @@
     <string name="action_import_serverlist">Импортировать из Файла</string>
     <string name="action_export_serverlist">Экспортировать список серверов</string>
     <string name="serverlist_export_confirmation">Список серверов сохранен в %1$s</string>
+    <string name="server_export_confirmation">Сервер экспортирован в %1$s</string>
 
     <string name="pref_title_server_props">Свойства Сервера TeamTalk 5</string>
     <string name="pref_title_server_info">Информация о Сервере</string>
@@ -260,22 +275,27 @@
     <string name="ban_confirmation">Вы действительно намерены забанить пользователя %1$s?</string>
     <string name="kick_confirmation">Вы действительно намерены выгнать пользователя %1$s?</string>
     <string name="version_update">Доступна новая версия TeamTalk: %1$s?</string>
-    <string name="decvolume">Уменьшить громкость</string>
-    <string name="incvolume">Увеличить громкость</string>
+    <string name="opusbitrate">битрейт</string>
+    <string name="opusinterval">Интервал передачи</string>
+    <string name="speexquality">Качество</string>
+    <string name="speexinterval">Интервал передачи</string>
+    <string name="speexvbrquality">Качество</string>
+    <string name="speexvbrinterval">Интервал передачи</string>
+    <string name="voicevolume">Громкость голоса</string>
+    <string name="mediavolume">Громкость медиафайлов</string>
+    <string name="mastervolume">Громкость</string>
+    <string name="micgain">Чувствительность микрофона</string>
+    <string name="voxlevel">Порог голосовой активации</string>
     <string name="speaker_mute">Выключить звук</string>
     <string name="speaker_unmute">Включить звук</string>
     <string name="mic_mute">Выключить микрофон</string>
     <string name="mic_unmute">Включить микрофон</string>
-    <string name="decgain">Уменьшить чувствительность микрофона</string>
-    <string name="incgain">Увеличить чувствительность микрофона</string>
 
     <string name="speaker_volume_description">Громкость звука %1$s</string>
     <string name="mic_gain_description">Чувствительность микрофона %1$s</string>
 
     <string name="voice_activation_on">Включить голосовую активацию</string>
     <string name="voice_activation_off">Выключить голосовую активацию</string>
-    <string name="decvoxlevel">Понизить порог голосовой активации</string>
-    <string name="incvoxlevel">Повысить порог голосовой активации</string>
     <string name="vox_level_description">Порог голосовой активации %1$s</string>
 
     <string name="tx_on">Идет передача</string>
@@ -393,5 +413,6 @@
     <string name="action_make_operator">Предоставить права Оператора</string>
     <string name="action_revoke_operator">Отозвать права Оператора</string>
     <string name="text_operator_password">Введите пароль оператора канала</string>
+    <string name="text_broadcast_message">Введите широковещательное сообщение</string>
 
 </resources>

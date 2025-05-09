@@ -79,6 +79,7 @@ import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.PopupMenu;
 import android.widget.PopupMenu.OnMenuItemClickListener;
+import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -297,18 +298,21 @@ extends AppCompatActivity
         }
 
         boolean uploadRight = (myuseraccount.uUserRights & UserRight.USERRIGHT_UPLOAD_FILES) != UserRight.USERRIGHT_NONE;
+        boolean broadcastRight = (myuseraccount.uUserRights & UserRight.USERRIGHT_TEXTMESSAGE_BROADCAST) != UserRight.USERRIGHT_NONE;
         boolean isEditable = curchannel != null;
         boolean isJoinable = (ttclient != null) && (curchannel != null) && (ttclient.getMyChannelID() != curchannel.nChannelID) && (curchannel.nMaxUsers > 0);
         boolean isMyChannel = (ttclient != null) && (curchannel != null) && (ttclient.getMyChannelID() == curchannel.nChannelID);
         menu.findItem(R.id.action_edit).setEnabled(isEditable).setVisible(isEditable);
         menu.findItem(R.id.action_join).setEnabled(isJoinable).setVisible(isJoinable);
         menu.findItem(R.id.action_upload).setEnabled(uploadRight).setVisible(uploadRight);
+        menu.findItem(R.id.action_broadcast).setEnabled(broadcastRight).setVisible(broadcastRight);
         menu.findItem(R.id.action_stream).setEnabled(isMyChannel).setVisible(isMyChannel);
         return super.onPrepareOptionsMenu(menu);
     }
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
+        AlertDialog.Builder alert = new AlertDialog.Builder(this);
         switch(item.getItemId()) {
             case R.id.action_join : {
                 if (curchannel != null)
@@ -323,6 +327,16 @@ extends AppCompatActivity
                 }
             }
             break;
+            case R.id.action_broadcast:
+                alert.setTitle(R.string.action_broadcast);
+                alert.setMessage(R.string.text_broadcast_message);
+                final EditText input = new EditText(this);
+                input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE);
+                alert.setPositiveButton(android.R.string.yes, (dialog, whichButton) -> ttclient.doTextMessage(new TextMessage() {{ nMsgType = TextMsgType.MSGTYPE_BROADCAST; szMessage = input.getText().toString(); }}));
+                alert.setNegativeButton(android.R.string.no, null);
+                alert.setView(input);
+                alert.show();
+                break;
             case R.id.action_stream : {
                 int flags = ttclient.getFlags();
                 if ((flags & ClientFlag.CLIENT_STREAM_AUDIO) == ClientFlag.CLIENT_STREAM_AUDIO || (flags & ClientFlag.CLIENT_STREAM_VIDEO) == ClientFlag.CLIENT_STREAM_VIDEO) {
@@ -369,7 +383,6 @@ extends AppCompatActivity
                     channelsAdapter.notifyDataSetChanged();
                 }
                 else if (filesAdapter.getActiveTransfersCount() > 0) {
-                    AlertDialog.Builder alert = new AlertDialog.Builder(this);
                     alert.setMessage(R.string.disconnect_alert);
                     alert.setPositiveButton(android.R.string.ok, (dialog, whichButton) -> {
                         filesAdapter.cancelAllTransfers();
@@ -438,6 +451,14 @@ extends AppCompatActivity
             adjustVoxState(voxState, voxState ? voxlevel : gain);
             adjustTxState(txState);
 
+            final SeekBar masterSeekBar = findViewById(R.id.master_volSeekBar);
+            final SeekBar micSeekBar = findViewById(R.id.mic_gainSeekBar);
+            masterSeekBar.setProgress(Utils.refVolumeToPercent(ttclient.getSoundOutputVolume()));
+            if (ttservice.isVoiceActivationEnabled()) {
+                micSeekBar.setProgress(ttclient.getVoiceActivationLevel());
+            } else {
+                micSeekBar.setProgress(Utils.refVolumeToPercent(ttclient.getSoundInputGainLevel()));
+            }
             TextView volLevel = findViewById(R.id.vollevel_text);
             volLevel.setText(Utils.refVolumeToPercent(mastervol) + "%");
             volLevel.setContentDescription(getString(R.string.speaker_volume_description, volLevel.getText()));
@@ -1316,18 +1337,25 @@ private EditText newmsg;
                         return;
                     filesAdapter.performPendingUpdate();
 
-                    int con = R.string.stat_offline;
+                    String con = getString(R.string.stat_offline);
                     int con_color = Color.RED;
                     int flags = ttclient.getFlags(); 
-                    if((flags & ClientFlag.CLIENT_CONNECTED) == ClientFlag.CLIENT_CONNECTED) {
-                        con = R.string.stat_online;
+                    if ((flags & ClientFlag.CLIENT_CONNECTING) == ClientFlag.CLIENT_CONNECTING) {
+                        con = getString(R.string.stat_connecting);
+                    }
+                    else if ((flags & ClientFlag.CLIENT_AUTHORIZED) == ClientFlag.CLIENT_CLOSED) {
+                        // indicate 'offline' if not authorized
+                        con = getString(R.string.stat_unauthorized);
+                    }
+                    else if ((flags & ClientFlag.CLIENT_AUTHORIZED) == ClientFlag.CLIENT_AUTHORIZED) {
+                        con = getString(R.string.stat_online);
                         con_color = Color.GREEN;
                     }
                     else if((flags & ClientFlag.CLIENT_CONNECTING) == ClientFlag.CLIENT_CONNECTING) {
-                        con = R.string.stat_connecting;
+                        con = getString(R.string.stat_connecting);
                     }
                     
-                    connection.setText(con);
+                    connection.setText(getString(R.string.label_connection) + " " + con);
                     connection.setTextColor(con_color);
 
                     ClientStatistics stats = new ClientStatistics();
@@ -1343,7 +1371,7 @@ private EditText newmsg;
                     String str;
                     if(stats.nUdpPingTimeMs >= 0) {
                         str = String.format("%1$d", stats.nUdpPingTimeMs); 
-                        ping.setText(str);
+                        ping.setText(getString(R.string.label_ping) + " " + str);
                         
                         if(stats.nUdpPingTimeMs > 250) {
                             ping.setTextColor(Color.RED);
@@ -1354,7 +1382,7 @@ private EditText newmsg;
                     }                    
                     
                     str = String.format("%1$d/%2$d KB", totalrx/ 1024, totaltx / 1024);
-                    total.setText(str);
+                    total.setText(getString(R.string.label_rxtx) + " " + str);
                     
                     prev_stats = stats;
                 }
@@ -1412,6 +1440,7 @@ private EditText newmsg;
             userActions.getMenu().findItem(R.id.action_banchan).setEnabled(banRight | operatorRight).setVisible(banRight | operatorRight);
             userActions.getMenu().findItem(R.id.action_bansrv).setEnabled(banRight).setVisible(banRight);
             userActions.getMenu().findItem(R.id.action_makeop).setTitle(ttclient.isChannelOperator(selectedUser.nUserID , selectedUser.nChannelID) ? R.string.action_revoke_operator : R.string.action_make_operator);
+            userActions.getMenu().findItem(R.id.action_select).setTitle(userIDS.contains(selectedUser.nUserID) ? R.string.action_deselect : R.string.action_select);
             userActions.getMenu().findItem(R.id.action_select).setEnabled(moveRight).setVisible(moveRight);
             userActions.show();
             return true;
@@ -1425,7 +1454,7 @@ private EditText newmsg;
             PopupMenu channelActions = new PopupMenu(this, v);
             channelActions.setOnMenuItemClickListener(this);
             channelActions.inflate(R.menu.channel_actions);
-            channelActions.getMenu().findItem(R.id.action_move).setEnabled(moveRight).setVisible(moveRight);
+            channelActions.getMenu().findItem(R.id.action_move).setEnabled(moveRight && !userIDS.isEmpty()).setVisible(moveRight && !userIDS.isEmpty());
             channelActions.show();
             return true;
         }
@@ -1459,6 +1488,17 @@ private EditText newmsg;
         case R.id.action_edit:
             editChannelProperties(selectedChannel);
             break;
+        case R.id.action_edituser: {
+            Intent intent = new Intent(this, UserPropActivity.class);
+            startActivityForResult(intent.putExtra(UserPropActivity.EXTRA_USERID, selectedUser.nUserID),
+                                   REQUEST_EDITUSER);
+        }
+        break;
+        case R.id.action_message: {
+            Intent intent = new Intent(MainActivity.this, TextMessageActivity.class);
+            startActivity(intent.putExtra(TextMessageActivity.EXTRA_USERID, selectedUser.nUserID));
+        }
+        break;
         case R.id.action_kickchan:
             alert.setMessage(getString(R.string.kick_confirmation, selectedUser.szNickname));
             alert.setPositiveButton(android.R.string.yes, (dialog, whichButton) -> ttclient.doKickUser(selectedUser.nUserID, selectedUser.nChannelID));
@@ -1496,8 +1536,12 @@ private EditText newmsg;
             userIDS.clear();
             break;
         case R.id.action_select:
-            userIDS.add(selectedUser.nUserID);
-            break;
+    if (userIDS.contains(selectedUser.nUserID)) {
+        userIDS.remove((Integer) selectedUser.nUserID);
+    } else {
+        userIDS.add(selectedUser.nUserID);
+    }
+    break;
         case R.id.action_remove: {
             alert.setMessage(getString(R.string.channel_remove_confirmation, selectedChannel.szName));
             alert.setPositiveButton(android.R.string.yes, (dialog, whichButton) -> {
@@ -1550,16 +1594,16 @@ private EditText newmsg;
             mikeLevel.setContentDescription(getString(R.string.vox_level_description, mikeLevel.getText()));
             voxSwitch.setImageResource(R.drawable.microphone);
             voxSwitch.setContentDescription(getString(R.string.voice_activation_off));
-            findViewById(R.id.mikeDec).setContentDescription(getString(R.string.decvoxlevel));
-            findViewById(R.id.mikeInc).setContentDescription(getString(R.string.incvoxlevel));
+            ((SeekBar) findViewById(R.id.mic_gainSeekBar)).setProgress(ttclient.getVoiceActivationLevel());
+            findViewById(R.id.mic_gainSeekBar).setContentDescription(getString(R.string.voxlevel));
         }
         else {
             mikeLevel.setText(Utils.refVolumeToPercent(level) + "%");
             mikeLevel.setContentDescription(getString(R.string.mic_gain_description, mikeLevel.getText()));
             voxSwitch.setImageResource(R.drawable.mike_green);
             voxSwitch.setContentDescription(getString(R.string.voice_activation_on));
-            findViewById(R.id.mikeDec).setContentDescription(getString(R.string.decgain));
-            findViewById(R.id.mikeInc).setContentDescription(getString(R.string.incgain));
+            ((SeekBar) findViewById(R.id.mic_gainSeekBar)).setProgress(Utils.refVolumeToPercent(ttclient.getSoundInputGainLevel()));
+            findViewById(R.id.mic_gainSeekBar).setContentDescription(getString(R.string.micgain));
         }
     }
 
@@ -1579,10 +1623,9 @@ private EditText newmsg;
 
         // if channel has audio configuration enabled then we should switch to AGC
 
-        boolean showIncDecButton = mychannel == null || !mychannel.audiocfg.bEnableAGC || ttservice == null || ttservice.isVoiceActivationEnabled();
+        boolean showMicSeekBar = mychannel == null || !mychannel.audiocfg.bEnableAGC || ttservice == null || ttservice.isVoiceActivationEnabled();
 
-        findViewById(R.id.mikeDec).setVisibility(showIncDecButton ? View.VISIBLE : View.GONE);
-        findViewById(R.id.mikeInc).setVisibility(showIncDecButton ? View.VISIBLE : View.GONE);
+        findViewById(R.id.mic_gainSeekBar).setVisibility(showMicSeekBar ? View.VISIBLE : View.GONE);
     }
 
     private interface OnButtonInteractionListener extends OnTouchListener, OnClickListener {
@@ -1642,169 +1685,56 @@ private EditText newmsg;
 
         tx_btn.setOnTouchListener(txButtonListener);
         
-        final ImageButton decVol = findViewById(R.id.volDec);
-        final ImageButton incVol = findViewById(R.id.volInc);
-        final ImageButton decMike = findViewById(R.id.mikeDec);
-        final ImageButton incMike = findViewById(R.id.mikeInc);
+        final SeekBar masterSeekBar = findViewById(R.id.master_volSeekBar);
+        final SeekBar micSeekBar = findViewById(R.id.mic_gainSeekBar);
         final TextView mikeLevel = findViewById(R.id.mikelevel_text);
         final TextView volLevel = findViewById(R.id.vollevel_text);
-        
-        OnButtonInteractionListener tuningButtonListener = new OnButtonInteractionListener() {
-            final Handler handler = new Handler();
-            Runnable runnable;
+        masterSeekBar.setMax(100);
+        micSeekBar.setMax(100);
 
+        SeekBar.OnSeekBarChangeListener volListener = new SeekBar.OnSeekBarChangeListener() {
             @Override
-            public boolean onTouch(final View v, MotionEvent event) {
-                if(ttclient == null)
-                    return false;
-
-                if(event.getAction() == MotionEvent.ACTION_DOWN) {
-                    adjustLevel(v);
-                    
-                    runnable = new Runnable() {
-
-                        @Override
-                        public void run() {
-                            boolean done = adjustLevel(v);
-                            if(!done)
-                                handler.postDelayed(this, 100);
-                        }
-                    };
-                    handler.postDelayed(runnable, 100);
-                }
-                else if(event.getAction() == MotionEvent.ACTION_UP) {
-                    if(runnable != null)
-                        handler.removeCallbacks(runnable);
-                }
-                return false;
-            }
-
-            @Override
-            public void onClick(View v) {
-                if(ttclient != null)
-                    adjustLevel(v);
-            }
-
-            boolean adjustLevel(View view) {
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
                 SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getBaseContext());
-
-                if(view == decVol) {
-
-                    // pressing +/- aborts mute state
-                    if(ttservice.isMute()) {
+                if (seekBar == masterSeekBar) {
+                    if (ttservice.isMute()) {
                         ttservice.setMute(false);
                         ImageButton speakerBtn = findViewById(R.id.speakerBtn);
                         adjustMuteButton(speakerBtn);
                     }
-
-                    int v = ttclient.getSoundOutputVolume();
-                    v = Utils.refVolumeToPercent(v);
-                    v = Utils.refVolume(v-1);
-                    if(v >= SoundLevel.SOUND_VOLUME_MIN) {
-                        ttclient.setSoundOutputVolume(v);
-                        volLevel.setText(Utils.refVolumeToPercent(v) + "%");
-                        volLevel.setContentDescription(getString(R.string.speaker_volume_description, volLevel.getText()));
-                        return v == SoundLevel.SOUND_VOLUME_DEFAULT;
-                    }
-                    else
-                        return true;
-                }
-                else if(view == incVol) {
-
-                    // pressing +/- aborts mute state
-                    if(ttservice.isMute()) {
-                        ttservice.setMute(false);
-                        ImageButton speakerBtn = findViewById(R.id.speakerBtn);
-                        adjustMuteButton(speakerBtn);
-                    }
-
-                    int v = ttclient.getSoundOutputVolume();
-                    v = Utils.refVolumeToPercent(v);
-                    v = Utils.refVolume(v+1);
-                    if(v <= SoundLevel.SOUND_VOLUME_MAX) {
-                        ttclient.setSoundOutputVolume(v);
-                        volLevel.setText(Utils.refVolumeToPercent(v) + "%");
-                        volLevel.setContentDescription(getString(R.string.speaker_volume_description, volLevel.getText()));
-                        return v == SoundLevel.SOUND_VOLUME_DEFAULT;
-                    }
-                    else
-                        return true;
-                }
-                else if(view == decMike) {
+                    ttclient.setSoundOutputVolume(Utils.refVolume(progress));
+                    volLevel.setText(progress + "%");
+                    volLevel.setContentDescription(getString(R.string.speaker_volume_description, volLevel.getText()));
+            }     else if (seekBar == micSeekBar) {
                     if (ttservice.isVoiceActivationEnabled()) {
-                        int x = ttclient.getVoiceActivationLevel() - 1;
-                        if (x >= SoundLevel.SOUND_VU_MIN) {
-                            ttclient.setVoiceActivationLevel(x);
-                            mikeLevel.setText(x + "%");
-                            mikeLevel.setContentDescription(getString(R.string.vox_level_description, mikeLevel.getText()));
-                        }
-                        else
-                            return true;
-                    }
-                    else {
-                        int g = ttclient.getSoundInputGainLevel();
-                        g = Utils.refGainToPercent(g);
-                        g = Utils.refGain(g-1);
-                        if(g >= SoundLevel.SOUND_GAIN_MIN) {
-                            ttclient.setSoundInputGainLevel(g);
-
-                            SharedPreferences.Editor editor = prefs.edit();
-                            editor.putInt(Preferences.PREF_SOUNDSYSTEM_MICROPHONEGAIN, g);
-                            editor.apply();
-
-                            mikeLevel.setText(Utils.refVolumeToPercent(g) + "%");
-                            mikeLevel.setContentDescription(getString(R.string.mic_gain_description, mikeLevel.getText()));
-                            return g == SoundLevel.SOUND_GAIN_DEFAULT;
-                        }
-                        else
-                            return true;
+                        ttclient.setVoiceActivationLevel(progress);
+                        mikeLevel.setText(progress + "%");
+                        mikeLevel.setContentDescription(getString(R.string.vox_level_description, mikeLevel.getText()));
+                    } else {
+                        ttclient.setSoundInputGainLevel(Utils.refGain(progress));
+                        SharedPreferences.Editor editor = prefs.edit();
+                        editor.putInt(Preferences.PREF_SOUNDSYSTEM_MICROPHONEGAIN, Utils.refGain(progress));
+                        editor.apply();
+                        mikeLevel.setText(progress + "%");
+                        mikeLevel.setContentDescription(getString(R.string.mic_gain_description, mikeLevel.getText()));
                     }
                 }
-                else if(view == incMike) {
-                    if (ttservice.isVoiceActivationEnabled()) {
-                        int x = ttclient.getVoiceActivationLevel() + 1;
-                        if (x <= SoundLevel.SOUND_VU_MAX) {
-                            ttclient.setVoiceActivationLevel(x);
-                            mikeLevel.setText(x + "%");
-                            mikeLevel.setContentDescription(getString(R.string.vox_level_description, mikeLevel.getText()));
-                        }
-                        else
-                            return true;
-                    }
-                    else {
-                        int g = ttclient.getSoundInputGainLevel();
-                        g = Utils.refGainToPercent(g);
-                        g = Utils.refGain(g+1);
-                        if(g <= SoundLevel.SOUND_GAIN_MAX) {
-                            ttclient.setSoundInputGainLevel(g);
+        }
 
-                            SharedPreferences.Editor editor = prefs.edit();
-                            editor.putInt(Preferences.PREF_SOUNDSYSTEM_MICROPHONEGAIN, g);
-                            editor.apply();
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {
+            }
 
-                            mikeLevel.setText(Utils.refVolumeToPercent(g) + "%");
-                            mikeLevel.setContentDescription(getString(R.string.mic_gain_description, mikeLevel.getText()));
-                            return g == SoundLevel.SOUND_VOLUME_DEFAULT;
-                        }
-                        else
-                            return true;
-                    }
-                }
-                return false;
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {
             }
         };
 
-        decVol.setOnTouchListener(tuningButtonListener);
-        incVol.setOnTouchListener(tuningButtonListener);
-        decMike.setOnTouchListener(tuningButtonListener);
-        incMike.setOnTouchListener(tuningButtonListener);
+        masterSeekBar.setOnSeekBarChangeListener(volListener);
+        micSeekBar.setOnSeekBarChangeListener(volListener);
 
         if ((Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) && accessibilityAssistant.isServiceActive()) {
             tx_btn.setOnClickListener(txButtonListener);
-            decVol.setOnClickListener(tuningButtonListener);
-            incVol.setOnClickListener(tuningButtonListener);
-            decMike.setOnClickListener(tuningButtonListener);
-            incMike.setOnClickListener(tuningButtonListener);
         }
 
         ImageButton speakerBtn = findViewById(R.id.speakerBtn);
@@ -1921,6 +1851,14 @@ private EditText newmsg;
         adjustVoxState(voxState, voxState ? voxlevel : ttclient.getSoundInputGainLevel());
         adjustTxState(txState);
 
+        final SeekBar masterSeekBar = findViewById(R.id.master_volSeekBar);
+        final SeekBar micSeekBar = findViewById(R.id.mic_gainSeekBar);
+        masterSeekBar.setProgress(Utils.refVolumeToPercent(ttclient.getSoundOutputVolume()));
+        if (ttservice.isVoiceActivationEnabled()) {
+            micSeekBar.setProgress(ttclient.getVoiceActivationLevel());
+        } else {
+            micSeekBar.setProgress(Utils.refVolumeToPercent(ttclient.getSoundInputGainLevel()));
+        }
         TextView volLevel = findViewById(R.id.vollevel_text);
         volLevel.setText(Utils.refVolumeToPercent(mastervol) + "%");
         volLevel.setContentDescription(getString(R.string.speaker_volume_description, volLevel.getText()));
@@ -2009,6 +1947,9 @@ private EditText newmsg;
 
     @Override
     public void onCmdUserLoggedIn(User user) {
+        accessibilityAssistant.lockEvents();
+        textmsgAdapter.notifyDataSetChanged();
+        accessibilityAssistant.unlockEvents();
         if (sounds.get(SOUND_USERLOGGEDIN) != 0)
             audioIcons.play(sounds.get(SOUND_USERLOGGEDIN), 1.0f, 1.0f, 0, 0, 1.0f);
         if (ttsWrapper != null && PreferenceManager.getDefaultSharedPreferences(getBaseContext()).getBoolean("server_login_checkbox", false)) {
@@ -2019,6 +1960,9 @@ private EditText newmsg;
 
     @Override
     public void onCmdUserLoggedOut(User user) {
+        accessibilityAssistant.lockEvents();
+        textmsgAdapter.notifyDataSetChanged();
+        accessibilityAssistant.unlockEvents();
         if (sounds.get(SOUND_USERLOGGEDOFF) != 0)
             audioIcons.play(sounds.get(SOUND_USERLOGGEDOFF), 1.0f, 1.0f, 0, 0, 1.0f);
         if (ttsWrapper != null && PreferenceManager.getDefaultSharedPreferences(getBaseContext()).getBoolean("server_logout_checkbox", false)) {
@@ -2166,6 +2110,7 @@ private EditText newmsg;
                 String name = Utils.getDisplayName(getBaseContext(), sender);
                 ttsWrapper.speak(getString(R.string.text_tts_broadcast_message, (sender != null) ? name : "", textmessage.szMessage));
             }
+            Log.d(TAG, "Broadcast message in " + this.hashCode());
             break;
         case TextMsgType.MSGTYPE_USER :
             if (sounds.get(SOUND_USERMSG) != 0)

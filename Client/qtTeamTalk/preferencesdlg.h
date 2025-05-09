@@ -68,6 +68,8 @@ private:
     void slotLanguageChange(int index);
     void slotSelectVideoText();
     void slotConfigureStatusBar();
+    void slotEditChatTemplates();
+    void retranslateCustomizableText();
     void slotUpdateUpdDlgChkBox();
     void insertTSFVariable();
 
@@ -81,7 +83,6 @@ private:
     SoundSystem getSoundSystem();
     void showDevices(SoundSystem snd);
     QVector<SoundDevice> m_sounddevices;
-    void slotSoundSystemChange();
     void slotSoundInputChange(int index);
     void slotSoundOutputChange(int index);
     void slotSoundRestart();
@@ -114,10 +115,10 @@ private:
     void insertVariable();
     void saveCurrentMessage();
     void TTSRestoreDefaultMessage();
+    void TTSRestoreAllDefaultMessage();
     void slotTTSEnableAll(bool checked);
     void slotTTSClearAll(bool checked);
     void slotTTSRevert(bool checked);
-    void slotUpdateASBAccessibleName();
     void slotSPackChange();
     void updateSoundEventFileEdit();
     QMenu* m_TTSVarMenu;
@@ -135,7 +136,7 @@ private:
     void slotVideoCaptureDevChange(int index);
     void slotTestVideoFormat();
     void slotVideoResolutionChange(int index);
-    void slotImageFormatChange(bool checked);
+    void slotImageFormatChange(int index);
     void slotCustomImageFormat();
     void slotDefaultVideoSettings();
     QVector<VideoCaptureDevice> m_videodevices;

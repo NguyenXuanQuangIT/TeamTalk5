@@ -30,8 +30,9 @@
 // webrtc::GainControlImpl queries this feature. Field trials is
 // excluded by passing rtc_exclude_field_trial_default=true to GN.
 namespace webrtc { namespace field_trial {
-std::string FindFullName(const std::string& trial)
+std::string FindFullName(absl::string_view trial_)
 {
+    std::string trial(trial_);;
 #if defined(UNICODE)
     ACE_TString str = LocalToUnicode(trial.c_str());
 #else
@@ -54,6 +55,7 @@ bool IsEnabled(const webrtc::AudioProcessing::Config& cfg)
 int WebRTCPreprocess(webrtc::AudioProcessing& apm, const media::AudioFrame& infrm,
                      media::AudioFrame& outfrm, webrtc::AudioProcessingStats* stats /*= nullptr*/)
 {
+    assert(infrm.inputfmt.IsValid());
     assert(!outfrm.inputfmt.IsValid() || infrm.inputfmt == outfrm.inputfmt);
 
     webrtc::StreamConfig in_cfg(infrm.inputfmt.samplerate, infrm.inputfmt.channels),
@@ -61,12 +63,16 @@ int WebRTCPreprocess(webrtc::AudioProcessing& apm, const media::AudioFrame& infr
         echo_cfg(infrm.outputfmt.samplerate, infrm.outputfmt.channels);
 
     bool echo = apm.GetConfig().echo_canceller.enabled;
+    // Check that echo cancellation is configured correctly.
+    // Output frame must be available in order to echo cancel.
+    if (echo && infrm.inputfmt != infrm.outputfmt)
+        return -1;
+
     assert(!echo || infrm.outputfmt.IsValid());
-    assert(!echo || infrm.inputfmt == infrm.outputfmt);
 
     if (echo)
     {
-        // Set the delay for the AEC. The AEC can overcome mismatches in the delay but works best with a close match. 
+        // Set the delay for the AEC. The AEC can overcome mismatches in the delay but works best with a close match.
         // The amount of residual echo seems proportional to the accuracy of the delay
         int delayms = infrm.duplex_callback_delay;
         if (delayms == 0)
@@ -116,9 +122,6 @@ int WebRTCPreprocess(webrtc::AudioProcessing& apm, const media::AudioFrame& infr
         if (stats)
         {
             auto wstats = apm.GetStatistics();
-            output_rms_dbfs += wstats.output_rms_dbfs.value_or(0);
-            assert(!wstats.output_rms_dbfs.has_value() || wstats.output_rms_dbfs.value() <= 127);
-            assert(!wstats.output_rms_dbfs.has_value() || wstats.output_rms_dbfs.value() >= 0);
             voice_detected |= wstats.voice_detected.value_or(false);
         }
 
@@ -129,7 +132,6 @@ int WebRTCPreprocess(webrtc::AudioProcessing& apm, const media::AudioFrame& infr
 
     if (stats && n > 0)
     {
-        stats->output_rms_dbfs = output_rms_dbfs / n;
         stats->voice_detected = voice_detected;
     }
 

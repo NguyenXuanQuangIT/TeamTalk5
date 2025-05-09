@@ -124,13 +124,19 @@ ChatTextEdit::ChatTextEdit(QWidget * parent/* = 0*/)
 {
     new UrlSyntaxHighlighter(document());
     viewport()->setMouseTracking(true);
+    setTabChangesFocus(true);
+    setUndoRedoEnabled(false);
+    setReadOnly(true);
+    setTextInteractionFlags(Qt::TextInteractionFlag::LinksAccessibleByKeyboard |
+                            Qt::TextInteractionFlag::LinksAccessibleByMouse |
+                            Qt::TextInteractionFlag::TextBrowserInteraction |
+                            Qt::TextInteractionFlag::TextSelectableByKeyboard |
+                            Qt::TextInteractionFlag::TextSelectableByMouse);
 }
    
-QString ChatTextEdit::getTimeStamp(const QDateTime& tm, bool force_ts)
+QString ChatTextEdit::getTimeStamp(const QDateTime& tm)
 {
-    QString dt;
-    if(ttSettings->value(SETTINGS_DISPLAY_MSGTIMESTAMP, false).toBool() || force_ts)
-        dt = getFormattedDateTime(tm.toString("yyyy-MM-dd HH:mm:ss"), "yyyy-MM-dd HH:mm:ss") + QString(" ");
+    QString dt = getFormattedDateTime(tm.toString("yyyy-MM-dd HH:mm:ss"), "yyyy-MM-dd HH:mm:ss");
     return dt;
 }
 
@@ -149,23 +155,16 @@ void ChatTextEdit::updateServer(const ServerProperties& srvprop)
     font.setBold(true);
     format.setFont(font);
     cursor.setCharFormat(format);
-    QString line = dt + tr("Server Name: %1").arg(_Q(srvprop.szServerName));
+    QString line = UtilUI::getChatTemplate(SETTINGS_CHATTEMPLATES_SRVNAME, {{"{date}", dt}, {"{server}", _Q(srvprop.szServerName)}});
     setTextCursor(cursor);
     appendPlainText(line);
     if (_Q(srvprop.szMOTD).size() > 0)
     {
-        if (ttSettings->value(SETTINGS_DISPLAY_MOTD_DLG, SETTINGS_DISPLAY_MOTD_DLG_DEFAULT).toBool() == true)
-        {
-            QMessageBox::information(this, tr("Welcome"), QString(tr("Welcome to %1.\r\nMessage of the day: %2")).arg(_Q(srvprop.szServerName)).arg(_Q(srvprop.szMOTD)));
-        }
-        else
-        {
-            line = dt + tr("Message of the Day: %1").arg(_Q(srvprop.szMOTD)) + "\r\n";
-            format.setForeground(QBrush(Qt::darkCyan));
-            cursor.setCharFormat(format);
-            setTextCursor(cursor);
-            appendPlainText(line);
-        }
+        line = UtilUI::getChatTemplate(SETTINGS_CHATTEMPLATES_MOTD, {{"{date}", dt}, {"{MOTD}", _Q(srvprop.szMOTD)}});
+        format.setForeground(QBrush(Qt::darkCyan));
+        cursor.setCharFormat(format);
+        setTextCursor(cursor);
+        appendPlainText(line);
     }
 
     //revert bold
@@ -202,20 +201,20 @@ void ChatTextEdit::joinedChannel(int channelid)
     format.setForeground(QBrush(Qt::darkGreen));
     cursor.setCharFormat(format);
     setTextCursor(cursor);
-    QString line = dt + tr("Joined channel %1").arg(_Q(buff));
+    QString line = UtilUI::getChatTemplate(SETTINGS_CHATTEMPLATES_JOINCHAN, {{"{date}", dt}, {"{channelpath}", _Q(buff)}, {"{channelname}", _Q(chan.szName)}, {"{channeltopic}", _Q(chan.szTopic)}, {"{quota}", getFormattedSize(chan.nDiskQuota)}});
     appendPlainText(line);
     //revert bold
     font.setBold(false);
     format.setFont(font);
     //show topic in blue
-    line = tr("Topic: %1").arg(_Q(chan.szTopic));
+    line = UtilUI::getChatTemplate(SETTINGS_CHATTEMPLATES_CHANTOPIC, {{"{date}", dt}, {"{channelpath}", _Q(buff)}, {"{channelname}", _Q(chan.szName)}, {"{channeltopic}", _Q(chan.szTopic)}, {"{quota}", getFormattedSize(chan.nDiskQuota)}});
     format.setForeground(QBrush(Qt::darkYellow));
     cursor.setCharFormat(format);
     setTextCursor(cursor);
     appendPlainText(line);
 
     //show disk quota in red
-    line = tr("Disk quota: %1 KBytes").arg(chan.nDiskQuota/1024);
+    line = UtilUI::getChatTemplate(SETTINGS_CHATTEMPLATES_DISKQUOTA, {{"{date}", dt}, {"{channelpath}", _Q(buff)}, {"{channelname}", _Q(chan.szName)}, {"{channeltopic}", _Q(chan.szTopic)}, {"{quota}", getFormattedSize(chan.nDiskQuota)}});
     format.setForeground(QBrush(Qt::darkRed));
     cursor.setCharFormat(format);
     setTextCursor(cursor);
@@ -237,6 +236,21 @@ QString ChatTextEdit::addTextMessage(const MyTextMessage& msg)
     QString line = dt;
 
     line += QString("%1\r\n%2").arg(getTextMessagePrefix(msg, user)).arg(msg.moreMessage);
+
+    switch (msg.nMsgType)
+    {
+    case MSGTYPE_CHANNEL :
+        line = UtilUI::getChatTemplate(SETTINGS_CHATTEMPLATES_CHANNELMSG, {{"{date}", dt}, {"{user}", getDisplayName(user)}, {"{content}", msg.moreMessage}});
+        break;
+    case MSGTYPE_BROADCAST :
+        line = UtilUI::getChatTemplate(SETTINGS_CHATTEMPLATES_BROADMSG, {{"{date}", dt}, {"{user}", getDisplayName(user)}, {"{content}", msg.moreMessage}});
+        break;
+    case MSGTYPE_USER :
+        line = UtilUI::getChatTemplate(SETTINGS_CHATTEMPLATES_PRIVMSG, {{"{date}", dt}, {"{user}", getDisplayName(user)}, {"{content}", msg.moreMessage}});
+        break;
+    case MSGTYPE_CUSTOM :
+    case MSGTYPE_NONE : break;
+    }
 
     if (TT_GetMyUserID(ttInst) == msg.nFromUserID)
     {
@@ -262,7 +276,7 @@ QString ChatTextEdit::addTextMessage(const MyTextMessage& msg)
 
 void ChatTextEdit::addLogMessage(const QString& msg)
 {
-    QString line = QString("%1 * %2").arg(getTimeStamp(QDateTime::currentDateTime())).arg(msg);
+    QString line = UtilUI::getChatTemplate(SETTINGS_CHATTEMPLATES_LOGMSG, {{"{date}", getTimeStamp(QDateTime::currentDateTime())}, {"{content}", msg}});
     QTextCharFormat format = textCursor().charFormat();
     QTextCharFormat original = format;
     format.setForeground(QBrush(Qt::gray));
@@ -273,6 +287,11 @@ void ChatTextEdit::addLogMessage(const QString& msg)
     cursor.setCharFormat(original);
     setTextCursor(cursor);
     limitText();
+}
+
+void ChatTextEdit::updateTranslation()
+{
+    setAccessibleName(tr("History"));
 }
 
 void ChatTextEdit::limitText()
@@ -377,7 +396,7 @@ void ChatTextEdit::contextMenuEvent(QContextMenuEvent *event)
     QAction* chosen = menu->exec(event->globalPos());
     if (clearMenu == chosen)
     {
-        emit(clearHistory());
+        emit clearHistory();
     }
     delete menu;
 }

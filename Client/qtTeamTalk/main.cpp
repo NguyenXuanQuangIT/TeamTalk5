@@ -15,6 +15,9 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+#include "mainwindow.h"
+#include "license.h"
+#include "appinfo.h"
 
 #include <QAbstractNativeEventFilter>
 #include <QApplication>
@@ -26,8 +29,13 @@
 #include <QUrl>
 #include <QtPlugin>
 
-#include "mainwindow.h"
-#include "license.h"
+#include <iostream>
+#include <string>
+
+#if defined(Q_OS_WIN32)
+#include <windows.h>
+#endif
+
 
 TTInstance* ttInst = nullptr;
 
@@ -76,8 +84,6 @@ public:
 
 #elif defined(Q_OS_LINUX)
 
-//For hotkeys on X11
-#include <QX11Info>
 #include <X11/Xlib.h>
 #include <xcb/xcb.h> // used by Qt5
 
@@ -129,7 +135,11 @@ class MyQApplication : public QApplication
                      , public QAbstractNativeEventFilter
 {
 public:
+#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
     bool nativeEventFilter(const QByteArray &eventType, void *message, long *result)
+#else
+    bool nativeEventFilter(const QByteArray &eventType, void *message, qintptr *result)
+#endif
     {
         Q_UNUSED(result);
 
@@ -169,52 +179,6 @@ public:
         installNativeEventFilter(this);
     }
 
-    bool x11EventFilter ( XEvent * event )
-    {
-        if(event->type == KeyPress || event->type == KeyRelease)
-        {
-            XKeyEvent* key = reinterpret_cast<XKeyEvent*> (event);
-            
-            bool autor = false;
-            static uint curr_autorep = 0;
-            if (event->type == KeyPress) 
-            {
-                if (curr_autorep == event->xkey.keycode) 
-                {
-                    autor = true;
-                    curr_autorep = 0;
-                }
-            }
-            else
-            {
-                // look ahead for auto-repeat
-                XEvent nextpress;
-
-                Display* dpy = QX11Info::display();
-
-                // was this the last auto-repeater?
-                x_auto_repeat_data auto_repeat_data;
-                auto_repeat_data.keycode = event->xkey.keycode;
-                auto_repeat_data.timestamp = event->xkey.time;
-
-                auto_repeat_data.release = true;
-                auto_repeat_data.error = false;
-                if (XCheckIfEvent(dpy, &nextpress, &qt_keypress_scanner,
-                                  (XPointer) &auto_repeat_data))
-                {
-                    autor = true;
-                    XPutBackEvent(dpy,&nextpress);
-                }
-
-                curr_autorep = autor ? event->xkey.keycode : 0;
-            }
-
-            if(!autor)
-                m_mainwindow->keysActive(key->keycode, key->state, event->type == KeyPress);
-        }
-        
-        return true; //x11EventFilter is not supported in Qt5, so just return true
-    }
     MainWindow* m_mainwindow;
 };
 
@@ -299,8 +263,31 @@ OSStatus mac_callback(EventHandlerCallRef nextHandler, EventRef event, void*)
 
 #endif
 
-int main(int argc, char *argv[])
+static bool showVersionOnly(int argc, char* argv[])
 {
+    for (int i = 1; i < argc; ++i)
+    {
+        if (std::string(argv[i]) == "-v" ||
+            std::string(argv[i]) == "--version")
+        {
+#if defined(Q_OS_WIN32)
+            if (!GetConsoleWindow())
+            {
+                AttachConsole(ATTACH_PARENT_PROCESS);
+                freopen("CONOUT$", "w", stdout);
+                freopen("CONOUT$", "w", stderr);
+            }
+#endif
+            std::cout << APPTITLE << std::endl;
+            return true;
+        }
+    }
+    return false;
+}
+
+int main(int argc, char* argv[])
+{
+    if (showVersionOnly(argc, argv)) return 0;
 #if defined(Q_OS_WIN32)
     // Use QWindowsIntegration plugin to distinguish Alt+Gr from Ctrl+Alt on Windows
     // https://qthub.com/static/doc/qt5/qtdoc/qpa.html

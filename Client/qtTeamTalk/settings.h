@@ -28,13 +28,11 @@
 #elif defined(Q_OS_DARWIN)
 #define SOUNDSPATH                                     "/Applications/TeamTalk5.app/Contents/Resources/Sounds"
 #endif
-#define SETTINGS_VERSION                            "5.4"
+#define SETTINGS_VERSION                            "5.5"
 #define SETTINGS_GENERAL_VERSION                    "general_/version"
 #define SETTINGS_GENERAL_VERSION_DEFAULT            SETTINGS_VERSION
-#if defined(ENABLE_TOLK) || defined(Q_OS_LINUX)
 #define SETTINGS_GENERAL_FIRSTSTART                 "general_/first-start"
 #define SETTINGS_GENERAL_FIRSTSTART_DEFAULT         true
-#endif
 
 #define SETTINGS_GENERAL_NICKNAME                   "general_/nickname"
 #define SETTINGS_GENERAL_NICKNAME_DEFAULT           ""
@@ -80,19 +78,20 @@
 #define SETTINGS_DISPLAY_VU_METER_UPDATES_DEFAULT   true
 #define SETTINGS_DISPLAY_VOICE_ACT_SLIDER           "display/voice-act-slider"
 #define SETTINGS_DISPLAY_VOICE_ACT_SLIDER_DEFAULT   true
+#define SETTINGS_DISPLAY_CHAT_HISTORY_LISTVIEW      "display/chat-history-as-listview"
+#define SETTINGS_DISPLAY_CHAT_HISTORY_LISTVIEW_DEFAULT isScreenReaderActive()
 #define SETTINGS_DISPLAY_USERSCOUNT                 "display/userscount"
 #define SETTINGS_DISPLAY_USERSCOUNT_DEFAULT         true
 #define SETTINGS_DISPLAY_SHOWUSERNAME               "display/showusername"
 #define SETTINGS_DISPLAY_SHOWUSERNAME_DEFAULT       false
 #define SETTINGS_DISPLAY_LASTTALK                   "display/display-last-talk"
 #define SETTINGS_DISPLAY_LASTTALK_DEFAULT           true
-#define SETTINGS_DISPLAY_EMOJI                     "display/show-emoji"
-#define SETTINGS_DISPLAY_EMOJI_DEFAULT              true
+#define SETTINGS_DISPLAY_INFOSTYLE                     "display/user-info-style"
+#define SETTINGS_DISPLAY_INFOSTYLE_DEFAULT              STYLE_EMOJI
 #define SETTINGS_DISPLAY_ANIM                     "display/show-animations"
 #define SETTINGS_DISPLAY_ANIM_DEFAULT              true
 #define SETTINGS_DISPLAY_SERVNAME                     "display/show-servname"
 #define SETTINGS_DISPLAY_SERVNAME_DEFAULT              true
-#define SETTINGS_DISPLAY_MSGTIMESTAMP               "display/msgtimestamp"
 #define SETTINGS_DISPLAY_TIMESTAMP_FORMAT               "display/timestamp-format"
 #define SETTINGS_DISPLAY_STARTMINIMIZED             "display/startminimized"
 #define SETTINGS_DISPLAY_MAINWINDOWPOS              "display/windowposition"
@@ -167,6 +166,8 @@
                                                         STATUSBAR_SAVE_SERVER_CONFIG | \
                                                         STATUSBAR_START_RECORD | \
                                                         STATUSBAR_TRANSMISSION_BLOCKED)
+#define SETTINGS_DISPLAY_CHATTEMPLATES_MODEL_HEADER    "display/chat-templates-model-header"
+#define SETTINGS_DISPLAY_CHATTEMPLATESDLG_SIZE          "display/chat-templates-dialog-size"
 #define SETTINGS_DISPLAY_SERVERLOG_EVENTS_HEADER    "display/serverlog-events-header"
 #define SETTINGS_DISPLAY_CHANEXP                 "display/expand-channels"
 #define SETTINGS_DISPLAY_CHANEXP_DEFAULT         false
@@ -320,13 +321,15 @@
 #define SETTINGS_SOUNDEVENT_TYPING           "soundevents/user-typing"
 #define SETTINGS_SOUNDEVENT_TYPING_DEFAULT           (SOUNDSPATH"/typing.wav")
 #define SETTINGS_SOUNDS_PACK           "soundevents/sounds-pack"
-#define SETTINGS_SOUNDS_PACK_DEFAULT           QT_TRANSLATE_NOOP("MainWindow", "Default")
+#define SETTINGS_SOUNDS_PACK_DEFAULT           "Default"
 #define SETTINGS_SOUNDEVENT_ENABLE                   "soundevents/sounds-enable"
 #define SETTINGS_SOUNDEVENT_ENABLE_DEFAULT           true
 #define SETTINGS_SOUNDEVENT_VOLUME                 "soundevents/volume"
 #define SETTINGS_SOUNDEVENT_VOLUME_DEFAULT                 100
 #define SETTINGS_SOUNDEVENT_PLAYBACKMODE            "soundevents/playback-mode"
 #define SETTINGS_SOUNDEVENT_PLAYBACKMODE_DEFAULT    PLAYBACKMODE_DEFAULT
+#define SETTINGS_SOUNDEVENT_TTDEVICE                 "soundevents/use-tt-device"
+#define SETTINGS_SOUNDEVENT_TTDEVICE_DEFAULT                 true
 #define SETTINGS_SOUNDEVENT_ACTIVEEVENTS                   "soundevents/active-events"
 #define SETTINGS_SOUNDEVENT_ACTIVEEVENTS_DEFAULT    SoundEvents(SOUNDEVENT_NEWUSER | \
                                                     SOUNDEVENT_REMOVEUSER | \
@@ -406,10 +409,7 @@
 #define SETTINGS_TTS_RATE_DEFAULT                 0.0
 #define SETTINGS_TTS_VOLUME                         "texttospeech/tts-volume"
 #define SETTINGS_TTS_VOLUME_DEFAULT                 0.5
-#if defined(Q_OS_LINUX)
-#define SETTINGS_TTS_TIMESTAMP                         "texttospeech/tts-timestamp"
-#define SETTINGS_TTS_TIMESTAMP_DEFAULT                 1000
-#elif defined(Q_OS_WIN)
+#if defined(Q_OS_WIN)
 #define SETTINGS_TTS_SAPI                         "texttospeech/force-sapi"
 #define SETTINGS_TTS_SAPI_DEFAULT                 false
 #define SETTINGS_TTS_TRY_SAPI                         "texttospeech/try-sapi"
@@ -420,6 +420,10 @@
 #if QT_VERSION >= QT_VERSION_CHECK(6,8,0)
 #define SETTINGS_TTS_ASSERTIVE                         "texttospeech/assertive"
 #define SETTINGS_TTS_ASSERTIVE_DEFAULT                 false
+#endif
+#if defined(Q_OS_WIN) || defined(Q_OS_LINUX)
+#define SETTINGS_TTS_TOAST                         "texttospeech/toast-notif"
+#define SETTINGS_TTS_TOAST_DEFAULT                 false
 #endif
 
 #define SETTINGS_TTSMSG_USER_LOGGEDIN                         "texttospeech/messages/user-logged-in"
@@ -478,7 +482,26 @@
 #define SETTINGS_STATUSBARMSG_FILE_ADDED                         "status-bar-messages/file-added"
 #define SETTINGS_STATUSBARMSG_FILE_ADDED_DEFAULT                 QT_TRANSLATE_NOOP("UtilUI", "File {filename} added by {user}")
 #define SETTINGS_STATUSBARMSG_FILE_REMOVED                         "status-bar-messages/file-removed"
-#define SETTINGS_STATUSBARMSG_FILE_REMOVED_DEFAULT                 QT_TRANSLATE_NOOP("UtilTTS", "File {file} removed by {user}")
+#define SETTINGS_STATUSBARMSG_FILE_REMOVED_DEFAULT                 QT_TRANSLATE_NOOP("UtilUI", "File {file} removed by {user}")
+
+#define SETTINGS_CHATTEMPLATES_CHANNELMSG                         "chat-templates/channel-message"
+#define SETTINGS_CHATTEMPLATES_CHANNELMSG_DEFAULT                 QT_TRANSLATE_NOOP("UtilUI", "{date} <{user}>\n{content}")
+#define SETTINGS_CHATTEMPLATES_BROADMSG                         "chat-templates/broadcast-message"
+#define SETTINGS_CHATTEMPLATES_BROADMSG_DEFAULT                 QT_TRANSLATE_NOOP("UtilUI", "{date} <{user}->BROADCAST>\n{content}")
+#define SETTINGS_CHATTEMPLATES_PRIVMSG                         "chat-templates/private-message"
+#define SETTINGS_CHATTEMPLATES_PRIVMSG_DEFAULT                 QT_TRANSLATE_NOOP("UtilUI", "{date} <{user}>\n{content}")
+#define SETTINGS_CHATTEMPLATES_LOGMSG                         "chat-templates/log-message"
+#define SETTINGS_CHATTEMPLATES_LOGMSG_DEFAULT                 QT_TRANSLATE_NOOP("UtilUI", "{date} * {content}")
+#define SETTINGS_CHATTEMPLATES_SRVNAME                         "chat-templates/server-name"
+#define SETTINGS_CHATTEMPLATES_SRVNAME_DEFAULT                 QT_TRANSLATE_NOOP("UtilUI", "{date} Server Name: {server}")
+#define SETTINGS_CHATTEMPLATES_MOTD                         "chat-templates/server-motd"
+#define SETTINGS_CHATTEMPLATES_MOTD_DEFAULT                 QT_TRANSLATE_NOOP("UtilUI", "{date} Message of the day: {MOTD}")
+#define SETTINGS_CHATTEMPLATES_JOINCHAN                         "chat-templates/joined-channel"
+#define SETTINGS_CHATTEMPLATES_JOINCHAN_DEFAULT                 QT_TRANSLATE_NOOP("UtilUI", "{date} Joined channel: {channelpath}")
+#define SETTINGS_CHATTEMPLATES_CHANTOPIC                         "chat-templates/channel-topic"
+#define SETTINGS_CHATTEMPLATES_CHANTOPIC_DEFAULT                 QT_TRANSLATE_NOOP("UtilUI", "Topic: {channeltopic}")
+#define SETTINGS_CHATTEMPLATES_DISKQUOTA                         "chat-templates/disk-quota"
+#define SETTINGS_CHATTEMPLATES_DISKQUOTA_DEFAULT                 QT_TRANSLATE_NOOP("UtilUI", "Disk quota: {quota}")
 
 #define SETTINGS_MEDIASTORAGE_MODE                  "media-storage/audio-storage-mode"
 #define SETTINGS_MEDIASTORAGE_AUDIOFOLDER           "media-storage/audio-storage-folder"
@@ -490,6 +513,7 @@
 
 #define SETTINGS_STREAMMEDIA_FILENAME               "stream-media/%1_stream-media-filename"
 #define SETTINGS_STREAMMEDIA_LOOP                   "stream-media/stream-media-file-loop"
+#define SETTINGS_STREAMMEDIA_LOOP_DEFAULT           false
 #define SETTINGS_STREAMMEDIA_CODEC                  "stream-media/codec"
 #define SETTINGS_STREAMMEDIA_WEBMVP8_BITRATE        "stream-media/codec/webmvp8-bitrate"
 #define SETTINGS_STREAMMEDIA_OFFSET                 "stream-media/offset"
@@ -506,11 +530,12 @@
 #define SETTINGS_STREAMMEDIA_SPX_AGC_GAINMAXDB      "stream-media/spxaudiopreprocessor/agc-gainmaxdb"
 #define SETTINGS_STREAMMEDIA_SPX_DENOISE_ENABLE     "stream-media/spxaudiopreprocessor/denoise-enable"
 #define SETTINGS_STREAMMEDIA_SPX_DENOISE_SUPPRESS   "stream-media/spxaudiopreprocessor/denoise-suppress"
-#define SETTINGS_STREAMMEDIA_WEBRTC_GAINCTL_ENABLE          "stream-media/webrtcaudiopreprocessor/gain-enable"
-#define SETTINGS_STREAMMEDIA_WEBRTC_GAINDB                  "stream-media/webrtcaudiopreprocessor/gain-db"
-#define SETTINGS_STREAMMEDIA_WEBRTC_SAT_PROT_ENABLE         "stream-media/webrtcaudiopreprocessor/sat-protection-enable"
-#define SETTINGS_STREAMMEDIA_WEBRTC_INIT_SAT_MARGIN_DB      "stream-media/webrtcaudiopreprocessor/init-sat-margin-db"
-#define SETTINGS_STREAMMEDIA_WEBRTC_EXTRA_SAT_MARGIN_DB     "stream-media/webrtcaudiopreprocessor/extra-sat-margin-db"
+#define SETTINGS_STREAMMEDIA_WEBRTC_GAINCTL_ENABLE  "stream-media/webrtcaudiopreprocessor/gain-enable"
+#define SETTINGS_STREAMMEDIA_WEBRTC_GAINDB          "stream-media/webrtcaudiopreprocessor/gain-db"
+#define SETTINGS_STREAMMEDIA_WEBRTC_SAT_PROT_ENABLE "stream-media/webrtcaudiopreprocessor/sat-protection-enable"
+#define SETTINGS_STREAMMEDIA_WEBRTC_HEADROOM_DB     "stream-media/webrtcaudiopreprocessor/headroom-db"
+#define SETTINGS_STREAMMEDIA_WEBRTC_MAXGAIN_DB      "stream-media/webrtcaudiopreprocessor/maxgain-db"
+#define SETTINGS_STREAMMEDIA_WEBRTC_INITGAIN_DB      "stream-media/webrtcaudiopreprocessor/initial-gain-db"
 #define SETTINGS_STREAMMEDIA_WEBRTC_MAXGAIN_DBSEC           "stream-media/webrtcaudiopreprocessor/maxgain-dbsec"
 #define SETTINGS_STREAMMEDIA_WEBRTC_MAX_OUT_NOISE           "stream-media/webrtcaudiopreprocessor/max-out-noise"
 #define SETTINGS_STREAMMEDIA_WEBRTC_NOISESUPPRESS_ENABLE    "stream-media/webrtcaudiopreprocessor/noise-suppress-enable"

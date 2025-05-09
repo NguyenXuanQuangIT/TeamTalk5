@@ -19,8 +19,7 @@
 #include "settings.h"
 #include "common.h"
 #include "appinfo.h"
-
-#include <QProcess>
+#include "utilui.h"
 
 #if defined(QT_TEXTTOSPEECH_LIB)
 #include <QTextToSpeech>
@@ -28,6 +27,12 @@
 #if QT_VERSION >= QT_VERSION_CHECK(6,8,0)
 #include <QAccessible>
 #include <QAccessibleAnnouncementEvent>
+#endif
+#if defined(Q_OS_MAC)
+#include <QProcess>
+#endif
+#if defined(Q_OS_LINUX) //For DBus on X11
+#include <QtDBus/QtDBus>
 #endif
 
 #if defined(QT_TEXTTOSPEECH_LIB)
@@ -42,42 +47,42 @@ extern QSettings* ttSettings;
 QHash<TTSEvents, TTSEventInfo> UtilTTS::eventToSettingMap()
 {
     static QHash<TTSEvents, TTSEventInfo> map = {
-        { TTS_USER_LOGGEDIN, {SETTINGS_TTSMSG_USER_LOGGEDIN, {{"{user}", tr("User's nickname who logged in")}, {"{server}", tr("Server's name from which event was emited")}}, "" } },
-        { TTS_USER_LOGGEDOUT, {SETTINGS_TTSMSG_USER_LOGGEDOUT, {{"{user}", tr("User's nickname who logged out")}, {"{server}", tr("Server's name from which event was emited")}}, "" } },
-        { TTS_USER_JOINED, {SETTINGS_TTSMSG_USER_JOINED, {{"{user}", tr("User's nickname who joined channel")}, {"{channel}", tr("Channel's name joined by user")}}, "" } },
-        { TTS_USER_LEFT, {SETTINGS_TTSMSG_USER_LEFT, {{"{user}", tr("User's nickname who left channel")}, {"{channel}", tr("Channel's name left by user")}}, "" } },
-        { TTS_USER_JOINED_SAME, {SETTINGS_TTSMSG_USER_JOINED_SAME, {{"{user}", tr("User's nickname who joined channel")}}, "" } },
-        { TTS_USER_LEFT_SAME, {SETTINGS_TTSMSG_USER_LEFT_SAME, {{"{user}", tr("User's nickname who left channel")}}, "" } },
-        { TTS_USER_TEXTMSG_PRIVATE, {SETTINGS_TTSMSG_PRIVATEMSG, {{"{user}", tr("User's nickname who sent message")}, {"{message}", tr("Message content")}, {"{server}", tr("Server's name from which event was emited")}}, "" } },
+        { TTS_USER_LOGGEDIN, {SETTINGS_TTSMSG_USER_LOGGEDIN, {{"{user}", tr("User's nickname who logged in")}, {"{username}", tr("User's username who logged in")}, {"{server}", tr("Server's name from which event was emited")}}, "" } },
+        { TTS_USER_LOGGEDOUT, {SETTINGS_TTSMSG_USER_LOGGEDOUT, {{"{user}", tr("User's nickname who logged out")}, {"{username}", tr("User's username who logged out")}, {"{server}", tr("Server's name from which event was emited")}}, "" } },
+        { TTS_USER_JOINED, {SETTINGS_TTSMSG_USER_JOINED, {{"{user}", tr("User's nickname who joined channel")}, {"{username}", tr("User's username who joined channel")}, {"{channel}", tr("Channel's name joined by user")}}, "" } },
+        { TTS_USER_LEFT, {SETTINGS_TTSMSG_USER_LEFT, {{"{user}", tr("User's nickname who left channel")}, {"{username}", tr("User's username who left channel")}, {"{channel}", tr("Channel's name left by user")}}, "" } },
+        { TTS_USER_JOINED_SAME, {SETTINGS_TTSMSG_USER_JOINED_SAME, {{"{user}", tr("User's nickname who joined channel")}, {"{username}", tr("User's username who joined channel")}}, "" } },
+        { TTS_USER_LEFT_SAME, {SETTINGS_TTSMSG_USER_LEFT_SAME, {{"{user}", tr("User's nickname who left channel")}, {"{username}", tr("User's username who left channel")}}, "" } },
+        { TTS_USER_TEXTMSG_PRIVATE, {SETTINGS_TTSMSG_PRIVATEMSG, {{"{user}", tr("User's nickname who sent message")}, {"{username}", tr("User's username who sent message")}, {"{message}", tr("Message content")}, {"{server}", tr("Server's name from which event was emited")}}, "" } },
         { TTS_USER_TEXTMSG_PRIVATE_SEND, {SETTINGS_TTSMSG_PRIVATEMSGSEND, {{"{message}", tr("Message content")}}, "" } },
-        { TTS_USER_TEXTMSG_PRIVATE_TYPING, {SETTINGS_TTSMSG_TYPING, {{"{user}", tr("User's nickname who is typing")}}, tr("User typing") } },
-        { TTS_USER_TEXTMSG_PRIVATE_TYPING_GLOBAL, {SETTINGS_TTSMSG_TYPING, {{"{user}", tr("User's nickname who is typing")}}, tr("User typing") } },
-        { TTS_USER_QUESTIONMODE, {SETTINGS_TTSMSG_QUESTIONMODE, {{"{user}", tr("User's nickname who set question mode")}, {"{server}", tr("Server's name from which event was emited")}}, "" } },
-        { TTS_USER_TEXTMSG_CHANNEL, {SETTINGS_TTSMSG_CHANNELMSG, {{"{user}", tr("User's nickname who sent message")}, {"{message}", tr("Message content")}, {"{server}", tr("Server's name from which event was emited")}}, "" } },
+        { TTS_USER_TEXTMSG_PRIVATE_TYPING, {SETTINGS_TTSMSG_TYPING, {{"{user}", tr("User's nickname who is typing")}, {"{username}", tr("User's username who is typing")}}, tr("User typing") } },
+        { TTS_USER_TEXTMSG_PRIVATE_TYPING_GLOBAL, {SETTINGS_TTSMSG_TYPING, {{"{user}", tr("User's nickname who is typing")}, {"{username}", tr("User's username who is typing")}}, tr("User typing") } },
+        { TTS_USER_QUESTIONMODE, {SETTINGS_TTSMSG_QUESTIONMODE, {{"{user}", tr("User's nickname who set question mode")}, {"{username}", tr("User's username who set question mode")}, {"{server}", tr("Server's name from which event was emited")}}, "" } },
+        { TTS_USER_TEXTMSG_CHANNEL, {SETTINGS_TTSMSG_CHANNELMSG, {{"{user}", tr("User's nickname who sent message")}, {"{username}", tr("User's username who sent message")}, {"{message}", tr("Message content")}, {"{server}", tr("Server's name from which event was emited")}}, "" } },
         { TTS_USER_TEXTMSG_CHANNEL_SEND, {SETTINGS_TTSMSG_CHANNELMSGSEND, {{"{message}", tr("Message content")}}, "" } },
-        { TTS_USER_TEXTMSG_BROADCAST, {SETTINGS_TTSMSG_BROADCASTMSG, {{"{user}", tr("User's nickname who sent message")}, {"{message}", tr("Message content")}, {"{server}", tr("Server's name from which event was emited")}}, "" } },
+        { TTS_USER_TEXTMSG_BROADCAST, {SETTINGS_TTSMSG_BROADCASTMSG, {{"{user}", tr("User's nickname who sent message")}, {"{username}", tr("User's username who sent message")}, {"{message}", tr("Message content")}, {"{server}", tr("Server's name from which event was emited")}}, "" } },
         { TTS_USER_TEXTMSG_BROADCAST_SEND, {SETTINGS_TTSMSG_BROADCASTMSGSEND, {{"{message}", tr("Message content")}}, "" } },
-        { TTS_SUBSCRIPTIONS_TEXTMSG_PRIVATE, {SETTINGS_TTSMSG_SUBCHANGE, {{"{user}", tr("User concerns by change")}, {"{type}", tr("Subscription type")}, {"{state}", tr("Subscription state")}}, tr("Subscription change") } },
-        { TTS_SUBSCRIPTIONS_TEXTMSG_CHANNEL, {SETTINGS_TTSMSG_SUBCHANGE, {{"{user}", tr("User concerns by change")}, {"{type}", tr("Subscription type")}, {"{state}", tr("Subscription state")}}, tr("Subscription change") } },
-        { TTS_SUBSCRIPTIONS_TEXTMSG_BROADCAST, {SETTINGS_TTSMSG_SUBCHANGE, {{"{user}", tr("User concerns by change")}, {"{type}", tr("Subscription type")}, {"{state}", tr("Subscription state")}}, tr("Subscription change") } },
-        { TTS_SUBSCRIPTIONS_VOICE, {SETTINGS_TTSMSG_SUBCHANGE, {{"{user}", tr("User concerns by change")}, {"{type}", tr("Subscription type")}, {"{state}", tr("Subscription state")}}, tr("Subscription change") } },
-        { TTS_SUBSCRIPTIONS_VIDEO, {SETTINGS_TTSMSG_SUBCHANGE, {{"{user}", tr("User concerns by change")}, {"{type}", tr("Subscription type")}, {"{state}", tr("Subscription state")}}, tr("Subscription change") } },
-        { TTS_SUBSCRIPTIONS_DESKTOP, {SETTINGS_TTSMSG_SUBCHANGE, {{"{user}", tr("User concerns by change")}, {"{type}", tr("Subscription type")}, {"{state}", tr("Subscription state")}}, tr("Subscription change") } },
-        { TTS_SUBSCRIPTIONS_DESKTOPINPUT, {SETTINGS_TTSMSG_SUBCHANGE, {{"{user}", tr("User concerns by change")}, {"{type}", tr("Subscription type")}, {"{state}", tr("Subscription state")}}, tr("Subscription change") } },
-        { TTS_SUBSCRIPTIONS_MEDIAFILE, {SETTINGS_TTSMSG_SUBCHANGE, {{"{user}", tr("User concerns by change")}, {"{type}", tr("Subscription type")}, {"{state}", tr("Subscription state")}}, tr("Subscription change") } },
-        { TTS_SUBSCRIPTIONS_INTERCEPT_TEXTMSG_PRIVATE, {SETTINGS_TTSMSG_SUBCHANGE, {{"{user}", tr("User concerns by change")}, {"{type}", tr("Subscription type")}, {"{state}", tr("Subscription state")}}, tr("Subscription change") } },
-        { TTS_SUBSCRIPTIONS_INTERCEPT_TEXTMSG_CHANNEL, {SETTINGS_TTSMSG_SUBCHANGE, {{"{user}", tr("User concerns by change")}, {"{type}", tr("Subscription type")}, {"{state}", tr("Subscription state")}}, tr("Subscription change") } },
-        { TTS_SUBSCRIPTIONS_INTERCEPT_VOICE, {SETTINGS_TTSMSG_SUBCHANGE, {{"{user}", tr("User concerns by change")}, {"{type}", tr("Subscription type")}, {"{state}", tr("Subscription state")}}, tr("Subscription change") } },
-        { TTS_SUBSCRIPTIONS_INTERCEPT_VIDEO, {SETTINGS_TTSMSG_SUBCHANGE, {{"{user}", tr("User concerns by change")}, {"{type}", tr("Subscription type")}, {"{state}", tr("Subscription state")}}, tr("Subscription change") } },
-        { TTS_SUBSCRIPTIONS_INTERCEPT_DESKTOP, {SETTINGS_TTSMSG_SUBCHANGE, {{"{user}", tr("User concerns by change")}, {"{type}", tr("Subscription type")}, {"{state}", tr("Subscription state")}}, tr("Subscription change") } },
-        { TTS_SUBSCRIPTIONS_INTERCEPT_MEDIAFILE, {SETTINGS_TTSMSG_SUBCHANGE, {{"{user}", tr("User concerns by change")}, {"{type}", tr("Subscription type")}, {"{state}", tr("Subscription state")}}, tr("Subscription change") } },
+        { TTS_SUBSCRIPTIONS_TEXTMSG_PRIVATE, {SETTINGS_TTSMSG_SUBCHANGE, {{"{user}", tr("User concerns by change")}, {"{username}", tr("User's username concerns by change")}, {"{type}", tr("Subscription type")}, {"{state}", tr("Subscription state")}}, tr("Subscription change") } },
+        { TTS_SUBSCRIPTIONS_TEXTMSG_CHANNEL, {SETTINGS_TTSMSG_SUBCHANGE, {{"{user}", tr("User concerns by change")}, {"{username}", tr("User's username concerns by change")}, {"{type}", tr("Subscription type")}, {"{state}", tr("Subscription state")}}, tr("Subscription change") } },
+        { TTS_SUBSCRIPTIONS_TEXTMSG_BROADCAST, {SETTINGS_TTSMSG_SUBCHANGE, {{"{user}", tr("User concerns by change")}, {"{username}", tr("User's username concerns by change")}, {"{type}", tr("Subscription type")}, {"{state}", tr("Subscription state")}}, tr("Subscription change") } },
+        { TTS_SUBSCRIPTIONS_VOICE, {SETTINGS_TTSMSG_SUBCHANGE, {{"{user}", tr("User concerns by change")}, {"{username}", tr("User's username concerns by change")}, {"{type}", tr("Subscription type")}, {"{state}", tr("Subscription state")}}, tr("Subscription change") } },
+        { TTS_SUBSCRIPTIONS_VIDEO, {SETTINGS_TTSMSG_SUBCHANGE, {{"{user}", tr("User concerns by change")}, {"{username}", tr("User's username concerns by change")}, {"{type}", tr("Subscription type")}, {"{state}", tr("Subscription state")}}, tr("Subscription change") } },
+        { TTS_SUBSCRIPTIONS_DESKTOP, {SETTINGS_TTSMSG_SUBCHANGE, {{"{user}", tr("User concerns by change")}, {"{username}", tr("User's username concerns by change")}, {"{type}", tr("Subscription type")}, {"{state}", tr("Subscription state")}}, tr("Subscription change") } },
+        { TTS_SUBSCRIPTIONS_DESKTOPINPUT, {SETTINGS_TTSMSG_SUBCHANGE, {{"{user}", tr("User concerns by change")}, {"{username}", tr("User's username concerns by change")}, {"{type}", tr("Subscription type")}, {"{state}", tr("Subscription state")}}, tr("Subscription change") } },
+        { TTS_SUBSCRIPTIONS_MEDIAFILE, {SETTINGS_TTSMSG_SUBCHANGE, {{"{user}", tr("User concerns by change")}, {"{username}", tr("User's username concerns by change")}, {"{type}", tr("Subscription type")}, {"{state}", tr("Subscription state")}}, tr("Subscription change") } },
+        { TTS_SUBSCRIPTIONS_INTERCEPT_TEXTMSG_PRIVATE, {SETTINGS_TTSMSG_SUBCHANGE, {{"{user}", tr("User concerns by change")}, {"{username}", tr("User's username concerns by change")}, {"{type}", tr("Subscription type")}, {"{state}", tr("Subscription state")}}, tr("Subscription change") } },
+        { TTS_SUBSCRIPTIONS_INTERCEPT_TEXTMSG_CHANNEL, {SETTINGS_TTSMSG_SUBCHANGE, {{"{user}", tr("User concerns by change")}, {"{username}", tr("User's username concerns by change")}, {"{type}", tr("Subscription type")}, {"{state}", tr("Subscription state")}}, tr("Subscription change") } },
+        { TTS_SUBSCRIPTIONS_INTERCEPT_VOICE, {SETTINGS_TTSMSG_SUBCHANGE, {{"{user}", tr("User concerns by change")}, {"{username}", tr("User's username concerns by change")}, {"{type}", tr("Subscription type")}, {"{state}", tr("Subscription state")}}, tr("Subscription change") } },
+        { TTS_SUBSCRIPTIONS_INTERCEPT_VIDEO, {SETTINGS_TTSMSG_SUBCHANGE, {{"{user}", tr("User concerns by change")}, {"{username}", tr("User's username concerns by change")}, {"{type}", tr("Subscription type")}, {"{state}", tr("Subscription state")}}, tr("Subscription change") } },
+        { TTS_SUBSCRIPTIONS_INTERCEPT_DESKTOP, {SETTINGS_TTSMSG_SUBCHANGE, {{"{user}", tr("User concerns by change")}, {"{username}", tr("User's username concerns by change")}, {"{type}", tr("Subscription type")}, {"{state}", tr("Subscription state")}}, tr("Subscription change") } },
+        { TTS_SUBSCRIPTIONS_INTERCEPT_MEDIAFILE, {SETTINGS_TTSMSG_SUBCHANGE, {{"{user}", tr("User concerns by change")}, {"{username}", tr("User's username concerns by change")}, {"{type}", tr("Subscription type")}, {"{state}", tr("Subscription state")}}, tr("Subscription change") } },
         { TTS_CLASSROOM_CHANMSG_TX, {SETTINGS_TTSMSG_CLASSROOM, {{"{type}", tr("Transmission type")}, {"{state}", tr("Transmission state")}, {"{user}", tr("User concerns by change")}}, tr("Classroom transmission authorization change") } },
         { TTS_CLASSROOM_VOICE_TX, {SETTINGS_TTSMSG_CLASSROOM, {{"{type}", tr("Transmission type")}, {"{state}", tr("Transmission state")}, {"{user}", tr("User concerns by change")}}, tr("Classroom transmission authorization change") } },
         { TTS_CLASSROOM_VIDEO_TX, {SETTINGS_TTSMSG_CLASSROOM, {{"{type}", tr("Transmission type")}, {"{state}", tr("Transmission state")}, {"{user}", tr("User concerns by change")}}, tr("Classroom transmission authorization change") } },
         { TTS_CLASSROOM_DESKTOP_TX, {SETTINGS_TTSMSG_CLASSROOM, {{"{type}", tr("Transmission type")}, {"{state}", tr("Transmission state")}, {"{user}", tr("User concerns by change")}}, tr("Classroom transmission authorization change") } },
         { TTS_CLASSROOM_MEDIAFILE_TX, {SETTINGS_TTSMSG_CLASSROOM, {{"{type}", tr("Transmission type")}, {"{state}", tr("Transmission state")}, {"{user}", tr("User concerns by change")}}, tr("Classroom transmission authorization change") } },
-        { TTS_FILE_ADD, {SETTINGS_TTSMSG_FILE_ADDED, {{"{filename}", tr("File name")}, {"{user}", tr("User's nickname who added the file")}, {"{filesize}", tr("File size")}}, "" } },
-        { TTS_FILE_REMOVE, {SETTINGS_TTSMSG_FILE_REMOVED, {{"{file}", tr("File name")}, {"{user}", tr("User's nickname who removed the file")}}, "" } },
+        { TTS_FILE_ADD, {SETTINGS_TTSMSG_FILE_ADDED, {{"{filename}", tr("File name")}, {"{user}", tr("User's nickname who added the file")}, {"{username}", tr("User's username who added the file")}, {"{filesize}", tr("File size")}}, "" } },
+        { TTS_FILE_REMOVE, {SETTINGS_TTSMSG_FILE_REMOVED, {{"{file}", tr("File name")}, {"{user}", tr("User's nickname who removed the file")}, {"{username}", tr("User's username who removed the file")}}, "" } },
     };
     return map;
 }
@@ -110,22 +115,6 @@ void addTextToSpeechMessage(const QString& msg)
         }
 #endif
         break;
-    case TTSENGINE_NOTIFY:
-    {
-#if defined(Q_OS_LINUX)
-        int timestamp = ttSettings->value(SETTINGS_TTS_TIMESTAMP, SETTINGS_TTS_TIMESTAMP_DEFAULT).toUInt();
-        QString noquote = msg;
-        noquote.replace('"', ' ');
-        QProcess ps;
-        ps.startDetached(QString("%1 -t %2 -a \"%3\" -u low \"%4: %5\"")
-            .arg(TTSENGINE_NOTIFY_PATH)
-            .arg(timestamp)
-            .arg(APPNAME_SHORT)
-            .arg(APPNAME_SHORT)
-            .arg(noquote));
-#endif
-        break;
-    }
     case TTSENGINE_QTANNOUNCEMENT:
     {
 #if QT_VERSION >= QT_VERSION_CHECK(6,8,0)
@@ -151,6 +140,10 @@ void addTextToSpeechMessage(const QString& msg)
 #endif
         break;
     }
+#if defined(Q_OS_WIN) || defined(Q_OS_LINUX)
+    if (ttSettings->value(SETTINGS_TTS_TOAST, SETTINGS_TTS_TOAST_DEFAULT).toBool())
+        showNotification(APPNAME_SHORT, msg);
+#endif
 }
 
 void addTextToSpeechMessage(TextToSpeechEvent event, const QString& msg)
@@ -159,6 +152,26 @@ void addTextToSpeechMessage(TextToSpeechEvent event, const QString& msg)
     {
         addTextToSpeechMessage(msg);
     }
+}
+
+bool isScreenReaderActive()
+{
+    bool SRActive = false;
+#if defined(ENABLE_TOLK)
+    bool tolkLoaded = Tolk_IsLoaded();
+    if (!tolkLoaded)
+        Tolk_Load();
+    SRActive = Tolk_DetectScreenReader() != nullptr;
+    if (!tolkLoaded)
+        Tolk_Unload();
+#elif defined(Q_OS_LINUX)
+    QDBusInterface interface("org.a11y.Bus", "/org/a11y/bus", "org.a11y.Status", QDBusConnection::sessionBus());
+    if (interface.isValid())
+    {
+        SRActive = interface.property("IsEnabled").toBool();
+    }
+#endif
+    return SRActive;
 }
 
 QString UtilTTS::getDefaultValue(const QString& paramKey)

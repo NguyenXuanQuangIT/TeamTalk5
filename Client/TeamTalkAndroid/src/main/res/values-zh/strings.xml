@@ -31,6 +31,8 @@
     <string name="text_cmd_leftroot">离开跟频道</string>
     <string name="text_cmd_userjoinchan">加入频道</string>
     <string name="text_cmd_userleftchan">离开频道</string>
+    <string name="text_cmd_userloggedout">已登出</string>
+    <string name="text_cmd_userloggedin">已登录</string>
     <string name="text_cmd_servername">服务器名称: </string>
     <string name="text_cmd_servermotd">每日消息: </string>
     <string name="pref_cat_subscriptions">订阅</string>
@@ -142,11 +144,18 @@
     <string name="action_bansrv">从服务器禁止</string>
     <string name="action_edit">编辑频道</string>
     <string name="action_join">加入</string>
+    <string name="action_edituser">用户属性</string>
+    <string name="action_message">消息</string>
     <string name="action_kickchan">踢出当前频道</string>
     <string name="action_kicksrv">踢出服务器</string>
     <string name="action_move">移动至此</string>
     <string name="action_select">选择移动</string>
+    <string name="action_deselect">取消选择移动</string>
+    <string name="action_exportsrv">导出服务器</string>
+    <string name="action_editsrv">编辑服务器</string>
+    <string name="action_removesrv">删除服务器</string>
     <string name="action_upload">上传文件</string>
+    <string name="action_broadcast">广播消息</string>
     <string name="action_stream">播放流媒体文件</string>
     <string name="button_select_media_file">浏览</string>
     <string name="button_stream_media_file">播放</string>
@@ -168,9 +177,13 @@
     <string name="channel_prop_title_noaudiorecord">禁止录音</string>
 
 
-    <string name="user_prop_title_username">用户名</string>
-    <string name="user_prop_title_clientname">客户端名称</string>
+    <string name="user_prop_title_nickname">昵称：</string>
+    <string name="user_prop_title_username">用户名：</string>
+    <string name="user_prop_title_userid">用户ID：</string>
+    <string name="user_prop_title_statusmsg">状态消息：</string>
+    <string name="user_prop_title_clientname">客户端名称：</string>
     <string name="user_prop_clientversion">版本</string>
+    <string name="user_prop_title_ipaddress">IP地址：</string>
     <string name="user_prop_title_voice_volume">语音音量</string>
     <string name="user_prop_title_mute_voice">语音静音</string>
     <string name="user_prop_title_media_volume">媒体文件音量</string>
@@ -192,7 +205,8 @@
     <string name="label_connection">连接：</string>
     <string name="stat_online">在线</string>
     <string name="stat_offline">离线</string>
-    <string name="stat_connecting">连接</string>
+    <string name="stat_connecting">连接中</string>
+    <string name="stat_unauthorized">未授权</string>
     <string name="label_voice">语音：</string>
     <string name="label_desktop">桌面:</string>
     <string name="label_ping">Ping:</string>
@@ -222,6 +236,7 @@
     <string name="action_import_serverlist">从 .tt 文件导入</string>
     <string name="action_export_serverlist">导出服务器列表</string>
     <string name="serverlist_export_confirmation">服务器列表已导出至 %1$s</string>
+    <string name="server_export_confirmation">服务器已导出至 %1$s</string>
 
     <string name="pref_title_server_props">TeamTalk 5 服务器属性</string>
     <string name="pref_title_server_info">服务器信息</string>
@@ -266,22 +281,25 @@
     <string name="ban_confirmation">你真的要禁止用户 %1$s 吗？</string>
     <string name="kick_confirmation">你真的要踢出用户 %1$s 吗？</string>
     <string name="version_update">有新的 TeamTalk 版本可用： %1$s?</string>
-    <string name="decvolume">减小音量</string>
-    <string name="incvolume">增大音量</string>
+    <string name="opusbitrate">比特率</string>
+    <string name="opusinterval">传输间隔</string>
+    <string name="speexquality">质量</string>
+    <string name="speexinterval">传输间隔</string>
+    <string name="speexvbrquality">质量</string>
+    <string name="speexvbrinterval">传输间隔</string>
+    <string name="voicevolume">语音音量</string>
+    <string name="mediavolume">媒体文件音量</string>
+    <string name="mastervolume">扬声器音量</string>
+    <string name="micgain">麦克风增益</string>
+    <string name="voxlevel">语音激活级别</string>
     <string name="speaker_mute">扬声器静音</string>
     <string name="speaker_unmute">取消扬声器静音</string>
     <string name="mic_mute">麦克风静音</string>
     <string name="mic_unmute">取消麦克风静音</string>
-    <string name="decgain">降低麦克风增益</string>
-    <string name="incgain">增加麦克风增益</string>
-
     <string name="speaker_volume_description">扬声器音量 %1$s</string>
     <string name="mic_gain_description">麦克风音量 %1$s</string>
-
     <string name="voice_activation_on">开启语音激活</string>
     <string name="voice_activation_off">关闭语音激活</string>
-    <string name="decvoxlevel">降低语音激活级别</string>
-    <string name="incvoxlevel">增加语音激活级别</string>
     <string name="vox_level_description">语音激活级别 %1$s</string>
 
     <string name="tx_on">语音传输中</string>
@@ -401,6 +419,7 @@
     <string name="action_make_operator">授予频道管理员</string>
     <string name="action_revoke_operator">撤销频道管理员</string>
     <string name="text_operator_password">输入频道管理员密码</string>
+    <string name="text_broadcast_message">输入广播消息</string>
 
 
 </resources>

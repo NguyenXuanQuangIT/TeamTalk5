@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2005-2018, BearWare.dk
- * 
+ *
  * Contact Information:
  *
  * Bjoern D. Rasmussen
@@ -24,11 +24,11 @@
 #if !defined(V4L2CAPTURE_H)
 #define V4L2CAPTURE_H
 
-#include "FFMpeg3Capture.h"
+#include "FFmpegCapture.h"
 
 namespace vidcap {
 
-    class V4L2Capture : public FFMpeg3Capture
+    class V4L2Capture : public FFmpegCapture
     {
 
     protected:
@@ -45,4 +45,3 @@ namespace vidcap {
 }
 
 #endif
-

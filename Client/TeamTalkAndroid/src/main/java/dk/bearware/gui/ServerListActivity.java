@@ -40,6 +40,8 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.PopupMenu;
+import android.widget.PopupMenu.OnMenuItemClickListener;
 import android.widget.AdapterView;
 import android.widget.BaseAdapter;
 import android.widget.ImageView;
@@ -162,7 +164,7 @@ extends AppCompatActivity
     protected void onStart() {
         super.onStart();
 
-        if ((serverentry != null) && serverentry.rememberLastChannel) {
+        if (serverentry != null) {
             saveServers();
         }
 
@@ -273,7 +275,6 @@ extends AppCompatActivity
                     if (entries != null) {
                         for (ServerEntry entry : entries) {
                             entry.servertype = ServerEntry.ServerType.LOCAL;
-                            entry.rememberLastChannel = true;
                         }
                         servers.addAll(entries);
                         Collections.sort(servers, this);
@@ -338,13 +339,38 @@ extends AppCompatActivity
     }
 
     @Override
-    public boolean onItemLongClick(AdapterView< ? > l, View v, int position, long id) {
-        Intent intent = new Intent(this, ServerEntryActivity.class);
-
+    public boolean onItemLongClick(AdapterView<?> l, View v, int position, long id) {
         ServerEntry entry = servers.elementAt(position);
 
-        startActivityForResult(Utils.putServerEntry(intent, entry).putExtra(POSITION_NAME, position),
-            REQUEST_EDITSERVER);
+        PopupMenu serverActions = new PopupMenu(this, v);
+        serverActions.inflate(R.menu.server_actions);
+        serverActions.setOnMenuItemClickListener(item -> {
+            switch (item.getItemId()) {
+                case R.id.action_exportsrv:
+                    if ((Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) || Permissions.WRITE_EXTERNAL_STORAGE.request(this)) {
+                        exportServer(entry);
+                    }
+                    return true;
+                case R.id.action_editsrv:
+                    Intent intent = new Intent(this, ServerEntryActivity.class);
+                    startActivityForResult(Utils.putServerEntry(intent, entry).putExtra(POSITION_NAME, position), REQUEST_EDITSERVER);
+                    return true;
+                case R.id.action_removesrv:
+                    AlertDialog.Builder alert = new AlertDialog.Builder(ServerListActivity.this);
+                    alert.setMessage(getString(R.string.server_remove_confirmation, entry.servername));
+                    alert.setPositiveButton(android.R.string.yes, (dialog, whichButton) -> {
+                        servers.remove(position);
+                        adapter.notifyDataSetChanged();
+                        saveServers();
+                    });
+                    alert.setNegativeButton(android.R.string.no, null);
+                    alert.show();
+                    return true;
+                default:
+                    return false;
+            }
+        });
+        serverActions.show();
         return true;
     }
 
@@ -435,20 +461,6 @@ extends AppCompatActivity
             }
             ServerEntry entry = servers.get(position);
             summary.setText(getString(R.string.text_server_summary, entry.ipaddr, entry.tcpport, entry.stats_usercount, entry.stats_country));
-            View editButton = convertView.findViewById(R.id.server_edit);
-            if (editButton != null)
-                editButton.setOnClickListener(v -> onItemLongClick(getListFragment().getListView(), v, position, v.getId()));
-            convertView.findViewById(R.id.server_remove).setOnClickListener(v -> {
-                AlertDialog.Builder alert = new AlertDialog.Builder(ServerListActivity.this);
-                alert.setMessage(getString(R.string.server_remove_confirmation, entry.servername));
-                alert.setPositiveButton(android.R.string.yes, (dialog, whichButton) -> {
-                    servers.remove(position);
-                    notifyDataSetChanged();
-                    saveServers();
-                });
-                alert.setNegativeButton(android.R.string.no, null);
-                alert.show();
-            });
 
             return convertView;
         }
@@ -774,6 +786,37 @@ extends AppCompatActivity
             else {
                 int msgId = Utils.saveServers(entries, filePath) ?
                     R.string.serverlist_export_confirmation :
+                    R.string.err_file_write;
+                Toast.makeText(this, getString(msgId, filePath), Toast.LENGTH_LONG).show();
+            }
+        }
+    }
+
+    private void exportServer(ServerEntry entry) {
+        File dirPath = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
+        if (dirPath.mkdirs() || dirPath.isDirectory()) {
+            final File ttFile = new File(dirPath, entry.servername + "_server.tt");
+            final String filePath = ttFile.getAbsolutePath();
+
+            if (ttFile.exists()) {
+                AlertDialog.Builder alert = new AlertDialog.Builder(this);
+                alert.setMessage(getString(R.string.alert_file_override, filePath));
+                alert.setPositiveButton(android.R.string.yes, (dialog, whichButton) -> {
+                    if (ttFile.delete()) {
+                        int msgId = Utils.saveServers(new Vector<>(Collections.singletonList(entry)), filePath) ?
+                            R.string.server_export_confirmation :
+                            R.string.err_file_write;
+                        Toast.makeText(ServerListActivity.this, getString(msgId, filePath), Toast.LENGTH_LONG).show();
+                    } else {
+                        Toast.makeText(ServerListActivity.this, getString(R.string.err_file_delete, filePath), Toast.LENGTH_LONG).show();
+                    }
+                });
+
+                alert.setNegativeButton(android.R.string.no, null);
+                alert.show();
+            } else {
+                int msgId = Utils.saveServers(new Vector<>(Collections.singletonList(entry)), filePath) ?
+                    R.string.server_export_confirmation :
                     R.string.err_file_write;
                 Toast.makeText(this, getString(msgId, filePath), Toast.LENGTH_LONG).show();
             }

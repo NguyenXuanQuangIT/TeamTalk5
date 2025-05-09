@@ -22,24 +22,43 @@
 
 #include <QPlainTextEdit>
 
-class ChatTextEdit : public QPlainTextEdit
+class ChatTextHistory
+{
+public:
+    virtual ~ChatTextHistory() = default;
+
+    virtual void updateServer(const ServerProperties& srvprop) = 0;
+    virtual void joinedChannel(int channelid) = 0;
+
+    virtual QString addTextMessage(const MyTextMessage& msg) = 0;
+    virtual void addLogMessage(const QString& msg) = 0;
+
+    virtual bool hasFocus() const = 0;
+    virtual void setFocus() = 0;
+
+    virtual void updateTranslation() = 0;
+};
+
+class ChatTextEdit : public QPlainTextEdit, public ChatTextHistory
 {
     Q_OBJECT
 
 public:
     ChatTextEdit(QWidget * parent = 0);
 
-    void updateServer(const ServerProperties& srvprop);
+    void updateServer(const ServerProperties& srvprop) override;
 
-    void joinedChannel(int channelid);
+    void joinedChannel(int channelid) override;
 
-    QString addTextMessage(const MyTextMessage& msg);
-    void addLogMessage(const QString& msg);
-
+    QString addTextMessage(const MyTextMessage& msg) override;
+    void addLogMessage(const QString& msg) override;
+    bool hasFocus() const override { return QPlainTextEdit::hasFocus(); }
+    void setFocus() override { QPlainTextEdit::setFocus(); }
+    void updateTranslation() override;
 signals:
     void clearHistory();
 private:
-    static QString getTimeStamp(const QDateTime& tm, bool force_ts = false);
+    static QString getTimeStamp(const QDateTime& tm);
     void limitText();
     QString currentUrl(const QTextCursor& cursor) const;
 

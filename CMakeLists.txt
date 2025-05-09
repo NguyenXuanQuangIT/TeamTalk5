@@ -1,5 +1,5 @@
 # Relative paths are not supported pre-2.8.1, target_link_libraries seems to require 3.0.2
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.10)
 
 project (TeamTalk5SDK)
 
@@ -25,7 +25,7 @@ project (TeamTalk5SDK)
 #
 # Windows 64-bit
 # --------------
-# Open "x64 Native Tools Command Prompt for VS 2019" and change to
+# Open "x64 Native Tools Command Prompt for VS 2022" and change to
 # directory of TeamTalk5 checkout, e.g. C:\TeamTalk5
 #
 # Now configure an output directory, here teamtalk-win64, for
@@ -37,7 +37,7 @@ project (TeamTalk5SDK)
 #
 # $ cmake --build teamtalk-win64
 #
-# A Visual Studio 2019 solution file will also be available in output
+# A Visual Studio 2022 solution file will also be available in output
 # directory teamtalk-win64.
 
 option (BUILD_TEAMTALK_CORE "Build TeamTalk core library" ON)

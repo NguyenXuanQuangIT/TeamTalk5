@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2005-2018, BearWare.dk
- * 
+ *
  * Contact Information:
  *
  * Bjoern D. Rasmussen
@@ -21,20 +21,20 @@
  *
  */
 
-#include "FFMpeg3Capture.h"
+#include "FFmpegCapture.h"
 
 namespace vidcap {
 
-    class AVFVideoInput : public FFMpegVideoInput
+    class AVFVideoInput : public FFmpegVideoInput
     {
     public:
         AVFVideoInput(const VidCapDevice& viddevice,
                       const media::VideoFormat& fmt)
-            : FFMpegVideoInput(viddevice, fmt) {
+            : FFmpegVideoInput(viddevice, fmt) {
         }
-    
-        // FFMpegStreamer override
-        bool SetupInput(struct AVInputFormat *iformat,
+
+        // FFmpegStreamer override
+        bool SetupInput(const struct AVInputFormat *iformat,
                         struct AVDictionary *options,
                         struct AVFormatContext*& fmt_ctx,
                         struct AVCodecContext*& aud_dec_ctx,

@@ -31,6 +31,8 @@
     <string name="text_cmd_leftroot">Left root channel</string>
     <string name="text_cmd_userjoinchan">joined channel</string>
     <string name="text_cmd_userleftchan">left channel</string>
+    <string name="text_cmd_userloggedout">logged out</string>
+    <string name="text_cmd_userloggedin">logged in</string>
     <string name="text_cmd_servername">Server name: </string>
     <string name="text_cmd_servermotd">Message of the day: </string>
     <string name="pref_cat_subscriptions">Subscriptions</string>
@@ -142,11 +144,18 @@
     <string name="action_bansrv">Ban from server</string>
     <string name="action_edit">Edit Channel</string>
     <string name="action_join">Join</string>
+    <string name="action_edituser">User properties</string>
+    <string name="action_message">Messages</string>
     <string name="action_kickchan">Kick from current channel</string>
     <string name="action_kicksrv">Kick from server</string>
     <string name="action_move">Move Here</string>
     <string name="action_select">Select For Move</string>
+    <string name="action_deselect">Deselect For Move</string>
+    <string name="action_exportsrv">Export server</string>
+    <string name="action_editsrv">Edit server</string>
+    <string name="action_removesrv">Remove server</string>
     <string name="action_upload">Upload File</string>
+    <string name="action_broadcast">Broadcast Message</string>
     <string name="action_stream">Stream a media file</string>
     <string name="button_select_media_file">Browse</string>
     <string name="button_stream_media_file">Stream</string>
@@ -168,9 +177,13 @@
     <string name="channel_prop_title_noaudiorecord">No Audio Recording</string>
 
 
-    <string name="user_prop_title_username">Username</string>
-    <string name="user_prop_title_clientname">Client Name</string>
+    <string name="user_prop_title_nickname">Nickname:</string>
+    <string name="user_prop_title_username">Username:</string>
+    <string name="user_prop_title_userid">User ID:</string>
+    <string name="user_prop_title_statusmsg">Status Message:</string>
+    <string name="user_prop_title_clientname">Client Name:</string>
     <string name="user_prop_clientversion">version</string>
+    <string name="user_prop_title_ipaddress">IP Address:</string>
     <string name="user_prop_title_voice_volume">Voice Volume</string>
     <string name="user_prop_title_mute_voice">Mute Voice</string>
     <string name="user_prop_title_media_volume">Media File Volume</string>
@@ -193,6 +206,7 @@
     <string name="stat_online">Online</string>
     <string name="stat_offline">Offline</string>
     <string name="stat_connecting">Connecting</string>
+    <string name="stat_unauthorized">Unauthorized</string>
     <string name="label_voice">Voice:</string>
     <string name="label_desktop">Desktop:</string>
     <string name="label_ping">Ping:</string>
@@ -222,6 +236,7 @@
     <string name="action_import_serverlist">Import from a .tt File</string>
     <string name="action_export_serverlist">Export server list</string>
     <string name="serverlist_export_confirmation">Server list has been exported to %1$s</string>
+    <string name="server_export_confirmation">Server has been exported to %1$s</string>
 
     <string name="pref_title_server_props">TeamTalk 5 Server Properties</string>
     <string name="pref_title_server_info">Server Information</string>
@@ -266,22 +281,25 @@
     <string name="ban_confirmation">Do you really wish to ban user %1$s?</string>
     <string name="kick_confirmation">Do you really wish to kick user %1$s?</string>
     <string name="version_update">New TeamTalk version available: %1$s?</string>
-    <string name="decvolume">Decrease volume</string>
-    <string name="incvolume">Increase volume</string>
+    <string name="opusbitrate">bitrate</string>
+    <string name="opusinterval">Transmit interval</string>
+    <string name="speexquality">Quality</string>
+    <string name="speexinterval">Transmit interval</string>
+    <string name="speexvbrquality">Quality</string>
+    <string name="speexvbrinterval">Transmit interval</string>
+    <string name="voicevolume">Voice Volume</string>
+    <string name="mediavolume">Media File Volume</string>
+    <string name="mastervolume">Speaker volume</string>
+    <string name="micgain">Microphone gain</string>
+    <string name="voxlevel">Voice activation level</string>
     <string name="speaker_mute">Mute speakers</string>
     <string name="speaker_unmute">Unmute speakers</string>
     <string name="mic_mute">Mute microphone</string>
     <string name="mic_unmute">Unmute microphone</string>
-    <string name="decgain">Decrease microphone gain</string>
-    <string name="incgain">Increase microphone gain</string>
-
     <string name="speaker_volume_description">Speaker volume is %1$s</string>
     <string name="mic_gain_description">Microphone gain is %1$s</string>
-
     <string name="voice_activation_on">Turn voice activation on</string>
     <string name="voice_activation_off">Turn voice activation off</string>
-    <string name="decvoxlevel">Decrease voice activation level</string>
-    <string name="incvoxlevel">Increase voice activation level</string>
     <string name="vox_level_description">Voice activation level is %1$s</string>
 
     <string name="tx_on">Transmitting</string>
@@ -401,6 +419,7 @@
     <string name="action_make_operator">Grant Operator</string>
     <string name="action_revoke_operator">Revoke Operator</string>
     <string name="text_operator_password">Enter channel operator password</string>
+    <string name="text_broadcast_message">Enter broadcast message</string>
 
 
 </resources>

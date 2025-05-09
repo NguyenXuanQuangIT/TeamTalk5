@@ -193,14 +193,13 @@ bool hasDesktopAccess(const QVector<DesktopAccessEntry>& entries,
 void deleteDesktopAccessEntries();
 
 AudioPreprocessor loadAudioPreprocessor(AudioPreprocessorType preprocessortype);
+void saveAudioPreprocessor(const AudioPreprocessor& preprocess);
 
 bool isWebLogin(const QString& username, bool includeParentLoginName);
 QString userCacheID(const User& user);
 
 bool versionSameOrLater(const QString& check, const QString& against);
 QString getVersion(const User& user);
-QString limitText(const QString& text);
-QString getDisplayName(const User& user);
 
 QString generateAudioStorageFilename(AudioFileFormat aff);
 

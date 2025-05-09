@@ -55,16 +55,46 @@ OnlineUsersDlg::OnlineUsersDlg(QWidget* parent/* = 0 */)
     m_model->resetUsers();
     updateTitle();
 
-#if QT_VERSION >= QT_VERSION_CHECK(6,3,0)
-    addAction(tr("&View User Information"), QKeySequence(tr("Ctrl+I")), this, [&](){ menuAction(VIEW_USERINFORMATION); });
-    addAction(tr("M&essages"), QKeySequence(tr("Ctrl+E")), this, [&]() { menuAction(SEND_TEXTMESSAGE); });
-    addAction(tr("&Op"), QKeySequence(tr("Ctrl+O")), this, [&]() { menuAction(OP); });
-    addAction(tr("&Kick from Channel"), QKeySequence(tr("Ctrl+K")), this, [&]() { menuAction(KICK_FROM_CHANNEL); });
-    addAction(tr("&Kick from Server"), QKeySequence(tr("Ctrl+Alt+K")), this, [&]() { menuAction(KICK_FROM_SERVER); });
-    addAction(tr("Kick and &Ban from Channel"), QKeySequence(tr("Ctrl+B")), this, [&]() { menuAction(BAN_FROM_CHANNEL); });
-    addAction(tr("Kick and &Ban from Server"), QKeySequence(tr("Ctrl+Alt+B")), this, [&]() { menuAction(BAN_FROM_SERVER); });
-    addAction(tr("Select User(s) for Move"), QKeySequence(tr("Ctrl+Alt+X")), this, [&]() { menuAction(MOVE); });
-#endif
+    m_viewInfoAct = new QShortcut(QKeySequence(tr("Ctrl+I")), this);
+    connect(m_viewInfoAct, &QShortcut::activated, this, [this]
+    {
+        menuAction(VIEW_USERINFORMATION);
+    });
+    m_msgAct = new QShortcut(QKeySequence(tr("Ctrl+E")), this);
+    connect(m_msgAct, &QShortcut::activated, this, [this]
+    {
+        menuAction(SEND_TEXTMESSAGE);
+    });
+    m_opAct = new QShortcut(QKeySequence(tr("Ctrl+O")), this);
+    connect(m_opAct, &QShortcut::activated, this, [this]
+    {
+        menuAction(OP);
+    });
+    m_kickAct = new QShortcut(QKeySequence(tr("Ctrl+K")), this);
+    connect(m_kickAct, &QShortcut::activated, this, [this]
+    {
+        menuAction(KICK_FROM_CHANNEL);
+    });
+    m_kickServAct = new QShortcut(QKeySequence(tr("Ctrl+Alt+K")), this);
+    connect(m_kickServAct, &QShortcut::activated, this, [this]
+    {
+        menuAction(KICK_FROM_SERVER);
+    });
+    m_kickBanAct = new QShortcut(QKeySequence(tr("Ctrl+B")), this);
+    connect(m_kickBanAct, &QShortcut::activated, this, [this]
+    {
+        menuAction(BAN_FROM_CHANNEL);
+    });
+    m_kickBanServAct = new QShortcut(QKeySequence(tr("Ctrl+Alt+B")), this);
+    connect(m_kickBanServAct, &QShortcut::activated, this, [this]
+    {
+        menuAction(BAN_FROM_SERVER);
+    });
+    m_selMoveAct = new QShortcut(QKeySequence(tr("Ctrl+Alt+X")), this);
+    connect(m_selMoveAct, &QShortcut::activated, this, [this]
+    {
+        menuAction(MOVE);
+    });
     m_proxyModel->setSortCaseSensitivity(Qt::CaseInsensitive);
     m_proxyModel->sort(COLUMN_NICKNAME, Qt::AscendingOrder);
     ui.tableView->horizontalHeader()->restoreState(ttSettings->value(SETTINGS_DISPLAY_ONLINEUSERS_HEADERSIZES).toByteArray());
@@ -127,41 +157,19 @@ void OnlineUsersDlg::slotUserLeft(int /*channelid*/, const User& user)
 void OnlineUsersDlg::slotTreeContextMenu(const QPoint& /*point*/)
 {
     QMenu menu(this);
-#if QT_VERSION >= QT_VERSION_CHECK(6,0,0)
-    menu.addAction(tr("&View User Information"), QKeySequence(tr("Ctrl+I")), this,
-                   [&]() { menuAction(VIEW_USERINFORMATION); });
-    menu.addAction(tr("M&essages"), QKeySequence(tr("Ctrl+E")), this,
-                   [&]() { menuAction(SEND_TEXTMESSAGE); });
-    menu.addAction(tr("&Op"), QKeySequence(tr("Ctrl+O")), this,
-                   [&]() { menuAction(OP); });
-    menu.addAction(tr("&Kick from Channel"), QKeySequence(tr("Ctrl+K")), this,
-                   [&]() { menuAction(KICK_FROM_CHANNEL); });
-    menu.addAction(tr("&Kick from Server"), QKeySequence(tr("Ctrl+Alt+K")), this,
-                   [&]() { menuAction(KICK_FROM_SERVER); });
-    menu.addAction(tr("Kick and &Ban from Channel"), QKeySequence(tr("Ctrl+B")), this,
-                   [&]() { menuAction(BAN_FROM_CHANNEL); });
-    menu.addAction(tr("Kick and &Ban from Server"), QKeySequence(tr("Ctrl+Alt+B")), this,
-                   [&]() { menuAction(BAN_FROM_SERVER); });
-    menu.addAction(tr("Select User(s) for Move"), QKeySequence(tr("Ctrl+Alt+X")), this,
-                   [&]() { menuAction(MOVE); });
-#else
-    menu.addAction(tr("&View User Information"), this, [&]() { menuAction(VIEW_USERINFORMATION); },
-                   QKeySequence(tr("Ctrl+I")));
-    menu.addAction(tr("M&essages"), this, [&]() { menuAction(SEND_TEXTMESSAGE); },
-                   QKeySequence(tr("Ctrl+E")));
-    menu.addAction(tr("&Op"), this, [&]() { menuAction(OP); },
-                   QKeySequence(tr("Ctrl+O")));
-    menu.addAction(tr("&Kick from Channel"), this, [&]() { menuAction(KICK_FROM_CHANNEL); },
-                   QKeySequence(tr("Ctrl+K")));
-    menu.addAction(tr("&Kick from Server"), this, [&]() { menuAction(KICK_FROM_SERVER); },
-                   QKeySequence(tr("Ctrl+Alt+K")));
-    menu.addAction(tr("Kick and &Ban from Channel"), this, [&]() { menuAction(BAN_FROM_CHANNEL); },
-                   QKeySequence(tr("Ctrl+B")));
-    menu.addAction(tr("Kick and &Ban from Server"), this, [&]() { menuAction(BAN_FROM_SERVER); },
-                   QKeySequence(tr("Ctrl+Alt+B")));
-    menu.addAction(tr("Select User(s) for Move"), this, [&]() { menuAction(MOVE); },
-                   QKeySequence(tr("Ctrl+Alt+X")));
-#endif
+    auto add = [&](const QString &txt, const QKeySequence &seq, MenuAction ma)
+    {
+        QAction *act = menu.addAction(txt, [this, ma]{ menuAction(ma); });
+        act->setShortcut(seq);
+    };
+    add(tr("&View User Information"), QKeySequence(tr("Ctrl+I")), VIEW_USERINFORMATION);
+    add(tr("M&essages"), QKeySequence(tr("Ctrl+E")), SEND_TEXTMESSAGE);
+    add(tr("&Op"), QKeySequence(tr("Ctrl+O")), OP);
+    add(tr("&Kick from Channel"), QKeySequence(tr("Ctrl+K")), KICK_FROM_CHANNEL);
+    add(tr("K&ick from Server"), QKeySequence(tr("Ctrl+Alt+K")), KICK_FROM_SERVER);
+    add(tr("Kick and &Ban from Channel"), QKeySequence(tr("Ctrl+B")), BAN_FROM_CHANNEL);
+    add(tr("Kick and B&an from Server"), QKeySequence(tr("Ctrl+Alt+B")), BAN_FROM_SERVER);
+    add(tr("&Select User(s) for Move"), QKeySequence(tr("Ctrl+Alt+X")), MOVE);
     QMenu* sortMenu = menu.addMenu(tr("Sort By..."));
     QString asc = tr("Ascending"), desc = tr("Descending");
     QAction* sortId = new QAction(sortMenu);

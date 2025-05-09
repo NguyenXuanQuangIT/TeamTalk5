@@ -83,7 +83,7 @@ android: LIBS += -lOpenSLES -llog
 QMAKE_CXXFLAGS += -DENABLE_ENCRYPTION -D__ACE_INLINE__  # ace
 QMAKE_CXXFLAGS += -D__STDC_CONSTANT_MACROS # ffmpeg
 QMAKE_CXXFLAGS += -DENABLE_OPUS -DENABLE_OGG -DENABLE_OPUSTOOLS -DENABLE_SPEEX \
-                  -DENABLE_FFMPEG3 -DENABLE_VPX -DENABLE_WEBRTC
+                  -DENABLE_FFMPEG -DENABLE_VPX -DENABLE_WEBRTC
 
 android: DEFINES += ENABLE_OPENSLES
 
@@ -109,8 +109,8 @@ SOURCES +=  main.cpp \
             $$TEAMTALKLIB_ROOT/avstream/AudioInputStreamer.cpp \
             $$TEAMTALKLIB_ROOT/avstream/SpeexPreprocess.cpp \
             $$TEAMTALKLIB_ROOT/avstream/SpeexResampler.cpp \
-            $$TEAMTALKLIB_ROOT/avstream/FFMpeg3Streamer.cpp \
-            $$TEAMTALKLIB_ROOT/avstream/FFMpeg3Resampler.cpp \
+            $$TEAMTALKLIB_ROOT/avstream/FFmpegStreamer.cpp \
+            $$TEAMTALKLIB_ROOT/avstream/FFmpegResampler.cpp \
             $$TEAMTALKLIB_ROOT/avstream/WebRTCPreprocess.cpp \
             $$TEAMTALKLIB_ROOT/avstream/WebRTCPreprocess.h \
             $$TEAMTALKLIB_ROOT/avstream/OpusFileStreamer.cpp \

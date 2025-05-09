@@ -77,7 +77,7 @@ elseif (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
   if (TOOLCHAIN_BUILD_EXTERNALPROJECTS)
     ExternalProject_Add(zlib-src
       GIT_REPOSITORY    https://github.com/madler/zlib
-      GIT_TAG           v1.2.13
+      GIT_TAG           v1.3.1
       GIT_SHALLOW       TRUE
       UPDATE_COMMAND    ""
       PREFIX            ${TOOLCHAIN_BUILD_PREFIX}/zlib
@@ -107,7 +107,7 @@ elseif (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
   if (TOOLCHAIN_BUILD_EXTERNALPROJECTS)
     ExternalProject_Add(zlib-src
       GIT_REPOSITORY    https://github.com/madler/zlib
-      GIT_TAG           v1.2.13
+      GIT_TAG           v1.3.1
       GIT_SHALLOW       TRUE
       UPDATE_COMMAND    ""
       PREFIX            ${TOOLCHAIN_BUILD_PREFIX}/zlib
@@ -127,14 +127,8 @@ elseif (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
   if (TOOLCHAIN_BUILD_EXTERNALPROJECTS)
     add_dependencies(zlib zlib-src)
   endif()
-  if (${CMAKE_VERSION} VERSION_LESS "3.11.0")
-      set_target_properties(zlib PROPERTIES
-        INTERFACE_INCLUDE_DIRECTORIES ${INSTALL_DIR}/include
-        IMPORTED_LOCATION ${INSTALL_DIR}/lib/libz.a)
-  else()
-    target_include_directories (zlib INTERFACE ${INSTALL_DIR}/include)
-    set_target_properties(zlib PROPERTIES
-      IMPORTED_LOCATION ${INSTALL_DIR}/lib/libz.a)
-  endif()
+  target_include_directories (zlib INTERFACE ${INSTALL_DIR}/include)
+  set_target_properties(zlib PROPERTIES
+    IMPORTED_LOCATION ${INSTALL_DIR}/lib/libz.a)
 
 endif()

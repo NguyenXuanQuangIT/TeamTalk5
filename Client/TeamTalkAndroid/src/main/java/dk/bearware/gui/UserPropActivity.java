@@ -122,7 +122,10 @@ public class UserPropActivity extends AppCompatActivity implements TeamTalkConne
     void showUser() {
         TextView nickname = findViewById(R.id.user_nickname);
         TextView username = findViewById(R.id.user_username);
+        TextView userid = findViewById(R.id.user_userid);
+        TextView statusmsg = findViewById(R.id.user_statusmsg);
         TextView clientname = findViewById(R.id.user_clientname);
+        TextView ipaddress = findViewById(R.id.user_ipaddress);
         final SeekBar voiceVol = findViewById(R.id.user_vol_voiceSeekBar);
         final Button defVoiceBtn = findViewById(R.id.defVoiceVolBtn);
         final SwitchCompat voiceMute = findViewById(R.id.user_mutevoiceSwitch);
@@ -143,9 +146,12 @@ public class UserPropActivity extends AppCompatActivity implements TeamTalkConne
         final SwitchCompat subscribeInterceptdesk = findViewById(R.id.user_subscribeinterceptdeskSwitch);
         final SwitchCompat subscribeInterceptmedia = findViewById(R.id.user_subscribeinterceptmediaSwitch);
 
-        nickname.setText(user.szNickname);
-        username.setText(user.szUsername);
-        clientname.setText(String.format("%s %s %d.%d.%d",user.szClientName,getString(R.string.user_prop_clientversion) , ((user.uVersion >> 16) & 0xFF) , ((user.uVersion >> 8) & 0xFF) , (user.uVersion & 0xFF)));
+        nickname.setText(getString(R.string.user_prop_title_nickname) + " " + user.szNickname);
+        username.setText(getString(R.string.user_prop_title_username) + " " + user.szUsername);
+        userid.setText(getString(R.string.user_prop_title_userid) + " " + user.nUserID);
+        statusmsg.setText(getString(R.string.user_prop_title_statusmsg) + " " + user.szStatusMsg);
+        clientname.setText(getString(R.string.user_prop_title_clientname) + " " + user.szClientName + " " + getString(R.string.user_prop_clientversion) + " " + ((user.uVersion >> 16) & 0xFF) + "." + ((user.uVersion >> 8) & 0xFF) + "." + (user.uVersion & 0xFF));
+        ipaddress.setText(getString(R.string.user_prop_title_ipaddress) + " " + user.szIPAddress);
         voiceVol.setMax(100);
         voiceVol.setProgress(Utils.refVolumeToPercent(user.nVolumeVoice));
         mediaVol.setMax(100);

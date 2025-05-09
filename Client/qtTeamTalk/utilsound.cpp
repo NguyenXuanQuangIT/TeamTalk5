@@ -279,9 +279,12 @@ QAudioDevice getSelectedOutputAudioDevice()
 }
 #endif
 
-QStringList initSelectedSoundDevices(SoundDevice& indev, SoundDevice& outdev)
+QStringList initSoundDevices(const SoundDevice& indev, const SoundDevice& outdev)
 {
     QStringList result;
+
+    AudioPreprocessor preprocess = {};
+    TT_GetSoundInputPreprocessEx(ttInst, &preprocess);
 
     TT_CloseSoundInputDevice(ttInst);
     TT_CloseSoundOutputDevice(ttInst);
@@ -289,13 +292,6 @@ QStringList initSelectedSoundDevices(SoundDevice& indev, SoundDevice& outdev)
 
     //Restart sound system so we have the latest sound devices
     TT_RestartSoundSystem();
-
-    int inputid = getSelectedSndInputDevice();
-    int outputid = getSelectedSndOutputDevice();
-
-    QVector<SoundDevice> devs = getSoundDevices();
-    getSoundDevice(inputid, devs, indev);
-    getSoundDevice(outputid, devs, outdev);
 
     SoundDeviceEffects effects = {};
     bool echocancel = ttSettings->value(SETTINGS_SOUND_ECHOCANCEL, SETTINGS_SOUND_ECHOCANCEL_DEFAULT).toBool();
@@ -315,28 +311,46 @@ QStringList initSelectedSoundDevices(SoundDevice& indev, SoundDevice& outdev)
 
     TT_SetSoundDeviceEffects(ttInst, &effects);
 
+    // disable WebRTC echo cancel if duplex mode is disabled
+    if (preprocess.nPreprocessor == WEBRTC_AUDIOPREPROCESSOR)
+    {
+        preprocess.webrtc.echocanceller.bEnable &= duplex;
+    }
+
+    TT_SetSoundInputPreprocessEx(ttInst, &preprocess);
+
     if (duplex)
     {
-        if (!TT_InitSoundDuplexDevices(ttInst, inputid, outputid))
+        if (!TT_InitSoundDuplexDevices(ttInst, indev.nDeviceID, outdev.nDeviceID))
         {
-            result.append(QObject::tr("Failed to initialize sound duplex mode"));
-            indev = {}, outdev = {};
+            result.append(QObject::tr("Failed to initialize sound duplex mode: %1 - %2")
+                              .arg(_Q(indev.szDeviceName), _Q(outdev.szDeviceName)));
         }
     }
     else
     {
-        if (!TT_InitSoundInputDevice(ttInst, inputid))
+        if (!TT_InitSoundInputDevice(ttInst, indev.nDeviceID))
         {
-            result.append(QObject::tr("Failed to initialize sound input device"));
-            indev = {};
+            result.append(QObject::tr("Failed to initialize sound input device: %1").arg(_Q(indev.szDeviceName)));
         }
-        if (!TT_InitSoundOutputDevice(ttInst, outputid))
+        if (!TT_InitSoundOutputDevice(ttInst, outdev.nDeviceID))
         {
-            result.append(QObject::tr("Failed to initialize sound output device"));
-            outdev = {};
+            result.append(QObject::tr("Failed to initialize sound output device: %1").arg(_Q(outdev.szDeviceName)));
         }
     }
     return result;
+}
+
+QStringList initSelectedSoundDevices(SoundDevice& indev, SoundDevice& outdev)
+{
+    int inputid = getSelectedSndInputDevice();
+    int outputid = getSelectedSndOutputDevice();
+
+    QVector<SoundDevice> devs = getSoundDevices();
+    getSoundDevice(inputid, devs, indev);
+    getSoundDevice(outputid, devs, outdev);
+
+    return initSoundDevices(indev, outdev);
 }
 
 QStringList initDefaultSoundDevices(SoundDevice& indev, SoundDevice& outdev)
@@ -363,33 +377,7 @@ QStringList initDefaultSoundDevices(SoundDevice& indev, SoundDevice& outdev)
         getSoundDevice(inputid, devs, indev);
         getSoundDevice(outputid, devs, outdev);
 
-        // reset sound device effects
-        SoundDeviceEffects effects = {};
-        TT_SetSoundDeviceEffects(ttInst, &effects);
-
-        bool duplex = getSoundDuplexSampleRate(indev, outdev) > 0;
-
-        if (duplex)
-        {
-            if (!TT_InitSoundDuplexDevices(ttInst, inputid, outputid))
-            {
-                result.append(QObject::tr("Failed to initialize sound duplex mode"));
-                indev = {}, outdev = {};
-            }
-        }
-        else
-        {
-            if (!TT_InitSoundInputDevice(ttInst, inputid))
-            {
-                result.append(QObject::tr("Failed to initialize default sound input device"));
-                indev = {};
-            }
-            if (!TT_InitSoundOutputDevice(ttInst, outputid))
-            {
-                result.append(QObject::tr("Failed to initialize default sound output device"));
-                outdev = {};
-            }
-        }
+        result += initSoundDevices(indev, outdev);
     }
     return result;
 }
@@ -661,7 +649,8 @@ void PlaySoundEvent::playDefaultSoundEvent(const QString& filename)
     static QSoundEffect* effect = nullptr;
     delete effect;
     effect = new QSoundEffect(ttSettings);
-    effect->setAudioDevice(getSelectedOutputAudioDevice());
+    if (ttSettings->value(SETTINGS_SOUNDEVENT_TTDEVICE, SETTINGS_SOUNDEVENT_TTDEVICE_DEFAULT).toBool() == true)
+        effect->setAudioDevice(getSelectedOutputAudioDevice());
     effect->setSource(QUrl::fromLocalFile(filename));
     effect->setVolume(ttSettings->value(SETTINGS_SOUNDEVENT_VOLUME, SETTINGS_SOUNDEVENT_VOLUME_DEFAULT).toInt()/100.0);
     effect->play();
@@ -690,7 +679,7 @@ void resetDefaultSoundsPack()
         ttSettings->setValue(paramKey, defaultValue);
     }
 
-    ttSettings->setValue(SETTINGS_SOUNDS_PACK, QCoreApplication::translate("MainWindow", SETTINGS_SOUNDS_PACK_DEFAULT));
+    ttSettings->setValue(SETTINGS_SOUNDS_PACK, SETTINGS_SOUNDS_PACK_DEFAULT);
 }
 
 QString UtilSound::getDefaultFile(const QString& paramKey)

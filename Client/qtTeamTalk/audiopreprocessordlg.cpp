@@ -34,7 +34,7 @@ AudioPreprocessorDlg::AudioPreprocessorDlg(AudioPreprocessor preprocess, QWidget
     ui.gainlevelSlider->setRange(SOUND_GAIN_MIN, SOUND_GAIN_MAX);
 
     // SpeexDSP audio preprocessor
-    ui.gainlevelSpinBox->setRange(0, 0x7FFF);
+    ui.gainlevelSpinBox->setRange(SPEEXDSP_AGC_GAINLEVEL_MIN, SPEEXDSP_AGC_GAINLEVEL_MAX);
     ui.maxdecSpinBox->setRange(-100, 0);
     ui.maxdenoiseSpinBox->setRange(-100, 0);
 
@@ -46,6 +46,7 @@ void AudioPreprocessorDlg::showSettings()
     switch(m_preprocess.nPreprocessor)
     {
     case NO_AUDIOPREPROCESSOR :
+    case WEBRTC_AUDIOPREPROCESSOR_OBSOLETE_R4332 :
         ui.stackedWidget->setCurrentIndex(0);
         setWindowTitle(tr("No Audio Preprocessor"));
         break;
@@ -89,6 +90,7 @@ void AudioPreprocessorDlg::slotAccepted()
     switch(m_preprocess.nPreprocessor)
     {
     case NO_AUDIOPREPROCESSOR :
+    case WEBRTC_AUDIOPREPROCESSOR_OBSOLETE_R4332 :
         break;
     case SPEEXDSP_AUDIOPREPROCESSOR :
         m_preprocess.speexdsp.bEnableAGC = ui.agcCheckBox->isChecked();

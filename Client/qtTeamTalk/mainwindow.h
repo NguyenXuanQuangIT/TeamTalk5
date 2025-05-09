@@ -20,22 +20,20 @@
 
 #include "ui_mainwindow.h"
 
+#include "common.h"
+#include "textmessagecontainer.h"
+#include "utilhotkey.h"
+#include "utilos.h"
+#include "utilsound.h"
+#include "utilui.h"
+
 #include <QMap>
 #include <QSet>
 #include <QQueue>
 #include <QSystemTrayIcon>
 #include <QNetworkAccessManager>
 #include <QSortFilterProxyModel>
-
-#include "common.h"
-#include "textmessagecontainer.h"
-#include "utilsound.h"
-#include "utilui.h"
-#include "utilhotkey.h"
-
-#ifdef Q_OS_LINUX
-#include <QX11Info>
-#endif
+#include <optional>
 
 #if defined(Q_OS_DARWIN)
 #include <Carbon/Carbon.h>
@@ -68,14 +66,16 @@ enum TimerEvent
     TIMER_STATUSMSG,
     TIMER_SEND_DESKTOPWINDOW,
     TIMER_APP_UPDATE,
+    TIMER_CHANGE_MEDIAFILE_POSITION,
 };
 
-enum
+enum MainTab
 {
     TAB_CHAT,
+    TAB_FILES,
+    TAB_MEDIA,
     TAB_VIDEO,
     TAB_DESKTOP,
-    TAB_FILES,
 
     TAB_COUNT
 };
@@ -83,7 +83,7 @@ enum
 class MainWindow : public QMainWindow
 {
     Q_OBJECT
-    
+
 public:
     MainWindow(const QString& cfgfile);
     ~MainWindow();
@@ -91,7 +91,7 @@ public:
     void loadSettings();
 
     bool parseArgs(const QStringList& args);
-#ifdef Q_OS_LINUX
+#if defined(Q_OS_LINUX)
     //X11 hotkeys
     void keysActive(quint32 keycode, quint32 mods, bool active);
 #endif
@@ -125,6 +125,7 @@ private:
     QLabel* m_pinglabel;
     QLabel* m_dtxlabel;
     QProgressBar* m_dtxprogress;
+    QMap<MainTab, ChatTextHistory*> m_chathistory;
 
     //keep track for active commands awaiting replies
     typedef QMap<int, CommandComplete> cmdreply_t;
@@ -227,6 +228,8 @@ private:
 
     QString getTitle();
     void updateWindowTitle();
+    void setupChatHistory();
+    void updateTabPages();
 #if defined(Q_OS_WIN32)
     void firewallInstall();
 #endif
@@ -248,8 +251,12 @@ private:
     void sendDesktopCursor();
     QRect getSharedWindowRect();
     void processDesktopInput(int userid, const DesktopInput& input);
+    void openStreamMediaFileDlg();
     void startStreamMediaFile();
     void stopStreamMediaFile();
+    void changeMediaFileOffset(int pos);
+    void changeMediaFileVolume(int pos);
+    void setMediaFilePosition();
     void loadHotKeys();
     void enableHotKey(HotKeyID id, const hotkey_t& hk);
     void disableHotKey(HotKeyID id);
@@ -270,6 +277,7 @@ private:
 #if defined(Q_OS_WIN32)
     HWND m_hShareWnd;
 #endif
+
 #if defined(Q_OS_LINUX)
     //set of native key codes
     typedef QSet<quint32> keycomp_t;
@@ -361,7 +369,7 @@ private:
     void slotChannelsDownloadFile(bool checked=false);
     void slotChannelsDeleteFile(bool checked=false);
     void slotChannelsGenerateTTUrl(bool checked=false);
-    
+
     void slotServerUserAccounts(bool checked=false);
     void slotServerBannedUsers(bool checked=false);
     void slotServerOnlineUsers(bool checked=false);
@@ -391,6 +399,7 @@ private:
     void slotTreeContextMenu(const QPoint& pos);
     void slotFilesContextMenu(const QPoint& pos);
     void slotUpdateUI();
+    void slotUpdateMediaTabUI();
     void slotUpdateVideoTabUI();
     void slotUpdateDesktopTabUI();
     void slotUploadFiles(const QStringList& files);
@@ -449,6 +458,7 @@ private:
     void clienteventConCryptError(const TTMessage& msg);
     void clienteventConLost();
     void clienteventMyselfKicked(const TTMessage& msg);
+    void clienteventCmdServerUpdate(const ServerProperties& srvprop);
     void clienteventCmdProcessing(int cmdid, bool complete);
     void clienteventCmdChannelUpdate(const Channel& channel);
     void clienteventCmdUserLoggedIn(const User& user);
@@ -473,6 +483,7 @@ private:
     void clienteventSoundDeviceRemoved(const SoundDevice& snddev);
     MediaFilePlayback m_mfp = {};
     VideoCodec m_mfp_videocodec = {};
+    std::optional<MediaFileInfo> m_mfi;
 
 signals:
     /* Begin - CLIENTEVENT_* based events */

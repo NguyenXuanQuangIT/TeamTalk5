@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2005-2018, BearWare.dk
- * 
+ *
  * Contact Information:
  *
  * Bjoern D. Rasmussen
@@ -25,45 +25,45 @@
 #define FFMPEG3CAPTURE_H
 
 #include "VideoCapture.h"
-#include "FFMpeg3Streamer.h"
+#include "FFmpegStreamer.h"
 #include <myace/MyACE.h>
 
 #include <map>
 
 namespace vidcap {
 
-    class FFMpegVideoInput : public FFMpegStreamer
+    class FFmpegVideoInput : public FFmpegStreamer
     {
     protected:
         VidCapDevice m_dev;
         media::VideoFormat m_vidfmt;
 
     public:
-        FFMpegVideoInput(const VidCapDevice& viddevice,
+        FFmpegVideoInput(const VidCapDevice& viddevice,
                          const media::VideoFormat& fmt);
         virtual media::VideoFormat GetVideoFormat() = 0;
 
         bool IsSystemTime() const override { return true; }
     };
 
-    typedef std::unique_ptr<FFMpegVideoInput> ffmpegvideoinput_t;
+    typedef std::unique_ptr<FFmpegVideoInput> ffmpegvideoinput_t;
     
-    class FFMpeg3Capture : public VideoCapture
+    class FFmpegCapture : public VideoCapture
     {
     protected:
         virtual ffmpegvideoinput_t createStreamer(const VidCapDevice& viddevice,
                                                   const media::VideoFormat& fmt) = 0;
         ffmpegvideoinput_t m_videoinput;
         VideoCaptureCallback m_callback;
-        
+
     public:
-        FFMpeg3Capture();
-        virtual ~FFMpeg3Capture();
+        FFmpegCapture();
+        virtual ~FFmpegCapture();
 
         // VideoCapture interface
         bool InitVideoCapture(const ACE_TString& deviceid,
                               const media::VideoFormat& vidfmt);
-        
+
         bool StartVideoCapture();
 
         void StopVideoCapture();
@@ -72,7 +72,7 @@ namespace vidcap {
 
         bool RegisterVideoFormat(VideoCaptureCallback callback, media::FourCC fcc);
         void UnregisterVideoFormat(media::FourCC fcc);
-        
+
         // MediaStreamListener interface
         bool MediaStreamVideoCallback(media::VideoFrame& video_frame,
                                       ACE_Message_Block* mb_video);
@@ -84,4 +84,3 @@ namespace vidcap {
 }
 
 #endif
-
