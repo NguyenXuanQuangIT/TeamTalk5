@@ -28,6 +28,7 @@ public class Preferences {
     //duplicates of pref_connection.xml (isn't there an easier way to do this??)
     public static final String 
             PREF_GENERAL_NICKNAME = "nickname_text",
+            PREF_GENERAL_STATUSMSG = "statusmsg_text",
             PREF_GENERAL_SHOWUSERNAMES = "showusernames_checkbox",
             PREF_GENERAL_OFFICIALSERVERS = "showofficialservers_checkbox",
             PREF_GENERAL_UNOFFICIALSERVERS = "showunofficialservers_checkbox",
@@ -45,6 +46,7 @@ public class Preferences {
             PREF_SOUNDSYSTEM_BLUETOOTH_HEADSET = "bluetooth_headset_checkbox",
             PREF_SOUNDSYSTEM_VOICEPROCESSING = "voiceprocessing_checkbox";
     public static final String
+            PREF_JOIN_ROOT_CHAN = "auto_join_root_checkbox",
             PREF_SUB_TEXTMESSAGE = "sub_txtmsg_checkbox",
             PREF_SUB_CHANMESSAGE = "sub_chanmsg_checkbox",
             PREF_SUB_BCAST_MESSAGES = "sub_bcastmsg_checkbox",
