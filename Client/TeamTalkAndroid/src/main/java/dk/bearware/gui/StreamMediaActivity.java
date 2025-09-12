@@ -56,14 +56,22 @@ extends AppCompatActivity implements TeamTalkConnectionListener {
     private EditText file_path;
     private static final String lastMedia = "last_media_file";
     TeamTalkConnection mConnection;
-    TeamTalkService ttservice;
-    TeamTalkBase ttclient;
-    
+
+    TeamTalkService getService() {
+        return mConnection.getService();
+    }
+
+    TeamTalkBase getClient() {
+        return getService().getTTInstance();
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        
+        mConnection = new TeamTalkConnection(this);
         setContentView(R.layout.activity_stream_media);
+        EdgeToEdgeHelper.enableEdgeToEdge(this);
+
         getSupportActionBar().setDisplayHomeAsUpEnabled(true);
         file_path = this.findViewById(R.id.file_path_txt);
         file_path.setText(PreferenceManager.getDefaultSharedPreferences(getBaseContext()).getString(lastMedia, ""));
@@ -91,8 +99,6 @@ extends AppCompatActivity implements TeamTalkConnectionListener {
     @Override
     protected void onStart() {
         super.onStart();        
-        if (mConnection == null)
-            mConnection = new TeamTalkConnection(this);
         if (!mConnection.isBound()) {
             Intent intent = new Intent(getApplicationContext(), TeamTalkService.class);
             if(!bindService(intent, mConnection, Context.BIND_AUTO_CREATE))
@@ -104,7 +110,7 @@ extends AppCompatActivity implements TeamTalkConnectionListener {
     protected void onStop() {
         super.onStop();
         if(mConnection.isBound()) {
-            onServiceDisconnected(ttservice);
+            onServiceDisconnected(getService());
             unbindService(mConnection);
             mConnection.setBound(false);
         }
@@ -131,8 +137,6 @@ extends AppCompatActivity implements TeamTalkConnectionListener {
 
     @Override
     public void onServiceConnected(TeamTalkService service) {
-        ttservice = service;
-        ttclient = ttservice.getTTInstance();
         Button browse_btn = this.findViewById(R.id.media_file_select_btn);
         Button stream_btn = this.findViewById(R.id.media_file_stream_btn);
 
@@ -151,7 +155,7 @@ extends AppCompatActivity implements TeamTalkConnectionListener {
                         return;
                     VideoCodec videocodec = new VideoCodec();
                     videocodec.nCodec = Codec.NO_CODEC;
-                    if (!ttclient.startStreamingMediaFileToChannel(path, videocodec)) {
+                    if (!getClient().startStreamingMediaFileToChannel(path, videocodec)) {
                         Toast.makeText(StreamMediaActivity.this,
                         R.string.err_stream_media,
                         Toast.LENGTH_LONG).show();

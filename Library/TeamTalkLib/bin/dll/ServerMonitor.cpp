@@ -265,6 +265,13 @@ void ServerMonitor::OnCustomMessage(const teamtalk::ServerUser& from,
         i->second(m_ttInst, i->first, &sfrom, &smsg);
 }
 
+void ServerMonitor::OnUserUpdateStream(const teamtalk::ServerUser& user,
+                                       const teamtalk::ServerChannel& channel,
+                                       teamtalk::StreamType stream, int streamid)
+{
+
+}
+
 void ServerMonitor::OnChannelCreated(const teamtalk::ServerChannel& channel,
                                      const teamtalk::ServerUser* user /*= NULL*/)
 {
@@ -410,10 +417,14 @@ teamtalk::ErrorMsg ServerMonitor::JoinChannel(const teamtalk::ServerUser& user, 
     return teamtalk::TT_CMDERR_SUCCESS;
 }
 
+teamtalk::ErrorMsg ServerMonitor::RemoveChannel(const teamtalk::ServerChannel& chan, const teamtalk::ServerUser* user /*= nullptr*/)
+{
+    return teamtalk::TT_CMDERR_SUCCESS;
+}
+
 teamtalk::ErrorMsg ServerMonitor::GetUserAccount(const teamtalk::ServerUser& user,
                                                  teamtalk::UserAccount& useraccount)
 {
-
     return ErrorMsg(teamtalk::TT_CMDERR_SUCCESS);
 }
 

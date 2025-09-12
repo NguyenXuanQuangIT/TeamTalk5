@@ -746,7 +746,7 @@ bool ServerNode::SendDesktopAckPacket(int userid)
     {
         packet_range_t::const_iterator ii=recv_range.end();
         ii--;
-        max_packet = ACE_MAX(max_packet, ii->second);
+        max_packet = std::max(max_packet, ii->second);
     }
 
 //     MYTRACE(ACE_TEXT("Ack sent %u, mac packet index %d\n"), GETTIMESTAMP(), 
@@ -1924,6 +1924,12 @@ void ServerNode::ReceivedVoicePacket(ServerUser& user,
     if(!tx_ok)
         return;
 
+    if ((m_properties.logevents & SERVERLOGEVENT_USER_NEW_STREAM) &&
+        user.UpdateActiveStream(STREAMTYPE_VOICE, streamid) != streamid)
+    {
+        m_srvguard->OnUserUpdateStream(user, chan, STREAMTYPE_VOICE, streamid);
+    }
+
     ServerChannel::users_t users = GetPacketDestinations(user, chan, packet,
                                                          SUBSCRIBE_VOICE,
                                                          SUBSCRIBE_INTERCEPT_VOICE);
@@ -1975,6 +1981,12 @@ void ServerNode::ReceivedAudioFilePacket(ServerUser& user,
     if(!tx_ok)
         return;
 
+    if ((m_properties.logevents & SERVERLOGEVENT_USER_NEW_STREAM) &&
+        user.UpdateActiveStream(STREAMTYPE_MEDIAFILE_AUDIO, streamid) != streamid)
+    {
+        m_srvguard->OnUserUpdateStream(user, chan, STREAMTYPE_MEDIAFILE_AUDIO, streamid);
+    }
+
     ServerChannel::users_t users = GetPacketDestinations(user, chan, packet, SUBSCRIBE_MEDIAFILE,
                                                          SUBSCRIBE_INTERCEPT_MEDIAFILE);
 
@@ -2015,6 +2027,13 @@ void ServerNode::ReceivedVideoCapturePacket(ServerUser& user,
 
     if(!chan.CanTransmit(user.GetUserID(), STREAMTYPE_VIDEOCAPTURE, streamid, nullptr))
         return;
+
+    if ((m_properties.logevents & SERVERLOGEVENT_USER_NEW_STREAM) &&
+        user.UpdateActiveStream(STREAMTYPE_VIDEOCAPTURE, streamid) != streamid)
+    {
+        m_srvguard->OnUserUpdateStream(user, chan, STREAMTYPE_VIDEOCAPTURE, streamid);
+    }
+
 
     ServerChannel::users_t users = GetPacketDestinations(user, chan, packet, SUBSCRIBE_VIDEOCAPTURE,
                                                          SUBSCRIBE_INTERCEPT_VIDEOCAPTURE);
@@ -2070,6 +2089,12 @@ void ServerNode::ReceivedVideoFilePacket(ServerUser& user,
     if(!tx_ok)
         return;
 
+    if ((m_properties.logevents & SERVERLOGEVENT_USER_NEW_STREAM) &&
+        user.UpdateActiveStream(STREAMTYPE_MEDIAFILE_VIDEO, streamid) != streamid)
+    {
+        m_srvguard->OnUserUpdateStream(user, chan, STREAMTYPE_MEDIAFILE_VIDEO, streamid);
+    }
+
     ServerChannel::users_t users = GetPacketDestinations(user, chan, packet, SUBSCRIBE_MEDIAFILE,
                                                          SUBSCRIBE_INTERCEPT_MEDIAFILE);
 
@@ -2111,6 +2136,12 @@ void ServerNode::ReceivedDesktopPacket(ServerUser& user,
 
     if (!chan.CanTransmit(user.GetUserID(), STREAMTYPE_DESKTOP, packet.GetSessionID(), nullptr))
        return;
+
+    if ((m_properties.logevents & SERVERLOGEVENT_USER_NEW_STREAM) &&
+        user.UpdateActiveStream(STREAMTYPE_DESKTOP, packet.GetSessionID()) != packet.GetSessionID())
+    {
+        m_srvguard->OnUserUpdateStream(user, chan, STREAMTYPE_DESKTOP, packet.GetSessionID());
+    }
 
     uint8_t prev_session_id = 0;
     uint32_t prev_update_id = 0;
@@ -2454,6 +2485,12 @@ void ServerNode::ReceivedDesktopCursorPacket(ServerUser& user,
                 user.GetLastTimeStamp(packet, &is_set)) && is_set)
         return;
 
+    if ((m_properties.logevents & SERVERLOGEVENT_USER_NEW_STREAM) &&
+        user.UpdateActiveStream(STREAMTYPE_DESKTOPINPUT, packet.GetSessionID()) != packet.GetSessionID())
+    {
+        m_srvguard->OnUserUpdateStream(user, chan, STREAMTYPE_DESKTOPINPUT, packet.GetSessionID());
+    }
+
     ServerChannel::users_t users = GetPacketDestinations(user, chan, packet, SUBSCRIBE_DESKTOP,
                                                          SUBSCRIBE_INTERCEPT_DESKTOP);
 
@@ -2513,6 +2550,12 @@ void ServerNode::ReceivedDesktopInputPacket(ServerUser& user,
     desktop_cache_t session = destuser->GetDesktopSession();
     if (!session || session->GetSessionID() != packet.GetSessionID())
         return;
+
+    if ((m_properties.logevents & SERVERLOGEVENT_USER_NEW_STREAM) &&
+        user.UpdateActiveStream(STREAMTYPE_DESKTOPINPUT, packet.GetSessionID()) != packet.GetSessionID())
+    {
+        m_srvguard->OnUserUpdateStream(user, chan, STREAMTYPE_DESKTOPINPUT, packet.GetSessionID());
+    }
 
     ServerChannel::users_t users = GetPacketDestinations(user, chan, packet,
                                                          SUBSCRIBE_DESKTOPINPUT,
@@ -3889,70 +3932,66 @@ ErrorMsg ServerNode::RemoveChannel(int channelid, const ServerUser* user/* = NUL
     if (!chan)
         return ErrorMsg(TT_CMDERR_CHANNEL_NOT_FOUND);
 
+    ErrorMsg err = m_srvguard->RemoveChannel(*chan, user);
+    if (!err.success())
+        return err;
+
     bStatic = (chan->GetChannelType() & CHANNEL_PERMANENT);
+
     //recursive remove
-    std::stack<serverchannel_t> stackChannels;
-    stackChannels.push(chan);
-
-    while(!stackChannels.empty())
+    auto subchannels = chan->GetSubChannels();
+    for (auto c : subchannels)
     {
-        chan = stackChannels.top();
-        stackChannels.pop();
-        vector<serverchannel_t> vecSubChannels = chan->GetSubChannels();
-        if(!vecSubChannels.empty())
-        {
-            //to support recursive delete
-            stackChannels.push(chan);
+        TTASSERT(c);
+        auto err = RemoveChannel(c->GetChannelID(), user);
+        if (!err.success())
+            return err;
+    }
 
-            for(size_t i=0;i<vecSubChannels.size();i++)
-                stackChannels.push(vecSubChannels[i]);
-        }
+    ServerChannel::users_t users = chan->GetUsers(); //copy because mutates during UserKick()
+    for (const auto &u : users)
+    {
+        ErrorMsg err = UserKick(0, u->GetUserID(), chan->GetChannelID(), true);
+        TTASSERT(err.success());
+    }
+    TTASSERT(chan->GetUsers().empty());
+    TTASSERT(chan->GetSubChannels().empty());
+
+    //check if channel still exists (kick may have removed it)
+    if (!GetChannel(chan->GetChannelID()))
+        return ErrorMsg(TT_CMDERR_SUCCESS);
+
+    //remove files from channel
+    files_t files;
+    chan->GetFiles(files, false);
+    for (auto file : files)
+    {
+        ErrorMsg err = RemoveFileFromChannel(file.filename, chan->GetChannelID());
+        TTASSERT(err.success());
+    }
+
+    //remove as subchannel (unless it's the root)
+    serverchannel_t parent = chan->GetParentChannel();
+    if (parent)
+    {
+        //notify users
+        ServerChannel::users_t notifyusers;
+        if (chan->GetChannelType() & CHANNEL_HIDDEN)
+            notifyusers = GetNotificationUsers(USERRIGHT_VIEW_HIDDEN_CHANNELS);
         else
+            notifyusers = GetNotificationUsers(USERRIGHT_VIEW_ALL_USERS);
+
+        for (auto u : notifyusers)
+            u->DoRemoveChannel(*chan);
+
+        parent->RemoveSubChannel(chan->GetName());
+        //notify listener if any
+        if (m_properties.logevents & SERVERLOGEVENT_CHANNEL_REMOVED)
         {
-            ServerChannel::users_t users = chan->GetUsers(); //copy because mutates during UserKick()
-            for (const auto &u : users)
-            {
-                ErrorMsg err = UserKick(0, u->GetUserID(), chan->GetChannelID(), true);
-                TTASSERT(err.success());
-            }
-            TTASSERT(chan->GetUsers().empty());
-            TTASSERT(chan->GetSubChannels().empty());
-
-            //check if channel still exists (kick may have removed it)
-            if (!GetChannel(chan->GetChannelID()))
-                continue;
-
-            //remove files from channel
-            files_t files;
-            chan->GetFiles(files, false);
-            for(size_t i=0;i<files.size();i++)
-                RemoveFileFromChannel(files[i].filename, chan->GetChannelID());
-
-            //remove as subchannel (unless it's the root)
-            serverchannel_t parent = chan->GetParentChannel();
-            if (parent)
-            {
-                //notify users
-                ServerChannel::users_t notifyusers;
-                if (chan->GetChannelType() & CHANNEL_HIDDEN)
-                    notifyusers = GetNotificationUsers(USERRIGHT_VIEW_HIDDEN_CHANNELS);
-                else
-                    notifyusers = GetNotificationUsers(USERRIGHT_VIEW_ALL_USERS);
-
-                for (auto u : notifyusers)
-                    u->DoRemoveChannel(*chan);
-
-                parent->RemoveSubChannel(chan->GetName());
-                //notify listener if any
-                if (m_properties.logevents & SERVERLOGEVENT_CHANNEL_REMOVED)
-                {
-                    m_srvguard->OnChannelRemoved(*chan, user);
-                }
-            }                                  
+            m_srvguard->OnChannelRemoved(*chan, user);
         }
     }
 
-    ErrorMsg err(TT_CMDERR_SUCCESS);
     if (IsAutoSaving() && bStatic && user)
     {
         err = m_srvguard->SaveConfiguration(*user, *this);

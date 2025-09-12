@@ -16,9 +16,13 @@
  */
 
 #include "mytableview.h"
+#include "settings.h"
+#include "utiltts.h"
 #include <QAccessible>
 #include <QHeaderView>
 #include <QShortcut>
+
+extern NonDefaultSettings* ttSettings;
 
 MyTableView::MyTableView(QWidget* parent/* = nullptr*/) : QTableView(parent)
 {
@@ -79,6 +83,19 @@ void MyTableView::keyPressEvent(QKeyEvent* e)
     {
         QTableView::keyPressEvent(e);
     }
+}
+
+void MyTableView::currentChanged(const QModelIndex &current, const QModelIndex &previous)
+{
+    QTableView::currentChanged(current, previous);
+#if defined(Q_OS_DARWIN)
+    if (current.isValid() && ttSettings->value(SETTINGS_TTS_SPEAKLISTS, SETTINGS_TTS_SPEAKLISTS_DEFAULT).toBool() == true)
+    {
+        QString text = this->model()->data(current, Qt::AccessibleTextRole).toString();
+        if (text.size())
+            addTextToSpeechMessage(text);
+    }
+#endif
 }
 
 void MyTableView::moveColumnLeft()

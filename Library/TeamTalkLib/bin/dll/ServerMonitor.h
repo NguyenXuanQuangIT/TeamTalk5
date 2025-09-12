@@ -76,6 +76,10 @@ public:
                          const teamtalk::ServerUser& to,
                          const teamtalk::TextMessage& msg) override;
 
+    void OnUserUpdateStream(const teamtalk::ServerUser& user,
+                            const teamtalk::ServerChannel& channel,
+                            teamtalk::StreamType stream, int streamid) override;
+
     void OnChannelCreated(const teamtalk::ServerChannel& channel,
                           const teamtalk::ServerUser* user = NULL) override;
     void OnChannelUpdated(const teamtalk::ServerChannel& channel,
@@ -166,6 +170,7 @@ public:
                                         teamtalk::ServerUser& user,
                                         teamtalk::UserAccount& useraccount) override; //user-type is set, therefore not const
     teamtalk::ErrorMsg JoinChannel(const teamtalk::ServerUser& user, const teamtalk::ServerChannel& chan) override;
+    teamtalk::ErrorMsg RemoveChannel(const teamtalk::ServerChannel& chan, const teamtalk::ServerUser* user = nullptr) override;
     teamtalk::ErrorMsg GetUserAccount(const teamtalk::ServerUser& user,
                                       teamtalk::UserAccount& useraccount) override;
     teamtalk::ErrorMsg GetRegUsers(const teamtalk::ServerUser& user,

@@ -64,6 +64,8 @@ namespace teamtalk {
         void OnBroadcastMessage(const ServerUser& from, const teamtalk::TextMessage& msg) override;
         void OnCustomMessage(const ServerUser& from, const ServerUser& to, const teamtalk::TextMessage& msg) override;
 
+        void OnUserUpdateStream(const ServerUser& user, const ServerChannel& channel, StreamType stream, int streamid) override;
+
         void OnChannelCreated(const ServerChannel& channel, const ServerUser* user = NULL) override;
         void OnChannelUpdated(const ServerChannel& channel, const ServerUser* user = NULL) override;
         void OnChannelRemoved(const ServerChannel& channel, const ServerUser* user = NULL) override;
@@ -80,6 +82,7 @@ namespace teamtalk {
 
         ErrorMsg AuthenticateUser(ServerNode* servernode, ServerUser& user, UserAccount& useraccount) override;
         ErrorMsg JoinChannel(const ServerUser& user, const ServerChannel& chan) override;
+        ErrorMsg RemoveChannel(const ServerChannel& chan, const ServerUser* user = nullptr) override;
 
         ErrorMsg GetUserAccount(const ServerUser& user, UserAccount& useraccount) override;
         ErrorMsg GetRegUsers(const ServerUser& user, useraccounts_t& users) override;
