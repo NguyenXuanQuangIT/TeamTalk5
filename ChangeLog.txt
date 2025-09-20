@@ -2,20 +2,33 @@
                  TeamTalk
 ----------------------------------------------
 
-Version 5.20, unreleased
+Version 5.21, unreleased
 Default Qt Client
-- TeamTalk5.ini no longer stores values that have the same value as default
-- Reintroduce option to speak tree item using TTS on MacOS due to Qt issues
-- Fixed check state of server log events on macOS not being visible
-- Fixed global status message set to: "general_/statusmsg"
-- Fixed answering "No" to quit application causing server disconnect
+- macOS 12 (Monterey) is now minimum
+Android Client
+-
+iOS Client
+-
+Server
+-
+
+Version 5.20.1, 2025/09/15
 Android Client
 - Fixed restoring of microphone gain to value from preferences at application start
 - Fixed microphone gain to not drop to 0 when slider is at 0%
+
+Version 5.20, 2025/09/14
+Default Qt Client
+- TeamTalk5.ini no longer stores values that have the same value as default
+- Reintroduce option to speak tree item using TTS on macOS due to Qt issues
+- Fixed check state of server log events on macOS not being visible
+- Fixed global status message set to: "general_/statusmsg"
+- Fixed answering "No" to quit application causing server disconnect
+- Windows updated to Qt 6.10.0 beta4
+- macOS changed to Qt 6.9.2 (still issues with VoiceOver)
+Android Client
 - Fixed UI overlap on Android 15 and above
 - Minimum supported Android version is now 5.0 (Lollipop)
-iOS Client
--
 Server
 - Now logs changes to who is allowed to transmit
 - Now logs when new streams (voice, video, etc.) are started
